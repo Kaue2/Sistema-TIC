@@ -1,6 +1,7 @@
 using DotNetEnv;
 using SistemaTic.Infrastructure;
 using SistemaTic.Application;
+using SistemaTic.Api;
 
 Env.Load(FindEnvFile());
 
@@ -22,6 +23,8 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();  
     });  
 });
+
+builder.Services.AddJwtAuthentication(builder.Configuration);
 
 var app = builder.Build();
 

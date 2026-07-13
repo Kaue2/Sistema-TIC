@@ -14,6 +14,7 @@ public static class DependencyInjection
 		var connectionString = BuildConnectionString(configuration);
 		services.AddNpgsqlDataSource(connectionString);
 		services.AddScoped<IUserRepository, UserRepository>();
+		services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
 
 		return services;
 	}
