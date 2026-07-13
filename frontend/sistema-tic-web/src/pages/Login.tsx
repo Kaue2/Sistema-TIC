@@ -3,7 +3,7 @@ import { VisibilityRounded, ErrorRounded } from "@mui/icons-material";
 
 export function Login() {
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState([]);
+  const [errors] = useState<string[]>([]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
