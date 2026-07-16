@@ -1,0 +1,16 @@
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sistema_tic_test
+      POSTGRES_PASSWORD: sistema_tic_test
+      POSTGRES_DB: sistema_tic_test
+    volumes:
+      - ../:/database:ro
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

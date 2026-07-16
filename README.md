@@ -2,7 +2,7 @@
 
 Este repositorio esta sendo organizado como um monorepo para centralizar banco de dados, backend, frontend, infraestrutura local e documentacao do projeto.
 
-Neste momento, a proposta e validar a estrutura com a equipe antes de iniciar qualquer implementacao de codigo.
+O primeiro incremento do banco PostgreSQL está implementado. Backend e frontend permanecem fora deste incremento para preservar a ordem banco, backend e frontend.
 
 ## Objetivo Da Estrutura
 
@@ -10,7 +10,7 @@ A organizacao separa claramente as responsabilidades do sistema:
 
 - `database/`: modelagem, scripts SQL versionados, seeds e documentacao do banco.
 - `backend/`: API ASP.NET Core organizada em Onion Architecture.
-- `frontend/`: aplicacao Angular com Tailwind CSS.
+- `frontend/`: aplicação React com Vite, TypeScript, React Router e Tailwind CSS.
 - `docker/`: arquivos auxiliares para infraestrutura local.
 - `docs/`: documentacao tecnica e funcional do projeto.
 
@@ -46,10 +46,10 @@ Sistema-TIC/
 ├── database/
 │   ├── migrations/
 │   ├── seeds/
+│   ├── scripts/
+│   ├── tests/
 │   └── docs/
 ├── docker/
-│   └── postgres/
-│       └── init/
 ├── docs/
 ├── docker-compose.yml
 ├── README.md
@@ -69,23 +69,41 @@ Responsabilidades previstas:
 - `SistemaTic.Shared`: tipos compartilhados somente quando houver necessidade real.
 - `SistemaTic.DatabaseMigrator`: runner para aplicar migrations SQL versionadas.
 
-## Banco De Dados
+## Banco de dados
 
 O PostgreSQL sera usado via Docker com a imagem oficial.
 
 A proposta inicial e trabalhar sem ORM. O acesso ao banco no backend deve usar SQL explicito, mantendo as queries visiveis e versionadas quando fizer sentido.
 
-Pastas previstas:
+Estrutura implementada:
 
 - `database/migrations`: scripts SQL versionados.
-- `database/seeds`: dados iniciais para desenvolvimento.
-- `database/docs`: documentacao do modelo do banco.
+- `database/seeds`: catálogos, workflow e modelos documentais iniciais.
+- `database/scripts/apply-migrations.ps1`: executor com transação, checksum SHA-256 e controle em `schema_migrations`/`data_seeds`.
+- `database/scripts/test-database.ps1`: teste completo em PostgreSQL 16 isolado e descartável.
+- `database/docs/initial-database-model.md`: relatório da modelagem implementada e comparação com o diagrama original.
+
+Para iniciar somente o PostgreSQL e aplicar o banco:
+
+```powershell
+Copy-Item .env.example .env
+docker compose up -d postgres
+.\database\scripts\apply-migrations.ps1
+```
+
+Para validar as migrations em um banco limpo sem alterar o volume local de desenvolvimento:
+
+```powershell
+.\database\scripts\test-database.ps1
+```
+
+O executor não reaplica versões registradas e interrompe a execução se o conteúdo de uma versão aplicada tiver outro checksum. Uma mudança posterior deve sempre entrar em uma nova migration.
 
 ## Frontend
 
-O frontend sera uma SPA Angular com Tailwind CSS.
+O frontend será uma SPA React com Vite, TypeScript, React Router e Tailwind CSS, gerenciada por `pnpm`.
 
-A pasta `frontend/sistema-tic-web` ficara reservada para a aplicacao Angular quando a equipe aprovar o inicio dessa etapa.
+A pasta `frontend/sistema-tic-web` ficará reservada até o início da etapa de frontend.
 
 ## Documentacao
 
@@ -97,11 +115,12 @@ A pasta `docs/` deve concentrar materiais de alinhamento da equipe, como:
 - fluxo de desenvolvimento;
 - decisoes tecnicas relevantes.
 
-## Decisoes A Validar Com A Equipe
+## Decisões confirmadas
 
-- Confirmar ASP.NET Core como backend principal.
-- Confirmar Angular com Tailwind no frontend.
-- Confirmar PostgreSQL sem ORM.
-- Confirmar Docker apenas para PostgreSQL no inicio.
-- Confirmar uso de Swagger para documentacao da API.
-- Confirmar desenvolvimento sequencial: banco, backend e frontend.
+- ASP.NET Core com Onion Architecture no backend.
+- React, Vite, TypeScript, React Router e Tailwind CSS no frontend.
+- `pnpm` para o workspace JavaScript.
+- PostgreSQL sem ORM.
+- Imagem oficial do PostgreSQL em Docker.
+- Swagger para documentação da API.
+- Desenvolvimento sequencial: banco, backend e frontend.
