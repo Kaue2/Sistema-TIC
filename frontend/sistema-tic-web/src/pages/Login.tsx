@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { VisibilityRounded, ErrorRounded } from "@mui/icons-material";
 import { Input } from "../components/Input";
 
 export function Login() {
@@ -40,7 +39,14 @@ export function Login() {
             label="Senha"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            icon={<VisibilityRounded />}
+            icon={
+              <span
+                className={`material-symbols-outlined text-[20px] ${showPassword ? "opacity-50" : "opacity-100"}`}
+                style={{ fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+              >
+                visibility
+              </span>
+            }
             iconPosition="right"
             iconMouseDownAction={() => setShowPassword(true)}
             iconMouseUpAction={() => setShowPassword(false)}
@@ -49,8 +55,13 @@ export function Login() {
           <div className={`flex flex-col items-center gap-2 ${errors.length > 0 ? 'mt-6' : 'mt-13'}`}>
             {errors.length > 0 && (
               errors.map((error, index) => (
-                <p key={index} className="text-red-100 text-sm">
-                  <ErrorRounded className="inline-block mr-2" />
+                <p key={index} className="text-red-100 text-sm flex items-center gap-1">
+                  <span
+                    className="material-symbols-outlined text-base"
+                    style={{ fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                  >
+                    error
+                  </span>
                   {error}
                 </p>
               ))

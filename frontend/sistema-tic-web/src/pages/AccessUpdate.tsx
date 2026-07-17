@@ -1,4 +1,3 @@
-import { ErrorRounded, VisibilityRounded } from "@mui/icons-material";
 import { useState } from "react";
 
 type AccessUpdateVariant = "default" | "visible" | "error";
@@ -99,7 +98,12 @@ export function AccessUpdate({ variant = "default" }: AccessUpdateProps) {
           <div className="min-h-5">
             {initialValues.error && (
               <p className="flex items-center justify-center text-sm font-medium text-red-100">
-                <ErrorRounded className="mr-2 text-base" />
+                <span
+                  className="material-symbols-outlined mr-2 text-base"
+                  style={{ fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                >
+                  error
+                </span>
                 {initialValues.error}
               </p>
             )}
@@ -153,7 +157,12 @@ function PasswordField({
         onClick={onToggleVisibility}
         className="absolute top-1/2 right-3 flex -translate-y-1/2 text-black-60 transition-colors hover:text-blue-100"
       >
-        <VisibilityRounded className="text-xl" />
+                <span
+                  className="material-symbols-outlined text-xl"
+                  style={{ fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                >
+                  visibility
+                </span>
       </button>
     </div>
   );
