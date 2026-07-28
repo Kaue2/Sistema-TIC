@@ -1,4 +1,5 @@
 import type { User } from "../pages/ProfilePage";
+import { Avatar } from "./Avatar";
 
 type ProfileHeaderProps = {
   user: User;
@@ -13,47 +14,14 @@ export function ProfileHeader({
 }: ProfileHeaderProps) {
   return (
     <header className="flex flex-col items-center">
-      <div className="relative mb-5 mt-13">
-        {user.avatar ? (
-          <img
-            src={user.avatar}
-            alt={`Foto de perfil de ${user.fullName}`}
-            className="size-50 rounded-full border-2 border-blue-100 bg-card-background object-cover"
-          />
-        ) : (
-          <div className="flex size-50 items-center justify-center rounded-full border-2 border-blue-100 bg-card-background">
-            <span
-              className="material-symbols-outlined text-blue-100"
-              style={{
-                fontSize: 248,
-                fontWeight: 300,
-                fontVariationSettings: "'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 248",
-              }}
-            >
-              account_circle
-            </span>
-          </div>
-        )}
-
-        {mode === "self" && (
-          <button
-            type="button"
-            onClick={onEditClick}
-            aria-label="Editar foto de perfil"
-            className="absolute -bottom-1 right-8 flex size-10 items-center justify-center rounded-full border border-color-blue-100 bg-card-background shadow-sm"
-          >
-            <span
-              className="material-symbols-outlined text-blue-100"
-              style={{
-                fontSize: 20,
-                fontWeight: 300,
-                fontVariationSettings: "'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20",
-              }}
-            >
-              edit_square
-            </span>
-          </button>
-        )}
+      <div className="mb-5 mt-13">
+        <Avatar
+          avatarUrl={user.avatar}
+          fullName={user.fullName}
+          size="lg"
+          editable={mode === "self"}
+          onEditClick={onEditClick}
+        />
       </div>
 
       <div className="relative flex items-center justify-center">

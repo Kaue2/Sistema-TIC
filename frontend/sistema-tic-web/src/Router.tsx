@@ -3,6 +3,7 @@ import { Login } from "./pages/Login";
 import { ProfilePage } from "./pages/ProfilePage";
 import { WelcomeConfirmation } from "./pages/WelcomeConfirmation";
 import { AccessUpdate } from "./pages/AccessUpdate";
+import { MembersPage } from "./pages/MembersPage";
 
 export const router = createBrowserRouter([
   {
@@ -20,5 +21,9 @@ export const router = createBrowserRouter([
   {
     path: "/profile/:id",
     element: <ProfilePage />,
+  },
+  {
+    path: "/members",
+    element: <MembersPage />,
   },
 ]);
