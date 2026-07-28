@@ -1,6 +1,6 @@
 import type { ChangeEvent } from "react";
 
-type ScheduleItem = {
+export type ScheduleItem = {
   day: string;
   start: string;
   end: string;
@@ -42,7 +42,7 @@ export function JourneySchedule({
   }
 
   return (
-    <section className="w-full rounded-2xl border border-blue-100 bg-card-background p-8">
+    <section className="w-full max-w-88 max-h-88 rounded-2xl border border-blue-100 bg-card-background p-8">
       <h2 className="text-xl text-center font-normal text-blue-100">
         {title}:{" "}
         {totalHours && (
