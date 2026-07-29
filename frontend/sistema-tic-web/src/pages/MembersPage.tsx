@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { FixedNavigation } from "../components/FixedNavigation";
 import { SearchInput } from "../components/SearchInput";
 import { FilterDropdown } from "../components/FilterDropdown";
@@ -118,6 +119,7 @@ const mockMembers: Member[] = [
 ];
 
 export function MembersPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -212,6 +214,7 @@ export function MembersPage() {
           <ViewToggle view={view} onChange={setView} />
           <button
             type="button"
+            onClick={() => navigate("/members/new")}
             className="flex h-10 items-center gap-2 rounded-lg border border-blue-100 px-4 text-sm text-blue-100 transition-all duration-200 hover:bg-blue-100 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100"
           >
             <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
@@ -225,7 +228,7 @@ export function MembersPage() {
           {showEmpty && (
             <Empty
               actionLabel="Adicionar membro"
-              onAction={() => console.log("Adicionar membro")}
+              onAction={() => navigate("/members/new")}
             />
           )}
 
