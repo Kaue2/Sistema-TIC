@@ -58,7 +58,7 @@ export function ProfilePage() {
   const user = mode === "self" ? loggedUser : loggedUser;
 
   return (
-    <div className="relative min-h-screen bg-background">
+    <div className="relative min-h-screen overflow-x-hidden bg-background">
       <FixedNavigation
         position="left"
         items={[

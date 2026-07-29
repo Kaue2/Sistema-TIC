@@ -31,7 +31,7 @@ export function Avatar({
         />
       ) : (
         <div
-          className={`${container} flex items-center justify-center rounded-full border-2 border-blue-100 bg-card-background`}
+          className={`${container} flex items-center justify-center rounded-full  border-blue-100 bg-card-background`}
         >
           <span
             className="material-symbols-outlined text-blue-100"
