@@ -26,17 +26,25 @@ public class UserController : ControllerBase
     }
 
     [HttpPost("create-user")]
-    public async Task<IActionResult> CreateUser(UserDTO dto)
+    public async Task<IActionResult> CreateUser(CreateUserDTO dto)
     {
-        int id = await this._userService.CreateUser(dto);
+        Guid id = await this._userService.CreateUser(dto);
         return Ok(id);
     }
 
     [HttpPost("change-password")]
     [Authorize]
-    public async Task<String> ChangeUserPassword()
+    public async Task<IActionResult> ChangeUserPassword(ChangeUserPasswordDTO dto)
     {
-        string result = "all right";
-        return result;
+        UserCredentials credentials = await this._userService.ChangeUserPasswordAsync(dto);
+        return Ok(credentials.UserId); 
+    }
+
+    [HttpPost("change-role")]
+    [Authorize(Roles = "coordinator,administrator")]
+    public async Task<IActionResult> ChangeUserRole(ChangeUserRoleDTO dto)
+    {
+        User user = await this._userService.ChangeUserRoleAsync(dto);
+        return Ok(user);
     }
 }

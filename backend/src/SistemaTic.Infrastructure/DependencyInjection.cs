@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 using SistemaTic.Application.Contracts;
+using SistemaTic.Infrastructure.Repositories;
 
 namespace SistemaTic.Infrastructure;
 
@@ -15,6 +16,7 @@ public static class DependencyInjection
 		services.AddNpgsqlDataSource(connectionString);
 		services.AddScoped<IUserRepository, UserRepository>();
 		services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
+		services.AddScoped<IUserCredentialsRepository, UserCredentialsRepository>();
 
 		return services;
 	}
@@ -26,6 +28,5 @@ public static class DependencyInjection
 		var password = configuration["POSTGRES_PASSWORD"] ?? throw new Exception("POSTGRES_PASSWORD não configurado");
 
 		return $"Host=localhost;Port=5432;Database={database};Username={user};Password={password}";
-		
 	}
 }

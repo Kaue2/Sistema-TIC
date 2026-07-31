@@ -16,7 +16,7 @@ public class JwtTokenGenerator : ITokenGenerator
 		_secret = configuration["JWT_SECRET"] ?? throw new Exception("secret jwt não configurado");	
 	}
 
-	public string Generate(int userId, string email, string role)
+	public string Generate(Guid userId, string email, string role)
 	{
 		var claims = new []
 		{

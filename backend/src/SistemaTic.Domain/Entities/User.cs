@@ -2,27 +2,27 @@
 
 public class User
 {
-	public int Id { get; set; }
-	public string Name { get; set; }
-	public string Email { get; set; }
-	public string Hashed_password { get; set; }
-	public bool Active { get; set; }
-	public bool ChangePassword { get; set; }
-	public int RoleId { get; set; }
-	public DateTimeOffset CreatedAt { get; set; }
-	public DateTimeOffset UpdatedAt { get; set; }
+    public Guid Id { get; set; }
+    public Guid RoleId { get; set; }
+    public string Email { get; set; }
+    public string Name { get; set; }
+    public String Status { get; set; }
+    public Guid? CreatedByUser { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public DateTimeOffset? DisabledAt { get; set; }
 
-	public User(int id, string name, string email, string hashed_password,
-		   bool active, bool changePassword, int roleId, DateTimeOffset createdAt,
-		   DateTimeOffset? updatedAt) {
-		this.Id = id;
-		this.Name = name;
-		this.Email = email;
-		this.Hashed_password = hashed_password;
-		this.Active = active;
-		this.ChangePassword = changePassword;
-		this.RoleId = roleId;
-		this.CreatedAt = createdAt;
-		this.UpdatedAt = UpdatedAt;
-	}
+    public User(Guid id, Guid roleId, string email, string name, string status, Guid? createdByUser,
+                DateTimeOffset createdAt, DateTimeOffset updatedAt, DateTimeOffset? disabledAt)
+    {
+        this.Id = id;
+        this.RoleId = roleId;
+        this.Email = email;
+        this.Name = name;
+        this.Status = status;
+        this.CreatedByUser = createdByUser;
+        this.CreatedAt = createdAt;
+        this.UpdatedAt = updatedAt;
+        this.DisabledAt = disabledAt;
+    }
 }

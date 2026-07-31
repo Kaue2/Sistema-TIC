@@ -2,5 +2,5 @@
 
 public interface ITokenGenerator
 {
-	public string Generate(int userId, string email, string role);	
+	public string Generate(Guid userId, string email, string role);	
 }

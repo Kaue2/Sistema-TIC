@@ -1,6 +1,7 @@
-﻿using System.Text;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Claims;
+using System.Text;
 
 namespace SistemaTic.Api;
 
@@ -21,7 +22,9 @@ public static class Configuration
 					ValidateIssuer = false,
 					ValidateAudience = false,
 					ValidateLifetime = true,
-				};	
+
+                    RoleClaimType = ClaimTypes.Role,
+                };	
 			});
 		services.AddAuthorization();
 

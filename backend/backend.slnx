@@ -1,2 +1,6 @@
 <Solution>
+  <Project Path="src/SistemaTic.Api/SistemaTic.Api.csproj" />
+  <Project Path="src/SistemaTic.Application/SistemaTic.Application.csproj" />
+  <Project Path="src/SistemaTic.Domain/SistemaTic.Domain.csproj" />
+  <Project Path="src/SistemaTic.Infrastructure/SistemaTic.Infrastructure.csproj" />
 </Solution>
