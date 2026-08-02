@@ -1,5 +1,5 @@
-import type { User } from "../pages/ProfilePage";
-import { Avatar } from "./Avatar";
+import type { User } from "../../pages/ProfilePage";
+import { Avatar } from "../atoms/Avatar";
 
 type ProfileHeaderProps = {
   user: User;

@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useBlocker } from "react-router-dom";
-import { FixedNavigation } from "../components/FixedNavigation";
-import { Input } from "../components/Input";
-import { Select } from "../components/Select";
-import { JourneySchedule } from "../components/JourneySchedule";
-import { DynamicInputList } from "../components/DynamicInputList";
-import { Button } from "../components/Button";
+import { FixedNavigation } from "../components/organisms/FixedNavigation";
+import { Input } from "../components/atoms/Input";
+import { Select } from "../components/atoms/Select";
+import { JourneySchedule } from "../components/organisms/JourneySchedule";
+import { DynamicInputList } from "../components/molecules/DynamicInputList";
+import { Button } from "../components/atoms/Button";
 
-import { ExcelImportButton } from "../components/ExcelImportButton";
-import { Toast } from "../components/Toast";
-import { ConfirmDialog } from "../components/ConfirmDialog";
-import type { ToastType } from "../components/Toast";
-import type { ScheduleItem } from "../components/JourneySchedule";
+import { ExcelImportButton } from "../components/molecules/ExcelImportButton";
+import { Toast } from "../components/organisms/Toast";
+import { ConfirmDialog } from "../components/molecules/ConfirmDialog";
+import type { ToastType } from "../components/organisms/Toast";
+import type { ScheduleItem } from "../components/organisms/JourneySchedule";
 import type { MemberSpreadsheetDTO } from "../services/excel/types";
 import { downloadTemplate } from "../services/excel/ExcelTemplateService";
 

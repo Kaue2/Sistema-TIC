@@ -1,77 +1,123 @@
-# React + TypeScript + Vite
+# TIC em Trilhas — Front-end
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interface web do sistema **TIC em Trilhas**, desenvolvida com React, TypeScript, Vite e Tailwind CSS. O projeto está na etapa de protótipo funcional: todos os dados, ações de salvamento e perfis são simulados no navegador; ainda não existe integração com API, autenticação real ou banco de dados.
 
-Currently, two official plugins are available:
+## Tecnologias
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19 e TypeScript
+- Vite 8
+- React Router 7
+- Tailwind CSS 4
+- SheetJS (`xlsx`) para importar e gerar planilhas de membros
+- ESLint para análise estática
 
-## React Compiler
+## Pré-requisitos
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+- Node.js 22 ou superior
+- pnpm 11 ou superior
 
-Note: This will impact Vite dev & build performances.
+As versões usadas no ambiente atual são Node.js `22.13.1` e pnpm `11.12.0`.
 
-## Expanding the ESLint configuration
+## Instalação
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+No diretório `frontend/sistema-tic-web`, instale as dependências:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+pnpm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Executar o front-end
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Desenvolvimento
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+pnpm dev
 ```
+
+O Vite exibirá a URL local no terminal; normalmente é `http://localhost:5173`.
+
+Para disponibilizar o servidor na rede local:
+
+```bash
+pnpm dev --host 0.0.0.0
+```
+
+### Prévia da build de produção
+
+```bash
+pnpm build
+pnpm preview
+```
+
+## Comandos individuais
+
+| Comando | Finalidade |
+| --- | --- |
+| `pnpm dev` | Inicia o servidor de desenvolvimento com atualização automática. |
+| `pnpm lint` | Executa o ESLint no projeto. |
+| `pnpm typecheck` | Verifica os tipos TypeScript sem gerar arquivos de produção. |
+| `pnpm build` | Valida os tipos e gera a build de produção em `dist/`. |
+| `pnpm preview` | Serve localmente a build já gerada. |
+| `pnpm check` | Executa lint e build em sequência; é o comando geral de validação atual. |
+
+Ainda não há uma suíte de testes automatizados nesta versão da branch. Quando Vitest e Playwright forem incorporados, os comandos de teste serão adicionados a esta tabela.
+
+## Escopo implementado
+
+### Acesso e perfil
+
+- Tela de login visual, com campos de e-mail e senha e controle de visibilidade da senha.
+- Tela de boas-vindas e atualização de acesso.
+- Perfil próprio ou de outro usuário, com avatar, e-mails, currículo, Lattes, configurações, relações e jornada semanal.
+
+As ações de login, edição de perfil, troca de senha e saída ainda são demonstrativas.
+
+### Membros
+
+- Lista de membros com visualização em lista ou cards.
+- Busca, filtro e estados vazios visuais.
+- Formulário de criação e edição com dados pessoais, e-mails, carga horária, jornada, local, trilhas e documentos.
+- Validação visual de campos e aviso antes de sair com alterações não salvas.
+- Toast de feedback ao salvar.
+- Importação de um membro por planilha `.xlsx` ou `.xls`.
+- Download de modelo de planilha para preencher os dados do membro.
+
+Salvar um membro atualmente apenas mostra uma confirmação visual; os dados não são enviados nem persistidos.
+
+## Rotas disponíveis
+
+| Rota | Tela |
+| --- | --- |
+| `/` | Login |
+| `/welcome` | Boas-vindas |
+| `/access-update` | Atualização de acesso |
+| `/profile/:id` | Perfil |
+| `/members` | Lista de membros |
+| `/members/new` | Cadastro de membro |
+| `/members/:id/edit` | Edição de membro |
+
+Os itens de navegação para Avisos, Trilhas e Documentos já aparecem visualmente, mas suas telas e rotas ainda não fazem parte desta versão.
+
+## Organização do código
+
+Os componentes da interface seguem Atomic Design:
+
+- `atoms`: controles básicos, como botão, avatar, input, select e fundo decorativo.
+- `molecules`: combinações pequenas reutilizáveis, como busca, filtro, diálogo de confirmação, importação Excel e itens de lista.
+- `organisms`: blocos maiores de interface, como navegação, jornada semanal, cartão de membro e composição de perfil.
+- `pages`: telas associadas às rotas da aplicação.
+- `services/excel`: leitura, validação, conversão e geração de planilhas.
+
+## Estilo e design
+
+O CSS global está em `src/index.css` e é carregado na entrada da aplicação. Ele importa o Tailwind, define os tokens de cor institucionais e a animação de toast.
+
+Os estilos de layout ficam nos arquivos `.tsx`, usando classes utilitárias do Tailwind. Não há CSS Modules ou arquivos de CSS específicos por componente. Os ícones usam Material Symbols, carregado pelo HTML principal.
+
+## Limitações conhecidas
+
+- Não há backend, API, banco de dados ou autenticação real.
+- Dados de perfil e membros são mocks.
+- Salvar, editar perfil e login não persistem alterações.
+- Algumas opções visuais da navegação apontam para telas ainda não implementadas.
+- A busca de membros ainda precisa ser concluída funcionalmente.

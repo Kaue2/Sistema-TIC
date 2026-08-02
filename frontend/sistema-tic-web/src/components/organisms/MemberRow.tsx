@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { Avatar } from "./Avatar";
+import { Avatar } from "../atoms/Avatar";
 import { JourneySchedule } from "./JourneySchedule";
-import type { Member } from "../pages/MembersPage";
+import type { Member } from "../../pages/MembersPage";
 
 type MemberCardProps = {
   member: Member;

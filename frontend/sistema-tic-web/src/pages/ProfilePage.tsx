@@ -1,9 +1,9 @@
 import { useParams } from "react-router-dom";
-import { FixedNavigation } from "../components/FixedNavigation";
-import { DecorativeBackground } from "../components/DecorativeBackground";
-import { ProfileHeader } from "../components/ProfileHeader";
-import { ProfileContent } from "../components/ProfileContent";
-import type { ScheduleItem } from "../components/JourneySchedule";
+import { FixedNavigation } from "../components/organisms/FixedNavigation";
+import { DecorativeBackground } from "../components/atoms/DecorativeBackground";
+import { ProfileHeader } from "../components/organisms/ProfileHeader";
+import { ProfileContent } from "../components/organisms/ProfileContent";
+import type { ScheduleItem } from "../components/organisms/JourneySchedule";
 
 export interface User {
   id: string;

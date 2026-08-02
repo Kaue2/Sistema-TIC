@@ -1,4 +1,4 @@
-import type { ScheduleItem } from "../../components/JourneySchedule";
+import type { ScheduleItem } from "../../components/organisms/JourneySchedule";
 
 export interface MemberSpreadsheetDTO {
   fullName: string;

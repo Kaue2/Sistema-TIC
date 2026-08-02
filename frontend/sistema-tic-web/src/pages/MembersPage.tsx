@@ -1,14 +1,14 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FixedNavigation } from "../components/FixedNavigation";
-import { SearchInput } from "../components/SearchInput";
-import { FilterDropdown } from "../components/FilterDropdown";
-import { ViewToggle } from "../components/ViewToggle";
-import { MemberListItem } from "../components/MemberListItem";
-import { MemberCard } from "../components/MemberRow";
-import { Empty } from "../components/Empty";
-import { EmptySearch } from "../components/EmptySearch";
-import type { ScheduleItem } from "../components/JourneySchedule";
+import { FixedNavigation } from "../components/organisms/FixedNavigation";
+import { SearchInput } from "../components/molecules/SearchInput";
+import { FilterDropdown } from "../components/molecules/FilterDropdown";
+import { ViewToggle } from "../components/molecules/ViewToggle";
+import { MemberListItem } from "../components/molecules/MemberListItem";
+import { MemberCard } from "../components/organisms/MemberRow";
+import { Empty } from "../components/molecules/Empty";
+import { EmptySearch } from "../components/molecules/EmptySearch";
+import type { ScheduleItem } from "../components/organisms/JourneySchedule";
 
 export type Member = {
   id: string;

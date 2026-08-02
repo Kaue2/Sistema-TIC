@@ -1,4 +1,4 @@
-import { Button } from "./Button";
+import { Button } from "../atoms/Button";
 
 type ConfirmDialogProps = {
   open: boolean;

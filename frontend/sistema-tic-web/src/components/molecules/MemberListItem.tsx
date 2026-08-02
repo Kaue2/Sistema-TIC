@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { Avatar } from "./Avatar";
-import type { Member } from "../pages/MembersPage";
+import { Avatar } from "../atoms/Avatar";
+import type { Member } from "../../pages/MembersPage";
 
 type MemberListItemProps = {
   member: Member;

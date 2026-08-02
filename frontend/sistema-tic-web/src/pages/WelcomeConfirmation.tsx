@@ -1,4 +1,4 @@
-import { JourneySchedule } from "../components/JourneySchedule";
+import { JourneySchedule } from "../components/organisms/JourneySchedule";
 
 const schedule = [
   { day: "Segunda", start: "13:00", end: "19:00" },

@@ -1,4 +1,4 @@
-import type { User } from "../pages/ProfilePage";
+import type { User } from "../../pages/ProfilePage";
 import { ContactInformation } from "./ContactInformation";
 import { AcademicInformation } from "./AcademicInformation";
 import { Settings } from "./Settings";

@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
-import { Button } from "./Button";
+import { Button } from "../atoms/Button";
 
 type ExcelImportButtonProps = {
   text?: string;
-  onImport: (data: import("../services/excel/types").MemberSpreadsheetDTO) => void;
+  onImport: (data: import("../../services/excel/types").MemberSpreadsheetDTO) => void;
   onError?: (errors: string[]) => void;
 };
 
@@ -18,7 +18,7 @@ export function ExcelImportButton({ text = "Importar Planilha", onImport, onErro
     setLoading(true);
 
     try {
-      const { importFromFile } = await import("../services/excel/ExcelImportService");
+      const { importFromFile } = await import("../../services/excel/ExcelImportService");
       const result = await importFromFile(file, false);
 
       if (result.errors.length > 0) {
