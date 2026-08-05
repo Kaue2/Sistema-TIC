@@ -17,8 +17,8 @@ namespace MyApp.Namespace
         }
 
 
-        [HttpPost]
-        public async Task<string> AuthenticateUser(CreateUserTokenDTO dto)
+        [HttpPost("login")]
+        public async Task<string> AuthenticateUser(AuthenticateUserDTO dto)
         {
             string? token = await this._authService.AuthenticateAsync(dto.Email, dto.Password);
 

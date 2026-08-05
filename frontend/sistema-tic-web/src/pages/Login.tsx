@@ -1,11 +1,36 @@
 import { useState } from "react";
 import { Input } from "../components/atoms/Input";
+import { useNavigate } from "react-router-dom";
+import {
+  type AuthenticateUserDTO,
+  authenticateUser,
+} from "../services/user-services";
 
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors] = useState<string[]>([]);
+
+  const navigate = useNavigate();
+
+  async function sendAuthenticateRequest(e: SubmitEvent) {
+    e.preventDefault();
+
+    const dto: AuthenticateUserDTO = {
+      email: email,
+      password: password,
+    };
+
+    try {
+      const data = await authenticateUser(dto);
+      window.alert(data);
+      navigate("/welcome");
+    } catch (error) {
+      console.log(error);
+      window.alert("Erro ao efetuar login");
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -24,7 +49,7 @@ export function Login() {
           </p>
         </div>
 
-        <form className="space-y-4">
+        <form className="space-y-4" onSubmit={sendAuthenticateRequest}>
           <Input
             id="email"
             type="email"
@@ -42,7 +67,10 @@ export function Login() {
             icon={
               <span
                 className={`material-symbols-outlined text-[20px] ${showPassword ? "opacity-50" : "opacity-100"}`}
-                style={{ fontVariationSettings: "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                style={{
+                  fontVariationSettings:
+                    "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
+                }}
               >
                 visibility
               </span>
@@ -52,20 +80,27 @@ export function Login() {
             iconMouseUpAction={() => setShowPassword(false)}
           />
 
-          <div className={`flex flex-col items-center gap-2 ${errors.length > 0 ? 'mt-6' : 'mt-13'}`}>
-            {errors.length > 0 && (
+          <div
+            className={`flex flex-col items-center gap-2 ${errors.length > 0 ? "mt-6" : "mt-13"}`}
+          >
+            {errors.length > 0 &&
               errors.map((error, index) => (
-                <p key={index} className="text-red-100 text-sm flex items-center gap-1">
+                <p
+                  key={index}
+                  className="text-red-100 text-sm flex items-center gap-1"
+                >
                   <span
                     className="material-symbols-outlined text-base"
-                    style={{ fontVariationSettings: "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24" }}
+                    style={{
+                      fontVariationSettings:
+                        "'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24",
+                    }}
                   >
                     error
                   </span>
                   {error}
                 </p>
-              ))
-            )}
+              ))}
 
             <button
               type="submit"

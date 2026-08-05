@@ -17,7 +17,7 @@ public class UserController : ControllerBase
     public UserController(UserService userService)
     {
         this._userService = userService;
-    } 
+    }
 
     [HttpGet("get-users")]
     public async Task<IEnumerable<User>> GetUsers()
@@ -37,7 +37,7 @@ public class UserController : ControllerBase
     public async Task<IActionResult> ChangeUserPassword(ChangeUserPasswordDTO dto)
     {
         UserCredentials credentials = await this._userService.ChangeUserPasswordAsync(dto);
-        return Ok(credentials.UserId); 
+        return Ok(credentials.UserId);
     }
 
     [HttpPost("change-role")]
