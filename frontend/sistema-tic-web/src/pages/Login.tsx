@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, type SubmitEventHandler } from "react";
 import { Input } from "../components/atoms/Input";
 import { useNavigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
+import { type CustomJwtDecode } from "../services/api";
 import {
   type AuthenticateUserDTO,
   authenticateUser,
+  type AuthResponseDTO,
 } from "../services/user-services";
 
 export function Login() {
@@ -14,7 +17,9 @@ export function Login() {
 
   const navigate = useNavigate();
 
-  async function sendAuthenticateRequest(e: SubmitEvent) {
+  const sendAuthenticateRequest: SubmitEventHandler<HTMLFormElement> = async (
+    e,
+  ) => {
     e.preventDefault();
 
     const dto: AuthenticateUserDTO = {
@@ -23,14 +28,20 @@ export function Login() {
     };
 
     try {
-      const data = await authenticateUser(dto);
-      window.alert(data);
-      navigate("/welcome");
+      const response: AuthResponseDTO = await authenticateUser(dto);
+      const decoded = jwtDecode<CustomJwtDecode>(response.token);
+      console.log(response.mustChangePassword == true);
+
+      if (response.mustChangePassword == true) {
+        navigate("/access-update");
+      } else {
+        navigate(`/profile/${decoded.sub}`);
+      }
     } catch (error) {
       console.log(error);
       window.alert("Erro ao efetuar login");
     }
-  }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">

@@ -18,14 +18,10 @@ namespace MyApp.Namespace
 
 
         [HttpPost("login")]
-        public async Task<string> AuthenticateUser(AuthenticateUserDTO dto)
+        public async Task<AuthDTO> AuthenticateUser(AuthenticateUserDTO dto)
         {
-            string? token = await this._authService.AuthenticateAsync(dto.Email, dto.Password);
-
-            if (token is null)
-                throw new Exception("Token gerado era nulo, erro.");
-
-            return token;
+            AuthDTO authDTO = await this._authService.AuthenticateAsync(dto.Email, dto.Password);
+            return authDTO;
         }
     }
 }

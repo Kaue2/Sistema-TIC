@@ -18,3 +18,9 @@ api.interceptors.request.use(
     return Promise.reject(error);
   },
 );
+
+export interface CustomJwtDecode {
+  sub: string;
+  email: string;
+  role: string;
+}
