@@ -1,8 +1,9 @@
 type EmptySearchProps = {
   onClear: () => void;
+  title?: string;
 };
 
-export function EmptySearch({ onClear }: EmptySearchProps) {
+export function EmptySearch({ onClear, title = "Nenhum membro encontrado" }: EmptySearchProps) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <span
@@ -12,7 +13,7 @@ export function EmptySearch({ onClear }: EmptySearchProps) {
         search_off
       </span>
       <h2 className="mt-6 text-2xl font-medium text-black-80">
-        Nenhum membro encontrado
+        {title}
       </h2>
       <p className="mt-2 text-base text-black-60">
         Tente alterar sua pesquisa ou remover alguns filtros.

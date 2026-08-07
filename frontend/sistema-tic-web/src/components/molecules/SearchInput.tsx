@@ -3,6 +3,7 @@ type SearchInputProps = {
   onChange: (value: string) => void;
   placeholder?: string;
   onClear?: () => void;
+  className?: string;
 };
 
 export function SearchInput({
@@ -10,13 +11,14 @@ export function SearchInput({
   onChange,
   placeholder = "Pesquise aqui",
   onClear,
+  className = "max-w-95",
 }: SearchInputProps) {
   function handleClear() {
     onClear?.();
   }
 
   return (
-    <div className="relative w-full max-w-95">
+    <div className={`relative w-full ${className}`}>
       <span
         className="material-symbols-outlined pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-black-40"
         style={{ fontSize: 20 }}

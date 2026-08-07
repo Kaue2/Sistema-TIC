@@ -227,6 +227,7 @@ export function MembersPage() {
         <div className="mt-8 flex w-full justify-center">
           {showEmpty && (
             <Empty
+              iconTinted
               actionLabel="Adicionar membro"
               onAction={() => navigate("/members/new")}
             />

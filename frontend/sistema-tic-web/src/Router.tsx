@@ -5,6 +5,9 @@ import { WelcomeConfirmation } from "./pages/WelcomeConfirmation";
 import { AccessUpdate } from "./pages/AccessUpdate";
 import { MembersPage } from "./pages/MembersPage";
 import { MemberForm } from "./pages/MemberForm";
+import { DocumentsPage } from "./pages/DocumentsPage";
+import { CreateDocumentPage } from "./pages/CreateDocumentPage";
+import { DocumentDetailsPage } from "./pages/DocumentDetailsPage";
 
 export const router = createBrowserRouter([
   {
@@ -34,5 +37,17 @@ export const router = createBrowserRouter([
   {
     path: "/members/:id/edit",
     element: <MemberForm />,
+  },
+  {
+    path: "/documents",
+    element: <DocumentsPage />,
+  },
+  {
+    path: "/documents/new",
+    element: <CreateDocumentPage />,
+  },
+  {
+    path: "/documents/:id",
+    element: <DocumentDetailsPage />,
   },
 ]);
