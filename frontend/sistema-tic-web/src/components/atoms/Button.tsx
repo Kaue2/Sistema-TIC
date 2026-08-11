@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-type ButtonVariant = "outline" | "green" | "primary";
+export type ButtonVariant = "outline" | "green" | "primary" | "danger";
 
 type ButtonProps = {
   variant?: ButtonVariant;
@@ -18,6 +18,8 @@ const variantClasses: Record<ButtonVariant, string> = {
     "border-green-100 text-green-100 hover:bg-green-100/10",
   primary:
     "border-blue-100 bg-blue-100 text-white hover:bg-blue-60",
+  danger:
+    "border-red-100 text-red-100 hover:bg-red-100/10",
 };
 
 export function Button({

@@ -1,7 +1,7 @@
 import type { DocumentContent } from "../../types/document";
 
-export type DocumentFieldErrors = Partial<
-  Record<keyof DocumentContent, string>
+export type DocumentFieldErrors<C extends object = DocumentContent> = Partial<
+  Record<keyof C, string>
 >;
 
 const REQUIRED_FIELDS: (keyof DocumentContent)[] = ["teacherName"];

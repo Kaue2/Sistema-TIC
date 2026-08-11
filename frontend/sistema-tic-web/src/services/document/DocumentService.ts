@@ -3,8 +3,40 @@ import type {
   DocumentContent,
   DocumentStatusValue,
   DocumentType,
+  PlanoEnsinoCard,
+  PlanoEnsinoContent,
+  PlanoEnsinoModule,
 } from "../../types/document";
 import { mockDocuments } from "../../data/mockDocuments";
+
+export function emptyPlanoEnsinoCard(): PlanoEnsinoCard {
+  return {
+    objectives: "",
+    classTheme: "",
+    contentList: "",
+    evaluationStrategy: "",
+    resources: "",
+    workloadModality: "",
+  };
+}
+
+export function emptyPlanoEnsinoModule(): PlanoEnsinoModule {
+  return {
+    title: "",
+    cards: [emptyPlanoEnsinoCard()],
+  };
+}
+
+export function emptyPlanoEnsinoContent(): PlanoEnsinoContent {
+  return {
+    presentation: "",
+    generalObjectives: "",
+    basicBibliography: "",
+    complementaryBibliography: "",
+    trailContext: "",
+    modules: [emptyPlanoEnsinoModule()],
+  };
+}
 
 export function emptyContent(): DocumentContent {
   return {
@@ -34,16 +66,25 @@ export function emptyContent(): DocumentContent {
   };
 }
 
-type StoredDocument = Document & {
-  content: DocumentContent;
+type StoredDocument<C extends object = DocumentContent> = Document & {
+  content: C;
   devolveObservation?: string;
 };
 
 const store = new Map<string, StoredDocument>();
 
+const EMPTY_CONTENT_BY_TYPE: Record<DocumentType, () => object> = {
+  "Escopo e Proposta": emptyContent,
+  "Plano de Ensino": emptyPlanoEnsinoContent,
+  Softex: emptyContent,
+};
+
 function seed() {
   for (const doc of mockDocuments) {
-    store.set(doc.id, { ...doc, content: emptyContent() });
+    store.set(doc.id, {
+      ...doc,
+      content: EMPTY_CONTENT_BY_TYPE[doc.type]() as DocumentContent,
+    });
   }
 }
 
@@ -65,13 +106,15 @@ export const DocumentService = {
     return { ...doc, content: { ...doc.content } };
   },
 
-  async createDocument(type: DocumentType): Promise<StoredDocument> {
+  async createDocument<C extends object = DocumentContent>(
+    type: DocumentType
+  ): Promise<StoredDocument<C>> {
     await wait(400);
     const numbers = [...store.values()].map((d) =>
       parseInt(d.number.replace("#", ""), 10)
     );
     const next = (numbers.length > 0 ? Math.max(...numbers) : 2985) + 1;
-    const doc: StoredDocument = {
+    const doc = {
       id: crypto.randomUUID(),
       number: `#${next}`,
       title: DOCUMENT_TITLE_BY_TYPE[type],
@@ -81,41 +124,44 @@ export const DocumentService = {
       career: "",
       teachingMode: "Híbrido",
       status: "Rascunho",
-      content: emptyContent(),
-    };
-    store.set(doc.id, doc);
+      content: EMPTY_CONTENT_BY_TYPE[type]() as DocumentContent,
+    } as StoredDocument<C>;
+    store.set(doc.id, doc as StoredDocument);
     return { ...doc };
   },
 
-  async updateDocument(
+  async updateDocument<C extends object = DocumentContent>(
     id: string,
-    patch: Partial<Pick<StoredDocument, "content" | "status" | "trail" | "semester" | "career">>
-  ): Promise<StoredDocument | null> {
+    patch: Partial<
+      Pick<StoredDocument<C>, "content" | "status" | "trail" | "semester" | "career">
+    >
+  ): Promise<StoredDocument<C> | null> {
     await wait(150);
     const doc = store.get(id);
     if (!doc) return null;
-    const updated: StoredDocument = {
+    const updated = {
       ...doc,
       ...patch,
       content: { ...doc.content, ...(patch.content ?? {}) },
-    };
-    store.set(id, updated);
+    } as StoredDocument<C>;
+    store.set(id, updated as StoredDocument);
     return { ...updated };
   },
 
-  async transitionStatus(
+  async transitionStatus<C extends object = DocumentContent>(
     id: string,
     status: DocumentStatusValue,
     devolveObservation?: string
-  ): Promise<StoredDocument | null> {
+  ): Promise<StoredDocument<C> | null> {
     await wait(150);
     const doc = store.get(id);
     if (!doc) return null;
-    const updated: StoredDocument =
+    const updated = (
       devolveObservation === undefined
         ? { ...doc, status }
-        : { ...doc, status, devolveObservation };
-    store.set(id, updated);
+        : { ...doc, status, devolveObservation }
+    ) as StoredDocument<C>;
+    store.set(id, updated as StoredDocument);
     return { ...updated };
   },
 

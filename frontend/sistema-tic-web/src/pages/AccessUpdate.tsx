@@ -2,7 +2,7 @@ import { useState, type SubmitEventHandler } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "../components/atoms/Input";
 import { changeUserPassword, type ChangeUserPasswordDTO } from "../services/user-services";
-import { useUser } from "../contexts/UserContext";
+import { useUser } from "../contexts/userContext";
 
 export function AccessUpdate() {
   const [email, setEmail] = useState("");

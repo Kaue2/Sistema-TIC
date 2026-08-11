@@ -8,7 +8,7 @@ import {
   authenticateUser,
   type AuthResponseDTO,
 } from "../services/user-services";
-import { useUser } from "../contexts/UserContext";
+import { useUser } from "../contexts/userContext";
 
 export function Login() {
   const [email, setEmail] = useState("");

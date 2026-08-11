@@ -58,6 +58,29 @@ export interface TimeRangeValue {
   end: string;
 }
 
+export interface PlanoEnsinoCard {
+  objectives: string;
+  classTheme: string;
+  contentList: string;
+  evaluationStrategy: string;
+  resources: string;
+  workloadModality: string;
+}
+
+export interface PlanoEnsinoModule {
+  title: string;
+  cards: PlanoEnsinoCard[];
+}
+
+export interface PlanoEnsinoContent {
+  presentation: string;
+  generalObjectives: string;
+  basicBibliography: string;
+  complementaryBibliography: string;
+  trailContext: string;
+  modules: PlanoEnsinoModule[];
+}
+
 export interface DocumentContent {
   teacherName: string;
   career: string;
