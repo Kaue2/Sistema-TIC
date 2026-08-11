@@ -13,16 +13,16 @@ public class JwtTokenGenerator : ITokenGenerator
 
 	public JwtTokenGenerator(IConfiguration configuration)
 	{
-		_secret = configuration["JWT_SECRET"] ?? throw new Exception("secret jwt não configurado");
+		_secret = configuration["JWT_SECRET"] ?? throw new Exception("secret jwt não configurado");	
 	}
 
-	public string Generate(Guid userId, string email, string roleCode, bool mustChangePassword)
+	public string Generate(Guid userId, string email, string role)
 	{
-		var claims = new[]
+		var claims = new []
 		{
 			new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
 			new Claim(JwtRegisteredClaimNames.Email, email),
-			new Claim(ClaimTypes.Role, roleCode),
+			new Claim(ClaimTypes.Role, role),
 		};
 
 		var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));

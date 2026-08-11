@@ -6,8 +6,7 @@ import { AccessUpdate } from "./pages/AccessUpdate";
 import { MembersPage } from "./pages/MembersPage";
 import { MemberForm } from "./pages/MemberForm";
 import { DocumentsPage } from "./pages/DocumentsPage";
-import { CreateDocumentPage } from "./pages/CreateDocumentPage";
-import { DocumentDetailsPage } from "./pages/DocumentDetailsPage";
+import { DocumentEditorPage } from "./pages/DocumentEditorPage";
 
 export const router = createBrowserRouter([
   {
@@ -44,10 +43,18 @@ export const router = createBrowserRouter([
   },
   {
     path: "/documents/new",
-    element: <CreateDocumentPage />,
+    element: <DocumentEditorPage mode="create" />,
   },
   {
     path: "/documents/:id",
-    element: <DocumentDetailsPage />,
+    element: <DocumentEditorPage mode="view" />,
+  },
+  {
+    path: "/documents/:id/edit",
+    element: <DocumentEditorPage mode="edit" />,
+  },
+  {
+    path: "/documents/:id/review",
+    element: <DocumentEditorPage mode="review" />,
   },
 ]);

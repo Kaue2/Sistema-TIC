@@ -141,8 +141,15 @@ export function DocumentsPage() {
     setToast({ message: "Documento arquivado.", type: "success" });
   }
 
+  function handleRestore(doc: Document) {
+    setDocuments((prev) =>
+      prev.map((d) => (d.id === doc.id ? { ...d, status: "Rascunho" } : d))
+    );
+    setToast({ message: "Documento restaurado para rascunho.", type: "success" });
+  }
+
   function handleEdit(doc: Document) {
-    navigate(`/documents/${doc.id}`);
+    navigate(`/documents/${doc.id}/edit`);
   }
 
   return (
@@ -253,6 +260,7 @@ export function DocumentsPage() {
                     onEdit={handleEdit}
                     onDuplicate={handleDuplicate}
                     onArchive={handleArchive}
+                    onRestore={handleRestore}
                   />
                 ))}
               </div>

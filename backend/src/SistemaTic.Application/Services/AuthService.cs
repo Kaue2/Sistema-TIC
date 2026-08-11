@@ -1,6 +1,5 @@
 ﻿using SistemaTic.Application.Contracts;
 using SistemaTic.Domain.Entities;
-using SistemaTic.Application.DTO;
 
 namespace SistemaTic.Application.Services;
 
@@ -11,8 +10,8 @@ public class AuthService
 	private readonly IUserCredentialsRepository _userCredentialsRepository;
 
 	public AuthService(
-		IUserRepository userRepository,
-		ITokenGenerator tokenGenerator,
+		IUserRepository userRepository, 
+		ITokenGenerator tokenGenerator, 
 		IUserCredentialsRepository userCredentialsRepository)
 	{
 		this._userRepository = userRepository;
@@ -20,7 +19,7 @@ public class AuthService
 		this._userCredentialsRepository = userCredentialsRepository;
 	}
 
-	public async Task<AuthDTO> AuthenticateAsync(string email, string password)
+	public async Task<string?> AuthenticateAsync(string email, string password)
 	{
 		User? user = await this._userRepository.GetUserByEmailAsync(email);
 
@@ -32,19 +31,16 @@ public class AuthService
 		if (credentials is null)
 			throw new Exception("Não foi possível encontrar as credenciais do usuário");
 
-		bool correct_password = BCrypt.Net.BCrypt.Verify(password, credentials.PasswordHash);
+		bool correct_password = BCrypt.Net.BCrypt.Verify(password, credentials.PasswordHash);		
 
 		if (!correct_password)
-			throw new Exception("a senha do usuário está incorreta");
+            throw new Exception("a senha do usuário está incorreta");
 
-		Roles? role = await this._userRepository.GetUserRoleAsync(user.Id);
+        Roles? role = await this._userRepository.GetUserRoleAsync(user.Id);
 
 		if (role is null)
 			throw new Exception("Não foi possível encontrar a role do usuário");
-
-		String token = this._tokenGenerator.Generate(user.Id, user.Email, role.Code, credentials.MustChangePassword);
-		AuthDTO dto = new AuthDTO(token, user.Email, user.Name, role.Name, credentials.MustChangePassword);
-
-		return dto;
+		
+		return this._tokenGenerator.Generate(user.Id, user.Email, role.Code);
 	}
 }

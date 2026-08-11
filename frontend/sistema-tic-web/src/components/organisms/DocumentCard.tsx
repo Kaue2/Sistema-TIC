@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { Document } from "../../types/document";
+import type { Document, DocumentStatusValue } from "../../types/document";
 import { DOCUMENT_TYPE_ICONS } from "../../types/document";
 import { DocumentStatus } from "../atoms/DocumentStatus";
 import { ContextMenu } from "../molecules/ContextMenu";
@@ -11,20 +11,37 @@ type DocumentCardProps = {
   onEdit?: (document: Document) => void;
   onDuplicate?: (document: Document) => void;
   onArchive?: (document: Document) => void;
+  onRestore?: (document: Document) => void;
 };
 
-const CONTEXT_MENU_ITEMS: ContextMenuItem[] = [
-  { id: "open", label: "Abrir", icon: "open_in_new" },
-  { id: "edit", label: "Editar", icon: "edit" },
-  { id: "duplicate", label: "Duplicar", icon: "content_copy" },
-  { id: "archive", label: "Arquivar", icon: "archive", danger: true },
-];
+function getContextMenuItems(status: DocumentStatusValue): ContextMenuItem[] {
+  if (status === "Arquivado") {
+    return [
+      { id: "open", label: "Abrir", icon: "open_in_new" },
+      { id: "duplicate", label: "Duplicar", icon: "content_copy" },
+      { id: "restore", label: "Restaurar", icon: "unarchive" },
+    ];
+  }
+  if (status === "Concluído") {
+    return [
+      { id: "open", label: "Abrir", icon: "open_in_new" },
+      { id: "duplicate", label: "Duplicar", icon: "content_copy" },
+    ];
+  }
+  return [
+    { id: "open", label: "Abrir", icon: "open_in_new" },
+    { id: "edit", label: "Editar", icon: "edit" },
+    { id: "duplicate", label: "Duplicar", icon: "content_copy" },
+    { id: "archive", label: "Arquivar", icon: "archive", danger: true },
+  ];
+}
 
 export function DocumentCard({
   document,
   onEdit,
   onDuplicate,
   onArchive,
+  onRestore,
 }: DocumentCardProps) {
   const navigate = useNavigate();
   const moreButtonRef = useRef<HTMLButtonElement>(null);
@@ -61,6 +78,9 @@ export function DocumentCard({
         break;
       case "archive":
         onArchive?.(document);
+        break;
+      case "restore":
+        onRestore?.(document);
         break;
     }
   }
@@ -123,7 +143,7 @@ export function DocumentCard({
       </div>
 
       <ContextMenu
-        items={CONTEXT_MENU_ITEMS}
+        items={getContextMenuItems(document.status)}
         anchor={menuAnchor}
         onSelect={handleMenuSelect}
         onClose={() => setMenuAnchor(null)}
