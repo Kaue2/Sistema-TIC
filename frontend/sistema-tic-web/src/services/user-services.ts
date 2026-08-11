@@ -20,6 +20,12 @@ export interface UserResponse {
   roleId: string;
 }
 
+export interface ChangeUserPasswordDTO {
+  email: string;
+  oldPassword: string;
+  newPassword: string;
+}
+
 export async function authenticateUser(
   dto: AuthenticateUserDTO,
 ): Promise<AuthResponseDTO> {
@@ -28,4 +34,10 @@ export async function authenticateUser(
   localStorage.setItem("token", response.data.token);
 
   return response.data;
+}
+
+export async function changeUserPassword(
+  dto: ChangeUserPasswordDTO,
+): Promise<void> {
+  await api.post("auth/change-password", dto);
 }

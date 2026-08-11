@@ -8,6 +8,7 @@ import {
   authenticateUser,
   type AuthResponseDTO,
 } from "../services/user-services";
+import { useUser } from "../contexts/UserContext";
 
 export function Login() {
   const [email, setEmail] = useState("");
@@ -16,6 +17,7 @@ export function Login() {
   const [errors] = useState<string[]>([]);
 
   const navigate = useNavigate();
+  const { setUserData } = useUser();
 
   const sendAuthenticateRequest: SubmitEventHandler<HTMLFormElement> = async (
     e,
@@ -30,7 +32,13 @@ export function Login() {
     try {
       const response: AuthResponseDTO = await authenticateUser(dto);
       const decoded = jwtDecode<CustomJwtDecode>(response.token);
-      console.log(response.mustChangePassword == true);
+
+      setUserData({
+        id: decoded.sub,
+        email: response.email,
+        name: response.name,
+        roleName: decoded.role,
+      });
 
       if (response.mustChangePassword == true) {
         navigate("/access-update");
