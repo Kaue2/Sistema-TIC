@@ -5,10 +5,12 @@ import { changeUserPassword, type ChangeUserPasswordDTO } from "../services/user
 import { useUser } from "../contexts/UserContext";
 
 export function AccessUpdate() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [errors] = useState<string[]>([]);
 
   const navigate = useNavigate();
@@ -20,9 +22,9 @@ export function AccessUpdate() {
     e.preventDefault();
 
     const dto: ChangeUserPasswordDTO = {
-      email: email,
-      oldPassword: password,
-      newPassword: password,
+      oldPassword: oldPassword,
+      newPassword: newPassword,
+      confirmNewPassword: confirmNewPassword,
     };
 
     try {
@@ -30,7 +32,6 @@ export function AccessUpdate() {
       window.alert("Senha alterada com sucesso!");
       if (userData?.id)
         navigate(`/profile/${userData?.id}`);
-     
     } catch (error) {
       console.log(error);
       window.alert("Erro ao efetuar login");
@@ -39,36 +40,24 @@ export function AccessUpdate() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <p className="text-xl text-black-80 font-regular">
-            Centro Universitário Senac Santo Amaro
-          </p>
-
-          <h1 className="mt-1 text-6xl font-regular tracking-tight text-blue-100 ">
-            TIC em Trilhas
+      <div className="flex flex-col gap-14 w-full max-w-sm">
+        <div className="mb-1 text-center">
+          <h1 className="text-6xl font-regular tracking-tight text-blue-100 ">
+            Atualize seus dados de acesso
           </h1>
 
           <p className="mt-2 text-xl text-black-80 font-regular">
-            Pesquisa e Extensão Universitária
+            Insira sua senha atual e escolha uma nova par continuar
           </p>
         </div>
 
-        <form className="space-y-4" onSubmit={sendChangePasswordRequest}>
-          <Input
-            id="email"
-            type="email"
-            label="Endereço de E-mail"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
+        <form className="space-y-8" onSubmit={sendChangePasswordRequest}>
           <Input
             id="password"
             type={showOldPassword ? "text" : "password"}
-            label="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            label="Senha Antiga"
+            value={oldPassword}
+            onChange={(e) => setOldPassword(e.target.value)}
             icon={
               <span
                 className={`material-symbols-outlined text-[20px] ${showOldPassword ? "opacity-50" : "opacity-100"}`}
@@ -88,9 +77,9 @@ export function AccessUpdate() {
           <Input
             id="password"
             type={showNewPassword ? "text" : "password"}
-            label="Senha"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            label="Senha Nova"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
             icon={
               <span
                 className={`material-symbols-outlined text-[20px] ${showNewPassword ? "opacity-50" : "opacity-100"}`}
@@ -105,6 +94,28 @@ export function AccessUpdate() {
             iconPosition="right"
             iconMouseDownAction={() => setShowNewPassword(true)}
             iconMouseUpAction={() => setShowNewPassword(false)}
+          />
+
+          <Input
+            id="password"
+            type={showConfirmNewPassword ? "text" : "password"}
+            label="Confirmar Senha Nova"
+            value={confirmNewPassword}
+            onChange={(e) => setConfirmNewPassword(e.target.value)}
+            icon={
+              <span
+                className={`material-symbols-outlined text-[20px] ${showConfirmNewPassword ? "opacity-50" : "opacity-100"}`}
+                style={{
+                  fontVariationSettings:
+                    "'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24",
+                }}
+              >
+                visibility
+              </span>
+            }
+            iconPosition="right"
+            iconMouseDownAction={() => setShowConfirmNewPassword(true)}
+            iconMouseUpAction={() => setShowConfirmNewPassword(false)}
           />
 
           <div

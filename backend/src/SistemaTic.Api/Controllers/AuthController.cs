@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SistemaTic.Application.Services;
 using SistemaTic.Application.DTO;
@@ -17,15 +16,11 @@ namespace MyApp.Namespace
         }
 
 
-        [HttpPost]
-        public async Task<string> AuthenticateUser(CreateUserTokenDTO dto)
+        [HttpPost("login")]
+        public async Task<AuthenticateResponseDTO> AuthenticateUser(AuthenticateUserDTO dto)
         {
-            string? token = await this._authService.AuthenticateAsync(dto.Email, dto.Password);
-
-            if (token is null)
-                throw new Exception("Token gerado era nulo, erro.");
-
-            return token;
+            AuthenticateResponseDTO response = await this._authService.AuthenticateAsync(dto.Email, dto.Password);
+            return response;
         }
     }
 }

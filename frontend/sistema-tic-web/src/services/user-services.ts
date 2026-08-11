@@ -21,9 +21,9 @@ export interface UserResponse {
 }
 
 export interface ChangeUserPasswordDTO {
-  email: string;
   oldPassword: string;
   newPassword: string;
+  confirmNewPassword: string;
 }
 
 export async function authenticateUser(
@@ -39,5 +39,5 @@ export async function authenticateUser(
 export async function changeUserPassword(
   dto: ChangeUserPasswordDTO,
 ): Promise<void> {
-  await api.post("auth/change-password", dto);
+  await api.post("user/change-password", dto);
 }

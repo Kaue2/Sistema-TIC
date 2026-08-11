@@ -6,70 +6,74 @@ namespace SistemaTic.Application.Services;
 
 public class UserService
 {
-	private readonly IUserRepository _userRepository;
-	private readonly IUserCredentialsRepository _userCredentialsRepository;
+    private readonly IUserRepository _userRepository;
+    private readonly IUserCredentialsRepository _userCredentialsRepository;
 
-	public UserService(
-		IUserRepository userRepository, 
-		IUserCredentialsRepository userCredentialsRepository)
-	{
-		this._userRepository = userRepository;
-		this._userCredentialsRepository = userCredentialsRepository;
-	}
+    public UserService(
+        IUserRepository userRepository,
+        IUserCredentialsRepository userCredentialsRepository)
+    {
+        this._userRepository = userRepository;
+        this._userCredentialsRepository = userCredentialsRepository;
+    }
 
-	public async Task<IEnumerable<User>> GetAllUsersAsync()
-	{
-		return await this._userRepository.GetAllUsersAsync();	
-	}
+    public async Task<IEnumerable<User>> GetAllUsersAsync()
+    {
+        return await this._userRepository.GetAllUsersAsync();
+    }
 
-	public async Task<Guid> CreateUser(CreateUserDTO dto)
-	{
-		return await _userRepository.CreateUserAsync(dto);
-	}
+    public async Task<Guid> CreateUser(CreateUserDTO dto)
+    {
+        return await _userRepository.CreateUserAsync(dto);
+    }
 
-	public async Task<UserCredentials> ChangeUserPasswordAsync(ChangeUserPasswordDTO dto)
-	{
-		User? user = await this._userRepository.GetUserByEmailAsync(dto.Email);
+    public async Task<UserCredentials> ChangeUserPasswordAsync(string email, string oldPassword, string newPassword, string confirmNewPassword)
+    {
+        User? user = await this._userRepository.GetUserByEmailAsync(email);
 
-		if (user == null)
-			throw new Exception("não foi possível encontrar o usuario");
+        if (user == null)
+            throw new Exception("não foi possível encontrar o usuario");
 
-		UserCredentials? credentials = await this._userCredentialsRepository.GetUserCredentialsAsync(user.Id);
+        UserCredentials? credentials = await this._userCredentialsRepository.GetUserCredentialsAsync(user.Id);
 
-		if (credentials == null)
-			throw new Exception("não foi possível encontrar a credencial para o usuário");
+        if (credentials == null)
+            throw new Exception("não foi possível encontrar a credencial para o usuário");
 
-        bool correct_password = BCrypt.Net.BCrypt.Verify(dto.OldPAssword, credentials.PasswordHash);
+        bool correct_password = BCrypt.Net.BCrypt.Verify(oldPassword, credentials.PasswordHash);
 
         if (!correct_password)
             throw new Exception("a senha do usuário está incorreta");
 
-		var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        if (!String.Equals(newPassword, confirmNewPassword))
+            throw new Exception("a nova senha e a confirmação não são iguais");
 
-		credentials.PasswordHash = passwordHash;
-		credentials.IsTemporary = false;
-		credentials.PasswordChangedAt = DateTimeOffset.Now.ToUniversalTime();
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
 
-		UserCredentials? newCredentials = await this._userCredentialsRepository.UpdateUserCredentialsAsync(credentials);
+        credentials.PasswordHash = passwordHash;
+        credentials.IsTemporary = false;
+        credentials.PasswordChangedAt = DateTimeOffset.Now.ToUniversalTime();
+        credentials.MustChangePassword = false;
 
-		if (newCredentials == null)
-			throw new Exception("erro ao atualizar credenciais");
+        UserCredentials? newCredentials = await this._userCredentialsRepository.UpdateUserCredentialsAsync(credentials);
 
-		return newCredentials;
-    } 
+        if (newCredentials == null)
+            throw new Exception("erro ao atualizar credenciais");
 
-	public async Task<User> ChangeUserRoleAsync(ChangeUserRoleDTO dto)
-	{
-		User? user = await this._userRepository.GetUserByEmailAsync(dto.Email);
+        return newCredentials;
+    }
 
-		if (user is null)
-			throw new Exception("não foi possivel encontrar o usuário");
+    public async Task<User> ChangeUserRoleAsync(ChangeUserRoleDTO dto)
+    {
+        User? user = await this._userRepository.GetUserByEmailAsync(dto.Email);
 
-		User? updatedUser = await this._userRepository.ChangeUserRoleAsync(user.Id, dto.RoleCode);
+        if (user is null)
+            throw new Exception("não foi possivel encontrar o usuário");
 
-		if (updatedUser is null)
-			throw new Exception("falha ao atualizar usuario");
+        User? updatedUser = await this._userRepository.ChangeUserRoleAsync(user.Id, dto.RoleCode);
 
-		return updatedUser;
-	}
+        if (updatedUser is null)
+            throw new Exception("falha ao atualizar usuario");
+
+        return updatedUser;
+    }
 }

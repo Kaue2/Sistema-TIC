@@ -1,10 +1,10 @@
-using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
-using SistemaTic.Application;
 using SistemaTic.Application.Services;
 using SistemaTic.Application.DTO;
 using SistemaTic.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace SistemaTic.Api.Controllers;
 
@@ -17,7 +17,7 @@ public class UserController : ControllerBase
     public UserController(UserService userService)
     {
         this._userService = userService;
-    } 
+    }
 
     [HttpGet("get-users")]
     public async Task<IEnumerable<User>> GetUsers()
@@ -36,8 +36,15 @@ public class UserController : ControllerBase
     [Authorize]
     public async Task<IActionResult> ChangeUserPassword(ChangeUserPasswordDTO dto)
     {
-        UserCredentials credentials = await this._userService.ChangeUserPasswordAsync(dto);
-        return Ok(credentials.UserId); 
+        string? email = User.FindFirstValue(ClaimTypes.Email);
+
+        if (String.IsNullOrEmpty(email))
+        {
+            return Unauthorized("Email não encontrado no token.");
+        }
+
+        UserCredentials credentials = await this._userService.ChangeUserPasswordAsync(email, dto.OldPassword, dto.NewPassword, dto.ConfirmNewPassword);
+        return Ok(credentials.UserId);
     }
 
     [HttpPost("change-role")]
