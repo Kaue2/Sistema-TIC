@@ -1,24 +1,6 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { UserContext, type UserData } from "./userContext";
 
-export interface UserData {
-    id: string;
-    email: string;
-    name: string;
-    roleName: string;
-}
-
-export interface UserContextType {
-    userData: UserData | null;
-    setUserData: (userData: UserData |  null) => void;
-}
-
-export const UserContext = createContext<UserContextType>({
-    userData: null,
-    setUserData: () => {},
-});
-
-// tenta recuperar o usuário do localStorage ao inicializar o estado
-// caso não tenha nada no localStorage, o estado inicial será null
 export function UserProvider({children}: {children: React.ReactNode}) {
     const [userData, setUserData] = useState<UserData | null>(() => {
     const storedUser = localStorage.getItem('@SistemaTIC:user');
@@ -44,8 +26,4 @@ export function UserProvider({children}: {children: React.ReactNode}) {
             {children}
         </UserContext.Provider>
     );
-}
-
-export function useUser() {
-    return useContext(UserContext);
 }

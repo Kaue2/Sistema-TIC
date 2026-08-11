@@ -1,29 +1,36 @@
 import { useState } from "react";
-import type {
-  DocumentStatusValue,
-  DocumentType,
-} from "../types/document";
-import {
-  DocumentService,
-  emptyContent,
-  type StoredDocument,
-} from "../services/document/DocumentService";
-import {
-  validateContent,
-  type DocumentFieldErrors,
-} from "../services/document/DocumentValidation";
+import type { DocumentStatusValue, DocumentType } from "../types/document";
+import { DocumentService, type StoredDocument } from "../services/document/DocumentService";
 
-type UseDocumentFormOptions = {
-  document: StoredDocument | null;
+type UseDocumentFormOptions<
+  C extends object,
+  E,
+> = {
+  document: StoredDocument<C> | null;
   type?: DocumentType;
+  empty: () => C;
+  emptyErrors: () => E;
+  validate: (content: C) => E;
+  hasErrors: (errors: E) => boolean;
+  getCareer?: (content: C) => string;
 };
 
-export function useDocumentForm({ document, type }: UseDocumentFormOptions) {
-  const [savedDoc, setSavedDoc] = useState<StoredDocument | null>(document);
-  const [content, setContent] = useState(() =>
-    document ? structuredClone(document.content) : emptyContent()
+export function useDocumentForm<C extends object, E>(
+  {
+    document,
+    type,
+    empty,
+    emptyErrors,
+    validate,
+    hasErrors,
+    getCareer,
+  }: UseDocumentFormOptions<C, E>
+) {
+  const [savedDoc, setSavedDoc] = useState<StoredDocument<C> | null>(document);
+  const [content, setContent] = useState<C>(() =>
+    document ? structuredClone(document.content) : empty()
   );
-  const [errors, setErrors] = useState<DocumentFieldErrors>({});
+  const [errors, setErrors] = useState<E>(() => emptyErrors());
   const [isBusy, setIsBusy] = useState(false);
   const [initialSnapshot] = useState(() => JSON.stringify(content));
 
@@ -31,19 +38,23 @@ export function useDocumentForm({ document, type }: UseDocumentFormOptions) {
   const isDirty = JSON.stringify(content) !== initialSnapshot;
 
   function runValidation(): boolean {
-    const next = validateContent(content);
+    const next = validate(content);
     setErrors(next);
-    return Object.keys(next).length === 0;
+    return !hasErrors(next);
   }
+
+  const careerPatch = getCareer
+    ? { career: getCareer(content) }
+    : {};
 
   async function createAndPersist(
     target: DocumentStatusValue
-  ): Promise<StoredDocument | null> {
+  ): Promise<StoredDocument<C> | null> {
     if (!type) return null;
-    const created = await DocumentService.createDocument(type);
+    const created = await DocumentService.createDocument<C>(type);
     const updated = await DocumentService.updateDocument(created.id, {
       content,
-      career: content.career,
+      ...careerPatch,
       status: target,
     });
     if (!updated) return null;
@@ -51,14 +62,14 @@ export function useDocumentForm({ document, type }: UseDocumentFormOptions) {
     return updated;
   }
 
-  async function save(): Promise<StoredDocument | null> {
+  async function save(): Promise<StoredDocument<C> | null> {
     if (isBusy || !runValidation()) return null;
     setIsBusy(true);
     try {
       if (savedDoc) {
         const updated = await DocumentService.updateDocument(savedDoc.id, {
           content,
-          career: content.career,
+          ...careerPatch,
           status: "Rascunho",
         });
         if (updated) setSavedDoc(updated);
@@ -70,14 +81,14 @@ export function useDocumentForm({ document, type }: UseDocumentFormOptions) {
     }
   }
 
-  async function sendToReview(): Promise<StoredDocument | null> {
+  async function sendToReview(): Promise<StoredDocument<C> | null> {
     if (isBusy || !runValidation()) return null;
     setIsBusy(true);
     try {
       if (savedDoc) {
         const updated = await DocumentService.updateDocument(savedDoc.id, {
           content,
-          career: content.career,
+          ...careerPatch,
           status: "Em Revisão",
         });
         if (updated) setSavedDoc(updated);
@@ -92,11 +103,11 @@ export function useDocumentForm({ document, type }: UseDocumentFormOptions) {
   async function transition(
     target: DocumentStatusValue,
     devolveObservation?: string
-  ): Promise<StoredDocument | null> {
+  ): Promise<StoredDocument<C> | null> {
     if (!savedDoc || isBusy) return null;
     setIsBusy(true);
     try {
-      const updated = await DocumentService.transitionStatus(
+      const updated = await DocumentService.transitionStatus<C>(
         savedDoc.id,
         target,
         devolveObservation

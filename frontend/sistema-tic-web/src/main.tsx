@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import { RouterProvider } from 'react-router-dom'
 import { router } from './Router'
-import  { UserProvider } from './contexts/UserContext'
+import { UserProvider } from './contexts/UserProvider'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,4 +1,5 @@
 import type { ChangeEvent, ReactNode, MouseEvent } from "react";
+import { CharacterCounter } from "./CharacterCounter";
 
 type InputProps = {
   id: string;
@@ -38,7 +39,6 @@ export function Input({
   const hasIcon = !!icon;
   const hasCounter = maxLength !== undefined;
   const currentLength = value.length;
-  const isOverLimit = hasCounter && currentLength > maxLength!;
 
   const labelLeftClass = hasIcon && iconPosition === "left" ? "left-10" : "left-3";
 
@@ -153,9 +153,7 @@ export function Input({
         <div className="flex items-start justify-between mt-0.5 gap-3">
           <span className="text-xs text-black-60">{helperText}</span>
           {hasCounter && (
-            <span className={`text-xs ${isOverLimit ? "text-red-100" : "text-black-60"}`}>
-              {currentLength}/{maxLength}
-            </span>
+            <CharacterCounter length={currentLength} max={maxLength!} />
           )}
         </div>
       )}
