@@ -6,19 +6,29 @@ export type MultiSelectOption = {
 };
 
 type MultiSelectDropdownProps = {
+  id?: string;
   label: string;
   icon: string;
+  placeholder?: string;
   options: MultiSelectOption[];
   selected: string[];
   onChange: (selected: string[]) => void;
+  multiple?: boolean;
+  disabled?: boolean;
+  size?: "sm" | "md";
 };
 
 export function MultiSelectDropdown({
+  id,
   label,
   icon,
+  placeholder,
   options,
   selected,
   onChange,
+  multiple = true,
+  disabled = false,
+  size = "sm",
 }: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -34,6 +44,11 @@ export function MultiSelectDropdown({
   }, []);
 
   function handleToggle(value: string) {
+    if (!multiple) {
+      onChange([value]);
+      setOpen(false);
+      return;
+    }
     const already = selected.includes(value);
     const next = already
       ? selected.filter((s) => s !== value)
@@ -41,15 +56,28 @@ export function MultiSelectDropdown({
     onChange(next);
   }
 
+  const selectedValue = multiple ? "" : (selected[0] ?? "");
+  const selectedOption = multiple
+    ? undefined
+    : options.find((opt) => opt.value === selectedValue);
+  const buttonText = selectedOption?.label ?? placeholder ?? label;
+  const buttonHeight = size === "md" ? "h-12" : "h-10";
+
   return (
     <div ref={ref} className="relative">
       <button
+        id={id}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={label}
         onClick={() => setOpen(!open)}
-        className="flex h-10 w-full items-center gap-2 rounded-lg border border-black-20 bg-card-background px-3 text-sm text-black-60 transition-all duration-200 hover:border-blue-100 focus:border-blue-100 focus:ring-1 focus:ring-blue-100"
+        disabled={disabled}
+        className={`flex ${buttonHeight} w-full items-center gap-2 rounded-lg border border-black-20 bg-card-background px-3 text-sm transition-all duration-200 focus:border-blue-100 focus:ring-1 focus:ring-blue-100 ${
+          disabled
+            ? "cursor-not-allowed opacity-50"
+            : "text-black-60 hover:border-blue-100"
+        } ${selectedOption ? "text-black-80" : ""}`}
       >
         <span
           className="material-symbols-outlined text-blue-100"
@@ -57,8 +85,8 @@ export function MultiSelectDropdown({
         >
           {icon}
         </span>
-        <span className="flex-1 truncate text-left">{label}</span>
-        {selected.length > 0 && (
+        <span className="flex-1 truncate text-left">{buttonText}</span>
+        {multiple && selected.length > 0 && (
           <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-100 px-1 text-xs text-white">
             {selected.length}
           </span>
@@ -71,7 +99,7 @@ export function MultiSelectDropdown({
         </span>
       </button>
 
-      {open && (
+      {open && !disabled && (
         <div
           role="listbox"
           aria-label={label}

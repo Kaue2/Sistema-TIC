@@ -2,5 +2,5 @@
 
 public interface ITokenGenerator
 {
-	public string Generate(Guid userId, string email, string roileCode, bool mustChangePassword);
+	public string Generate(Guid userId, string email, string role);	
 }

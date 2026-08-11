@@ -98,7 +98,8 @@ export function Input({
             outline-none
             transition-all
             duration-200
-            ${error ? "focus:border-red-100" : "focus:border-blue-700"}
+            hover:border-blue-100
+            ${error ? "focus:border-red-100" : "focus:border-blue-100 focus:ring-1 focus:ring-blue-100"}
             ${disabled ? "bg-gray-100 cursor-not-allowed opacity-50" : ""}
           `}
         />
@@ -122,7 +123,7 @@ export function Input({
               peer-focus:-top-2
               peer-focus:translate-y-0
               peer-focus:text-xs
-              ${error ? "peer-focus:text-red-100" : "peer-focus:text-blue-700"}
+              ${error ? "peer-focus:text-red-100" : "peer-focus:text-blue-100"}
 
               peer-not-placeholder-shown:left-3
               peer-not-placeholder-shown:-top-2

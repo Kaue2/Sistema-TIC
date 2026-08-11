@@ -38,3 +38,49 @@ export const DOCUMENT_STATUS_CONFIG: Record<
   "Rascunho": { dotClass: "bg-red-100", labelClass: "text-black-80" },
   "Arquivado": { dotClass: "bg-black-40", labelClass: "text-black-80" },
 };
+
+export type DocumentMode = "create" | "edit" | "view" | "review";
+
+export type CheckboxListMode = "none" | "list";
+
+export interface CheckboxListValue {
+  mode: CheckboxListMode;
+  items: string[];
+}
+
+export interface DateRangeValue {
+  start: string;
+  end: string;
+}
+
+export interface TimeRangeValue {
+  start: string;
+  end: string;
+}
+
+export interface DocumentContent {
+  teacherName: string;
+  career: string;
+  greatArea: string;
+  subareas: string[];
+  trailNameSuggestions: string[];
+  trailPresentation: string;
+  executionPeriod: DateRangeValue;
+  syncTime: TimeRangeValue;
+  modality: string;
+  targetAudience: string[];
+  workload: string;
+  syncMeetingDates: CheckboxListValue;
+  softwareTypes: CheckboxListValue;
+  suggestedVacancies: CheckboxListValue;
+  equipmentTypes: CheckboxListValue;
+  prerequisites: CheckboxListValue;
+  enrollmentNumber: CheckboxListValue;
+  participationStatementFrequency: string;
+  matriculationNumber: CheckboxListValue;
+  level: string;
+  technicalCompetencies: string;
+  nonTechnicalCompetencies: string[];
+  curriculumNature: string[];
+}
+
