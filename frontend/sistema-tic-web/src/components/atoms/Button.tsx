@@ -9,6 +9,7 @@ type ButtonProps = {
   onClick?: () => void;
   type?: "button" | "submit";
   disabled?: boolean;
+  className?: string;
 };
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -29,6 +30,7 @@ export function Button({
   onClick,
   type = "button",
   disabled = false,
+  className = "",
 }: ButtonProps) {
   return (
     <button
@@ -41,6 +43,7 @@ export function Button({
         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100
         ${variantClasses[variant]}
         ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}
+        ${className}
       `}
     >
       {icon && (

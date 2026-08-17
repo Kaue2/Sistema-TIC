@@ -7,6 +7,7 @@ import { MembersPage } from "./pages/MembersPage";
 import { MemberForm } from "./pages/MemberForm";
 import { DocumentsPage } from "./pages/DocumentsPage";
 import { DocumentEditorPage } from "./pages/DocumentEditorPage";
+import { TrilhasPage } from "./pages/TrilhasPage";
 
 export const router = createBrowserRouter([
   {
@@ -57,4 +58,8 @@ export const router = createBrowserRouter([
     path: "/documents/:id/review",
     element: <DocumentEditorPage mode="review" />,
   },
+  {
+  path: "/trails",
+  element: <TrilhasPage />,
+  }
 ]);

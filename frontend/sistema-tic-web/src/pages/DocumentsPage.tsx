@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { SearchInput } from "../components/molecules/SearchInput";
 import { SegmentedControl } from "../components/molecules/SegmentedControl";
@@ -25,15 +25,24 @@ const CREATE_TYPE_OPTIONS = TYPE_OPTIONS.filter((opt) => opt.value !== "all");
 
 export function DocumentsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const trailFromShortcut = searchParams.get("trail");
+  const initialTrail = TRAIL_OPTIONS.find(
+    (trail) => trail.value === trailFromShortcut
+  )?.value;
   const [documents, setDocuments] = useState<Document[]>(mockDocuments);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [search, setSearch] = useState(() => initialTrail ?? "");
+  const [debouncedSearch, setDebouncedSearch] = useState(
+    () => initialTrail ?? ""
+  );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [selectedSemesters, setSelectedSemesters] = useState<string[]>([]);
   const [selectedCareers, setSelectedCareers] = useState<string[]>([]);
-  const [selectedTrails, setSelectedTrails] = useState<string[]>([]);
+  const [selectedTrails, setSelectedTrails] = useState<string[]>(() =>
+    initialTrail ? [initialTrail] : []
+  );
   const [teachingMode, setTeachingMode] = useState<TeachingMode | null>(null);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
