@@ -4,6 +4,8 @@ type AvatarProps = {
   size?: "sm" | "md" | "lg";
   editable?: boolean;
   onEditClick?: () => void;
+  className?: string;
+  iconSize?: number;
 };
 
 const sizeMap = {
@@ -18,8 +20,11 @@ export function Avatar({
   size = "md",
   editable = false,
   onEditClick,
+  className = "",
+  iconSize,
 }: AvatarProps) {
-  const { container, icon: iconSize } = sizeMap[size];
+  const { container, icon: defaultIconSize } = sizeMap[size];
+  const displayedIconSize = iconSize ?? defaultIconSize;
 
   return (
     <div className="relative">
@@ -27,17 +32,17 @@ export function Avatar({
         <img
           src={avatarUrl}
           alt={`Foto de perfil de ${fullName}`}
-          className={`${container} rounded-full border-2 border-blue-100 bg-card-background object-cover`}
+          className={`${container} ${className} rounded-full border-2 border-blue-100 bg-card-background object-cover`}
         />
       ) : (
         <div
-          className={`${container} flex items-center justify-center rounded-full  border-blue-100 bg-card-background`}
+          className={`${container} ${className} flex items-center justify-center rounded-full border-blue-100 bg-card-background`}
         >
           <span
             className="material-symbols-outlined text-blue-100"
             style={{
-              fontSize: iconSize,
-              fontVariationSettings: `'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' ${iconSize}`,
+              fontSize: displayedIconSize,
+              fontVariationSettings: `'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' ${displayedIconSize}`,
             }}
           >
             account_circle

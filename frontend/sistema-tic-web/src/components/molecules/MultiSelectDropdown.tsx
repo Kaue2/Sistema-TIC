@@ -15,7 +15,7 @@ type MultiSelectDropdownProps = {
   onChange: (selected: string[]) => void;
   multiple?: boolean;
   disabled?: boolean;
-  size?: "sm" | "md";
+  size?: "xs" | "sm" | "md";
 };
 
 export function MultiSelectDropdown({
@@ -61,7 +61,8 @@ export function MultiSelectDropdown({
     ? undefined
     : options.find((opt) => opt.value === selectedValue);
   const buttonText = selectedOption?.label ?? placeholder ?? label;
-  const buttonHeight = size === "md" ? "h-12" : "h-10";
+  const buttonHeight =
+    size === "md" ? "h-12" : size === "xs" ? "h-9" : "h-10";
 
   return (
     <div ref={ref} className="relative">

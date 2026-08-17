@@ -1,49 +1,19 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "../components/atoms/Button";
 import { TrailCalendar } from "../components/molecules/TrailCalendar";
 import { TrailMilestoneDetails } from "../components/molecules/TrailMilestoneDetails";
-import { TrailPersonCard, type TrailPerson } from "../components/molecules/TrailPersonCard";
+import { TrailPersonCard } from "../components/molecules/TrailPersonCard";
 import { TrailProgressRing } from "../components/molecules/TrailProgressRing";
 import { TrailSection } from "../components/molecules/TrailSection";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
-
-const TRAIL = {
-  id: "2986",
-  title: "Dominando Algoritmos com C",
-  career: "Engenharia de Software",
-  semester: "2026/2",
-  modality: "Assíncrona / EAD",
-  level: "Introdutório",
-  description:
-    "Aprenda lógica de programação na prática, abordando sequências, condições, repetições, listas e funções para criar soluções eficientes. A trilha prepara você para resolver problemas reais no dia a dia.",
-};
+import { getTrailById, mockTrails } from "../data/mockTrails";
 
 const STAGES = ["Pré Trilha", "Pré Execução", "Execução Trilha", "Pós Trilha"];
 
-const MENTORS: TrailPerson[] = [
-  {
-    id: "bruna-1",
-    fullName: "Bruna Pagnotta Faria",
-    role: "Mentoria UX/UI",
-    email: "bruna.pagnottafaria@senacsp.edu.br",
-  },
-  {
-    id: "bruna-2",
-    fullName: "Bruna Pagnotta Faria",
-    role: "Mentoria UX/UI",
-    email: "bruna.pagnottafaria@senacsp.edu.br",
-  },
-];
-
-const PROGRESS_ITEMS = [
-  { label: "Geral", value: 50, featured: true },
-  { label: "Escopo e Proposta", value: 50, featured: false },
-  { label: "Plano de Ensino", value: 50, featured: false },
-  { label: "Softex", value: 25, featured: false },
-];
-
 export function TrilhasPage() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const trail = getTrailById(id) ?? mockTrails[0];
 
   return (
     <div className="min-h-screen bg-background">
@@ -126,17 +96,17 @@ export function TrilhasPage() {
             </span>
 
             <h1 className="text-[40px] font-normal leading-[1.1] text-blue-100 xl:text-[52px]">
-              {TRAIL.title}
+              {trail.title}
             </h1>
 
-            <span className="text-[20px] text-black-60">#{TRAIL.id}</span>
+            <span className="text-[20px] text-black-60">#{trail.id}</span>
           </div>
 
           <p className="mt-2 text-xl text-black-80 xl:ml-[72px] xl:text-[28px]">
-            {TRAIL.career}
+            {trail.career}
           </p>
 
-          <TrailStageStepper currentStage="Pré Trilha" />
+          <TrailStageStepper currentStage={trail.stage} />
         </header>
 
         <div className="space-y-[60px]">
@@ -144,18 +114,18 @@ export function TrilhasPage() {
             <TrailSection title="Visão Geral" className="xl:h-[412px]">
               <p className="text-sm leading-5 text-black-60">
                 <strong className="font-medium text-blue-100">Sobre: </strong>
-                {TRAIL.description}
+                {trail.description}
               </p>
 
               <dl className="mt-8 space-y-3 text-sm">
-                <TrailDetail label="Nível" value={TRAIL.level} />
-                <TrailDetail label="Modalidade" value={TRAIL.modality} />
-                <TrailDetail label="Semestre" value={TRAIL.semester} />
+                <TrailDetail label="Nível" value={trail.level} />
+                <TrailDetail label="Modalidade" value={trail.modality} />
+                <TrailDetail label="Semestre" value={trail.semester} />
               </dl>
             </TrailSection>
 
             <aside className="space-y-4 xl:pt-[61px]">
-              {MENTORS.map((mentor) => (
+              {trail.mentors.map((mentor) => (
                 <TrailPersonCard key={mentor.id} person={mentor} />
               ))}
             </aside>
@@ -171,8 +141,8 @@ export function TrilhasPage() {
                 icon="visibility"
                 onClick={() => {
                   const params = new URLSearchParams({
-                    trail: TRAIL.title,
-                    trailCode: TRAIL.id,
+                    trail: trail.title,
+                    trailCode: trail.id,
                   });
                   navigate(`/documents?${params.toString()}`);
                 }}
@@ -183,7 +153,7 @@ export function TrilhasPage() {
             }
           >
             <div className="flex h-full items-end justify-between pb-16 pl-[70px] pr-[112px] pt-6">
-              {PROGRESS_ITEMS.map((item) => (
+              {trail.progress.map((item) => (
                 <TrailProgressRing
                   key={item.label}
                   label={item.label}
@@ -219,7 +189,7 @@ export function TrilhasPage() {
                   specificStage="Produzir a trilha conforme o documento Acomp. de Entregáveis"
                   deadline="00/00/0000"
                   status="Pendente"
-                  responsible="Bruna Pagnotta Faria"
+                  responsible={trail.mentors[0]?.fullName ?? "Não definido"}
                 />
               </div>
             </div>
