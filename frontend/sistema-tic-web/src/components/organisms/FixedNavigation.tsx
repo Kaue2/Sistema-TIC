@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useNotifications } from "../../contexts/notificationContext";
 
 type NavigationPosition = "left" | "right" | "top" | "bottom";
 
@@ -24,7 +25,7 @@ interface FixedNavigationProps {
 function getPositionClasses(position: NavigationPosition): string {
   switch (position) {
     case "left":
-      return "fixed left-6 top-1/2 -translate-y-1/2";
+      return "fixed left-7 top-1/2 -translate-y-1/2";
     case "right":
       return "fixed right-6 top-1/2 -translate-y-1/2";
     case "top":
@@ -89,6 +90,7 @@ function MaterialIcon({ name, active }: { name: string; active?: boolean }) {
  */
 export function FixedNavigation({ position, items, onNavigate }: FixedNavigationProps) {
   const navigate = useNavigate();
+  const { unreadCount } = useNotifications();
   const vertical = isVertical(position);
   const visibleItems = items.filter((item) => item.visible);
   const orderedItems = reorderItems(visibleItems, vertical);
@@ -118,8 +120,7 @@ export function FixedNavigation({ position, items, onNavigate }: FixedNavigation
         rounded-full
         border-2 border-blue-100
         bg-card-background
-        p-3
-        gap-3
+        ${vertical ? "h-[454px] w-[82px] justify-between p-2" : "gap-3 p-3"}
         ${getPositionClasses(position)}
       `}
       role="navigation"
@@ -129,6 +130,8 @@ export function FixedNavigation({ position, items, onNavigate }: FixedNavigation
         <NavigationItemRenderer
           key={item.id}
           item={item}
+          vertical={vertical}
+          showNotificationBadge={item.notification && unreadCount > 0}
           onNavigate={handleNavigate}
           onKeyDown={handleKeyDown}
         />
@@ -139,12 +142,16 @@ export function FixedNavigation({ position, items, onNavigate }: FixedNavigation
 
 interface NavigationItemRendererProps {
   item: NavigationItem;
+  vertical: boolean;
+  showNotificationBadge: boolean;
   onNavigate: (route: string) => void;
   onKeyDown: (e: React.KeyboardEvent, route: string, enabled: boolean) => void;
 }
 
 function NavigationItemRenderer({
   item,
+  vertical,
+  showNotificationBadge,
   onNavigate,
   onKeyDown,
 }: NavigationItemRendererProps) {
@@ -165,7 +172,7 @@ function NavigationItemRenderer({
       className={`
         relative
         flex flex-col items-center justify-center
-        w-16 h-16
+        h-16 ${vertical ? "w-full" : "w-16"}
         rounded-2xl
         transition-all duration-200 ease-in-out
         text-blue-100
@@ -181,8 +188,8 @@ function NavigationItemRenderer({
         </span>
       )}
 
-      {item.notification && (
-        <span className="absolute top-2 right-4 w-3 h-3 rounded-full bg-red-100 border-2 border-white" />
+      {showNotificationBadge && (
+        <span className="absolute right-2 top-2 size-3 rounded-full border-2 border-white bg-red-100" />
       )}
     </button>
   );
@@ -215,14 +222,14 @@ function AvatarItem({ item, onNavigate, onKeyDown }: AvatarItemProps) {
         <img
           src={item.avatarUrl}
           alt="Avatar"
-          className="w-18 h-18 rounded-full object-cover border-2 border-blue-100"
+          className="size-14 rounded-full border-2 border-blue-100 object-cover"
         />
       ) : (
         <span
-          className="material-symbols-outlined text-[72px] text-blue-100"
+          className="material-symbols-outlined text-[56px] text-blue-100"
           style={{
-            fontSize: "72px",
-            fontVariationSettings: `'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 72`,
+            fontSize: "56px",
+            fontVariationSettings: `'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 56`,
           }}
         >
           account_circle

@@ -4,11 +4,14 @@ import './index.css'
 import { RouterProvider } from 'react-router-dom'
 import { router } from './Router'
 import { UserProvider } from './contexts/UserProvider'
+import { NotificationProvider } from './contexts/NotificationProvider'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <UserProvider>
-      <RouterProvider router={router} />
+      <NotificationProvider>
+        <RouterProvider router={router} />
+      </NotificationProvider>
     </UserProvider>
   </StrictMode>,
 )

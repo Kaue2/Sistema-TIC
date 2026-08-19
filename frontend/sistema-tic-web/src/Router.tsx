@@ -9,6 +9,7 @@ import { DocumentsPage } from "./pages/DocumentsPage";
 import { DocumentEditorPage } from "./pages/DocumentEditorPage";
 import { CentralTrilhasPage } from "./pages/CentralTrilhasPage";
 import { TrilhasPage } from "./pages/TrilhasPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 
 export const router = createBrowserRouter([
   {
@@ -58,6 +59,10 @@ export const router = createBrowserRouter([
   {
     path: "/documents/:id/review",
     element: <DocumentEditorPage mode="review" />,
+  },
+  {
+    path: "/notifications",
+    element: <NotificationsPage />,
   },
   {
     path: "/trails",
