@@ -9,4 +9,5 @@ public interface IUserCredentialsRepository
 {
     public Task<UserCredentials?> GetUserCredentialsAsync(Guid userId);
     public Task<UserCredentials?> UpdateUserCredentialsAsync(UserCredentials credentials);
+    public Task<UserCredentials> CreateAsync(Guid userId, string password);
 }

@@ -71,6 +71,34 @@ public class UserRepository : IUserRepository
         return null;
     }
 
+    public async Task<User?> GetUserByIdAsync(Guid id)
+    {
+        await using var cmd = _dataSource.CreateCommand("""
+			SELECT * FROM users WHERE id = @id
+		""");
+
+        cmd.Parameters.AddWithValue("id", id);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+
+        if (await reader.ReadAsync())
+        {
+            Guid userId = reader.IsDBNull(0) ? Guid.Empty : reader.GetGuid(0);
+            Guid roleId = reader.IsDBNull(1) ? Guid.Empty : reader.GetGuid(1);
+            string email = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+            string name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+            string status = reader.IsDBNull(4) ? string.Empty : reader.GetString(4);
+            Guid? createdByUser = reader.IsDBNull(5) ? null : reader.GetGuid(5);
+            DateTimeOffset createdAt = reader.IsDBNull(6) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(6);
+            DateTimeOffset updatedAt = reader.IsDBNull(7) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(7);
+            DateTimeOffset? disabledAt = reader.IsDBNull(8) ? null : reader.GetFieldValue<DateTimeOffset>(8);
+
+            return new User(userId, roleId, email, name, status, createdByUser, createdAt, updatedAt, disabledAt);
+        }
+
+        return null;
+    }
+
     public async Task<Roles?> GetUserRoleAsync(Guid userId)
     {
         Roles role;
@@ -109,29 +137,13 @@ public class UserRepository : IUserRepository
         return null;
     }
 
-    public async Task<Guid> CreateUserAsync(CreateUserDTO dto)
+    public async Task<Guid> CreateUserAsync(string fullName, string emailEducacional, Guid roleId)
     {
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-
         await using var connection = await this._dataSource.OpenConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
         try
         {
-            await using var cmdRole = connection.CreateCommand();
-            cmdRole.Transaction = transaction;
-            cmdRole.CommandText = "SELECT id FROM roles WHERE code = @code;";
-            cmdRole.Parameters.AddWithValue("code", dto.roleCode);
-
-            var roleResult = await cmdRole.ExecuteScalarAsync();
-
-            if (roleResult is null)
-            {
-                throw new Exception("Não foi possível encontrar a role solicitada.");
-            }
-
-            Guid roleId = (Guid)roleResult;
-
             await using var cmdUser = connection.CreateCommand();
             cmdUser.Transaction = transaction;
             cmdUser.CommandText = """
@@ -140,30 +152,16 @@ public class UserRepository : IUserRepository
             RETURNING id;
             """;
 
-            cmdUser.Parameters.AddWithValue("fullName", dto.Name);
-            cmdUser.Parameters.AddWithValue("email", dto.Email);
+            cmdUser.Parameters.AddWithValue("fullName", fullName);
+            cmdUser.Parameters.AddWithValue("email", emailEducacional);
             cmdUser.Parameters.AddWithValue("roleId", roleId);
 
             var result = await cmdUser.ExecuteScalarAsync();
 
             if (result is null)
-            {
                 throw new InvalidOperationException("Falha ao gerar o ID do usuário no banco de dados.");
-            }
 
             Guid userId = (Guid)result;
-
-            await using var cmdCredentials = connection.CreateCommand();
-            cmdCredentials.Transaction = transaction;
-            cmdCredentials.CommandText = """
-            INSERT INTO user_credentials (user_id, password_hash, is_temporary, must_change_password)
-            VALUES (@userId, @passwordHash, true, true);
-            """;
-
-            cmdCredentials.Parameters.AddWithValue("userId", userId);
-            cmdCredentials.Parameters.AddWithValue("passwordHash", passwordHash);
-
-            await cmdCredentials.ExecuteNonQueryAsync();
 
             await transaction.CommitAsync();
 
@@ -249,7 +247,7 @@ public class UserRepository : IUserRepository
     {
 
         await using var cmd = this._dataSource.CreateCommand();
-        cmd.CommandText = 
+        cmd.CommandText =
        """
         UPDATE users
         SET 

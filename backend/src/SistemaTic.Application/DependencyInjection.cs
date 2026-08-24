@@ -6,12 +6,12 @@ namespace SistemaTic.Application;
 
 public static class DependencyInjection
 {
-	public static IServiceCollection AddApplication(
-		this IServiceCollection services)
-	{
-		services.AddScoped<UserService>();
-		services.AddScoped<AuthService>();
-		
-		return services;
-	}
+    public static IServiceCollection AddApplication(
+        this IServiceCollection services)
+    {
+        services.AddScoped<UserService>();
+        services.AddScoped<AuthService>();
+
+        return services;
+    }
 }

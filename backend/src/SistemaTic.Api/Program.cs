@@ -35,6 +35,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AngularDev");
+
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();

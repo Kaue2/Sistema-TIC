@@ -17,6 +17,21 @@ public static class DependencyInjection
 		services.AddScoped<IUserRepository, UserRepository>();
 		services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
 		services.AddScoped<IUserCredentialsRepository, UserCredentialsRepository>();
+		services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+		services.AddScoped<IUserContactRepository, UserContactRepository>();
+		services.AddScoped<IUserAvailabilityRepository, UserAvailabilityRepository>();
+		services.AddScoped<IUserJobPositionRepository, UserJobPositionRepository>();
+		services.AddScoped<IJobPositionRepository, JobPositionRepository>();
+		services.AddScoped<IKnowledgeAreaRepository, KnowledgeAreaRepository>();
+		services.AddScoped<IRoleRepository, RoleRepository>();
+		services.AddScoped<ITrackIdeaRepository, TrackIdeaRepository>();
+		services.AddScoped<ITrackRepository, TrackRepository>();
+		services.AddScoped<ITrackTeamMemberRepository, TrackTeamMemberRepository>();
+		services.AddScoped<ITrackTaskRepository, TrackTaskRepository>();
+		services.AddScoped<ITrackEventRepository, TrackEventRepository>();
+		services.AddScoped<ITrackDocumentRepository, TrackDocumentRepository>();
+		services.AddScoped<INotificationRepository, NotificationRepository>();
+		services.AddScoped<INotificationRecipientRepository, NotificationRecipientRepository>();
 
 		return services;
 	}

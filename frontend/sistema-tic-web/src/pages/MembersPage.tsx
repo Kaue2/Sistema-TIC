@@ -9,6 +9,7 @@ import { MemberCard } from "../components/organisms/MemberRow";
 import { Empty } from "../components/molecules/Empty";
 import { EmptySearch } from "../components/molecules/EmptySearch";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
+import { getMembers } from "../services/user-services";
 
 export type Member = {
   id: string;
@@ -22,100 +23,23 @@ export type Member = {
   type: string;
 };
 
-const filterOptions = [
-  { label: "Ordem Alfabética", value: "alfabetica" },
-  { label: "Coordenação", value: "coordenação" },
-  { label: "Administração", value: "administração" },
-  { label: "Mentoria", value: "mentoria" },
-  { label: "Monitoria", value: "monitoria" },
+const ROLE_LABELS: Record<string, string> = {
+  coordinator: "Coordenação",
+  administrator: "Administração",
+  mentor: "Mentoria",
+  monitor: "Monitoria",
+};
+
+const WEEKDAY_NAMES = [
+  "Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado",
 ];
 
-const mockMembers: Member[] = [
-  {
-    id: "1",
-    fullName: "Ana Beatriz Costa",
-    role: "Coordenadora Geral",
-    institutionalEmail: "ana.costa@senac.com.br",
-    administrativeEmail: "ana.admin@senac.com.br",
-    journeys: [
-      { day: "Segunda", start: "08:00", end: "12:00" },
-      { day: "Terça", start: "08:00", end: "12:00" },
-      { day: "Quarta", start: "08:00", end: "12:00" },
-      { day: "Quinta", start: "08:00", end: "12:00" },
-      { day: "Sexta", start: "08:00", end: "12:00" },
-    ],
-    location: "E101",
-    type: "coordenação",
-  },
-  {
-    id: "2",
-    fullName: "Carlos Eduardo Lima",
-    role: "Administrador",
-    institutionalEmail: "carlos.lima@senac.com.br",
-    journeys: [
-      { day: "Segunda", start: "09:00", end: "18:00" },
-      { day: "Terça", start: "09:00", end: "18:00" },
-      { day: "Quarta", start: "09:00", end: "18:00" },
-      { day: "Quinta", start: "09:00", end: "18:00" },
-      { day: "Sexta", start: "09:00", end: "18:00" },
-    ],
-    location: "E102",
-    type: "administração",
-  },
-  {
-    id: "3",
-    fullName: "Daniela Oliveira Santos",
-    role: "Mentora de Carreira",
-    institutionalEmail: "daniela.santos@senac.com.br",
-    journeys: [
-      { day: "Segunda", start: "13:00", end: "19:00" },
-      { day: "Terça", start: "13:00", end: "19:00" },
-      { day: "Quarta", start: "13:00", end: "19:00" },
-      { day: "Quinta", start: "13:00", end: "19:00" },
-    ],
-    location: "E103",
-    type: "mentoria",
-  },
-  {
-    id: "4",
-    fullName: "Eduardo Almeida Neto",
-    role: "Monitor de Algoritmos",
-    institutionalEmail: "eduardo.neto@senac.com.br",
-    journeys: [
-      { day: "Segunda", start: "14:00", end: "20:00" },
-      { day: "Quarta", start: "14:00", end: "20:00" },
-      { day: "Sexta", start: "14:00", end: "20:00" },
-    ],
-    location: "E104",
-    type: "monitoria",
-  },
-  {
-    id: "5",
-    fullName: "Fernanda Martins Rocha",
-    role: "Mentora de UX",
-    institutionalEmail: "fernanda.rocha@senac.com.br",
-    journeys: [
-      { day: "Terça", start: "10:00", end: "16:00" },
-      { day: "Quinta", start: "10:00", end: "16:00" },
-    ],
-    location: "E105",
-    type: "mentoria",
-  },
-  {
-    id: "6",
-    fullName: "Gabriel Souza Pereira",
-    role: "Monitor de Python",
-    institutionalEmail: "gabriel.pereira@senac.com.br",
-    journeys: [
-      { day: "Segunda", start: "13:00", end: "19:00" },
-      { day: "Terça", start: "13:00", end: "19:00" },
-      { day: "Quarta", start: "13:00", end: "19:00" },
-      { day: "Quinta", start: "13:00", end: "19:00" },
-      { day: "Sexta", start: "13:00", end: "19:00" },
-    ],
-    location: "E106",
-    type: "monitoria",
-  },
+const filterOptions = [
+  { label: "Ordem Alfabética", value: "alfabetica" },
+  { label: "Coordenação", value: "coordinator" },
+  { label: "Administração", value: "administrator" },
+  { label: "Mentoria", value: "mentor" },
+  { label: "Monitoria", value: "monitor" },
 ];
 
 export function MembersPage() {
@@ -128,10 +52,32 @@ export function MembersPage() {
     const saved = localStorage.getItem("members-view");
     return saved === "cards" ? "cards" : "list";
   });
+  const [members, setMembers] = useState<Member[]>([]);
 
   useEffect(() => {
     localStorage.setItem("members-view", view);
   }, [view]);
+
+  useEffect(() => {
+    getMembers().then((summaries) => {
+      setMembers(
+        summaries.map((m) => ({
+          id: m.id,
+          fullName: m.fullName,
+          role: ROLE_LABELS[m.roleCode] ?? m.roleCode,
+          institutionalEmail: m.institutionalEmail,
+          administrativeEmail: m.administrativeEmail ?? undefined,
+          location: m.workLocation ?? "",
+          type: m.roleCode,
+          journeys: m.availability.map((a) => ({
+            day: WEEKDAY_NAMES[a.weekday],
+            start: a.startsAt.slice(0, 5),
+            end: a.endsAt.slice(0, 5),
+          })),
+        }))
+      );
+    });
+  }, []);
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -147,7 +93,7 @@ export function MembersPage() {
   }
 
   const filteredMembers = useMemo(() => {
-    let result = [...mockMembers];
+    let result = [...members];
 
     if (debouncedSearch.trim()) {
       const term = debouncedSearch.trim().toLowerCase();
@@ -169,10 +115,10 @@ export function MembersPage() {
     }
 
     return result;
-  }, [debouncedSearch, filters]);
+  }, [members, debouncedSearch, filters]);
 
   const hasActiveFilters = debouncedSearch.trim().length > 0 || filters.length > 0;
-  const showEmpty = mockMembers.length === 0;
+  const showEmpty = members.length === 0;
   const showEmptySearch = !showEmpty && filteredMembers.length === 0 && hasActiveFilters;
   const showMembers = !showEmpty && !showEmptySearch;
 

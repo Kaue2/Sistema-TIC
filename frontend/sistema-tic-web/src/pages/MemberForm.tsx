@@ -14,12 +14,13 @@ import type { ToastType } from "../components/organisms/Toast";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
 import type { MemberSpreadsheetDTO } from "../services/excel/types";
 import { downloadTemplate } from "../services/excel/ExcelTemplateService";
+import { createUser } from "../services/user-services";
 
 const POSITION_OPTIONS = [
-  { label: "Coordenação", value: "coordenação" },
-  { label: "Administração", value: "administração" },
-  { label: "Mentoria", value: "mentoria" },
-  { label: "Monitoria", value: "monitoria" },
+  { label: "Coordenação", value: "coordinator" },
+  { label: "Administração", value: "administrator" },
+  { label: "Mentoria", value: "mentor" },
+  { label: "Monitoria", value: "monitor" },
 ];
 
 const DEFAULT_SCHEDULE: ScheduleItem[] = [
@@ -100,7 +101,7 @@ export function MemberForm() {
 
     const timer = setTimeout(() => {
       setFullName("Ana Beatriz Costa");
-      setPosition("coordenação");
+      setPosition("coordinator");
       setFront("UX/UI");
       setEducationalEmail("ana.costa@senacsp.edu.br");
       setAdministrativeEmail("ana.admin@sp.senac.br");
@@ -175,7 +176,7 @@ export function MemberForm() {
     setToast({ message: errors.join(" "), type: "error" });
   }, []);
 
-  function handleSave() {
+  async function handleSave() {
     let hasError = false;
 
     if (!fullName.trim()) {
@@ -193,15 +194,35 @@ export function MemberForm() {
       hasError = true;
     }
 
+    if (!position) {
+      setToast({ message: "Selecione uma posição.", type: "error" });
+      hasError = true;
+    }
+
     if (hasError) return;
 
     setSubmitting(true);
 
-    setTimeout(() => {
-      setSubmitting(false);
+    try {
+      // "front", "trails" e "documents" ainda não têm tabela/endpoint no backend,
+      // então não entram no payload por enquanto.
+      await createUser({
+        name: fullName,
+        emailEducacional: educationalEmail,
+        emailAdministrativo: administrativeEmail,
+        roleCode: position,
+        totalHours,
+        location,
+        schedule: schedule.map(({ day, start, end }) => ({ day, start, end })),
+      });
+
       setDirty(false);
       setToast({ message: "Membro salvo com sucesso.", type: "success" });
-    }, 800);
+    } catch {
+      setToast({ message: "Erro ao salvar membro.", type: "error" });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   useEffect(() => {

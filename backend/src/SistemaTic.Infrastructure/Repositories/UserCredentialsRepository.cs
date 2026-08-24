@@ -53,6 +53,48 @@ public class UserCredentialsRepository : IUserCredentialsRepository
         return null;
     }
 
+    public async Task<UserCredentials> CreateAsync(Guid userId, string password)
+    {
+        // senha chega em texto puro e sai como hash; usuário nasce com senha temporária,
+        // então é obrigado a trocar no primeiro acesso (bate com o CHECK do banco)
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
+
+        await using var cmd = this._dataSource.CreateCommand();
+        cmd.CommandText = """
+        INSERT INTO user_credentials (user_id, password_hash, is_temporary, must_change_password)
+        VALUES (@userId, @passwordHash, true, true)
+        RETURNING *;
+        """;
+
+        cmd.Parameters.AddWithValue("userId", userId);
+        cmd.Parameters.AddWithValue("passwordHash", passwordHash);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        await reader.ReadAsync();
+
+        Guid id = reader.IsDBNull(0) ? Guid.Empty : reader.GetGuid(0);
+        string hash = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+        bool isTemporary = reader.IsDBNull(2) ? false : reader.GetBoolean(2);
+        bool mustChangePassword = reader.IsDBNull(3) ? false : reader.GetBoolean(3);
+        DateTimeOffset? tempExpiresAt = reader.IsDBNull(4) ? null : reader.GetFieldValue<DateTimeOffset>(4);
+        DateTimeOffset? passwordChangedAt = reader.IsDBNull(5) ? null : reader.GetFieldValue<DateTimeOffset>(5);
+        int failedAttempts = reader.IsDBNull(6) ? 0 : reader.GetInt32(6);
+        DateTimeOffset? lockedUntil = reader.IsDBNull(7) ? null : reader.GetFieldValue<DateTimeOffset>(7);
+        DateTimeOffset updatedAt = reader.IsDBNull(8) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(8);
+
+        return new UserCredentials(
+            id,
+            hash,
+            isTemporary,
+            mustChangePassword,
+            tempExpiresAt,
+            passwordChangedAt,
+            failedAttempts,
+            lockedUntil,
+            updatedAt
+        );
+    }
+
     public async Task<UserCredentials?> UpdateUserCredentialsAsync(UserCredentials credentials)
     {
         await using var cmd = this._dataSource.CreateCommand();

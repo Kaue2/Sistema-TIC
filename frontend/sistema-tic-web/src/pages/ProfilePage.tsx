@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { DecorativeBackground } from "../components/atoms/DecorativeBackground";
 import { ProfileHeader } from "../components/organisms/ProfileHeader";
 import { ProfileContent } from "../components/organisms/ProfileContent";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
+import { type CustomJwtDecode } from "../services/api";
+import { getUserProfile } from "../services/user-services";
 
 export interface User {
   id: string;
@@ -15,47 +19,59 @@ export interface User {
   curriculumUrl?: string;
   lattesUrl?: string;
   journeys: ScheduleItem[];
+  totalHours?: string;
   location: string;
   trails?: string[];
   documents?: string[];
   groups?: string[];
 }
 
-const loggedUser: User = {
-  id: "123",
-  fullName: "João Silva",
-  role: "Desenvolvedor Frontend",
-  institutionalEmail: "joao.silva@empresa.com",
-  administrativeEmail: "joao.admin@empresa.com",
-  curriculumUrl: "https://lattes.cnptia.com.br/123",
-  lattesUrl: "https://lattes.cnptia.com.br/123",
-  journeys: [
-    { day: "Segunda", start: "13:00", end: "19:00" },
-    { day: "Terça", start: "13:00", end: "19:00" },
-    { day: "Quarta", start: "13:00", end: "19:00" },
-    { day: "Quinta", start: "13:00", end: "19:00" },
-    { day: "Sexta", start: "13:00", end: "19:00" },
-  ],
-  location: "E166",
-  trails: [
-    "Dominando Algoritmos com C",
-    "Dominando Algoritmos com Python"
-  ],
-  documents: [
-    "Regulamento.pdf",
-    "Guia.pdf"
-  ],
-  groups: [
-    "UX",
-    "Monitoria"
-  ],
-};
+const WEEKDAY_NAMES = [
+  "Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado",
+];
+
+function getCurrentUserId(): string | null {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+
+  try {
+    return jwtDecode<CustomJwtDecode>(token).sub;
+  } catch {
+    return null;
+  }
+}
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
-  const mode = id === loggedUser.id ? "self" : "user";
+  const mode = id === getCurrentUserId() ? "self" : "user";
 
-  const user = mode === "self" ? loggedUser : loggedUser;
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+
+    getUserProfile(id).then((profile) => {
+      setUser({
+        id: profile.id,
+        fullName: profile.name,
+        role: profile.roleName ?? "-",
+        institutionalEmail: profile.email,
+        administrativeEmail: profile.contacts.find((c) => c.isPrimary)?.contactValue,
+        lattesUrl: profile.lattesUrl ?? undefined,
+        location: profile.workLocation ?? "-",
+        totalHours: profile.weeklyWorkloadMinutes
+          ? `${Math.round(profile.weeklyWorkloadMinutes / 60)} horas`
+          : undefined,
+        journeys: profile.availability.map((a) => ({
+          day: WEEKDAY_NAMES[a.weekday],
+          start: a.startsAt.slice(0, 5),
+          end: a.endsAt.slice(0, 5),
+        })),
+      });
+    });
+  }, [id]);
+
+  if (!user) return null;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background">

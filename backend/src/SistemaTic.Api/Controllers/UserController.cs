@@ -25,6 +25,20 @@ public class UserController : ControllerBase
         return await this._userService.GetAllUsersAsync();
     }
 
+    [HttpGet("members")]
+    [Authorize]
+    public async Task<IEnumerable<MemberSummaryDTO>> GetMembers()
+    {
+        return await this._userService.GetMembersAsync();
+    }
+
+    [HttpGet("{id:guid}/profile")]
+    [Authorize]
+    public async Task<IActionResult> GetUserProfile(Guid id)
+    {
+        return Ok(await this._userService.GetUserProfileAsync(id));
+    }
+
     [HttpPost("create-user")]
     public async Task<IActionResult> CreateUser(CreateUserDTO dto)
     {

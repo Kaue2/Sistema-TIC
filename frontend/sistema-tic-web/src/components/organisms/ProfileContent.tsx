@@ -51,7 +51,7 @@ export function ProfileContent({
 
       <div className="flex justify-center md:justify-end">
         <JourneySchedule
-          totalHours="25 horas"
+          totalHours={user.totalHours ?? "-"}
           location={user.location}
           schedule={user.journeys}
           editable={false}
