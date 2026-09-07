@@ -6,6 +6,7 @@ import { Button } from "../atoms/Button";
 type DocumentHeaderProps = {
   mode: DocumentMode;
   backTo?: string;
+  borderless?: boolean;
   title: string;
   subtitle?: string;
   initials: string;
@@ -35,6 +36,7 @@ function formatUpdatedAt(iso?: string): string {
 export function DocumentHeader({
   mode,
   backTo = "/documents",
+  borderless = false,
   title,
   subtitle,
   initials,
@@ -55,7 +57,11 @@ export function DocumentHeader({
   const buttonProps = { disabled };
 
   return (
-    <header className="sticky top-0 z-30 -mx-6 border-b border-blue-40/60 bg-background/95 px-6 pb-4 pt-12 backdrop-blur">
+    <header
+      className={`sticky top-0 z-30 -mx-6 bg-background/95 px-6 pb-4 pt-12 backdrop-blur${
+        borderless ? "" : " border-b border-blue-40/60"
+      }`}
+    >
       <button
         type="button"
         onClick={() => navigate(backTo)}

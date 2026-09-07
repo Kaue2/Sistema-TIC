@@ -5,9 +5,10 @@ import { Toast, type ToastType } from "../components/organisms/Toast";
 import { FormSection } from "../components/molecules/FormSection";
 import { Button } from "../components/atoms/Button";
 import { DocumentService, type StoredDocument } from "../services/document/DocumentService";
-import type { DocumentMode, DocumentType, PlanoEnsinoContent } from "../types/document";
+import type { DocumentMode, DocumentType, PlanoEnsinoContent, SoftexContent } from "../types/document";
 import { EscopoDocumentForm } from "./EscopoDocumentForm";
 import { PlanoEnsinoForm } from "./PlanoEnsinoForm";
+import { SoftexForm } from "./SoftexForm";
 
 const VALID_TYPES: DocumentType[] = [
   "Escopo e Proposta",
@@ -140,6 +141,17 @@ function DocumentEditorForm({
         document={
           document as unknown as StoredDocument<PlanoEnsinoContent> | null
         }
+        type={effectiveType}
+        onToast={onToast}
+      />
+    );
+  }
+
+  if (effectiveType === "Softex") {
+    return (
+      <SoftexForm
+        mode={mode}
+        document={document as unknown as StoredDocument<SoftexContent> | null}
         type={effectiveType}
         onToast={onToast}
       />

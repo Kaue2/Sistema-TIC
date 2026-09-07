@@ -81,6 +81,30 @@ export interface PlanoEnsinoContent {
   modules: PlanoEnsinoModule[];
 }
 
+export type SoftexSection = "Antes" | "Depois";
+
+export interface SoftexItem {
+  id: string;
+  section: SoftexSection;
+  title: string;
+  guidance: string;
+  example: string;
+  answer: string;
+}
+
+export interface SoftexMeta {
+  id: string;
+  metadata: {
+    description: string;
+  };
+  beforeItems: SoftexItem[];
+  afterItems: SoftexItem[];
+}
+
+export interface SoftexContent {
+  metas: SoftexMeta[];
+}
+
 export interface DocumentContent {
   teacherName: string;
   career: string;

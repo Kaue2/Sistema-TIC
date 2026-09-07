@@ -11,6 +11,7 @@ type TextareaProps = {
   disabled?: boolean;
   rows?: number;
   autoGrow?: boolean;
+  error?: boolean;
 };
 
 export function Textarea({
@@ -23,6 +24,7 @@ export function Textarea({
   disabled = false,
   rows = 4,
   autoGrow = false,
+  error = false,
 }: TextareaProps) {
   const generatedId = useId();
   const id = externalId ?? generatedId;
@@ -46,13 +48,13 @@ export function Textarea({
         maxLength={maxLength}
         disabled={disabled}
         rows={autoGrow ? 1 : rows}
-        className={`w-full rounded-lg border border-black-20 bg-card-background px-3 py-2.5 text-sm text-black-80 outline-none transition-all duration-200 placeholder:text-black-40 focus:border-blue-100 focus:ring-1 focus:ring-blue-100 hover:border-blue-100 ${
-          autoGrow ? "resize-none" : "resize-y"
+        className={`w-full rounded-lg border bg-card-background px-3 py-2.5 text-sm text-black-80 outline-none transition-all duration-200 placeholder:text-black-40 focus:ring-1 ${
+          error
+            ? "border-red-100 ring-1 ring-red-100 hover:border-red-100 focus:border-red-100 focus:ring-red-100"
+            : "border-black-20 focus:border-blue-100 focus:ring-blue-100 hover:border-blue-100"
         } ${
-          disabled
-            ? "cursor-not-allowed opacity-50"
-            : "placeholder:text-black-40"
-        }`}
+          autoGrow ? "resize-none" : "resize-y"
+        } ${disabled ? "cursor-not-allowed opacity-50" : "placeholder:text-black-40"}`}
       />
       {maxLength !== undefined || hint ? (
         <div className="mt-1 flex items-start justify-between gap-4 text-xs">

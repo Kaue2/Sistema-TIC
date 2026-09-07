@@ -6,8 +6,29 @@ import type {
   PlanoEnsinoCard,
   PlanoEnsinoContent,
   PlanoEnsinoModule,
+  SoftexContent,
+  SoftexItem,
+  SoftexMeta,
 } from "../../types/document";
 import { mockDocuments } from "../../data/mockDocuments";
+import { SOFTEX_METAS, type SoftexItemSeed, type SoftexMetaSeed } from "../../data/softexFields";
+
+export function emptySoftexItem(item: SoftexItemSeed): SoftexItem {
+  return { ...item, answer: "" };
+}
+
+export function emptySoftexMeta(meta: SoftexMetaSeed): SoftexMeta {
+  return {
+    ...meta,
+    metadata: { ...meta.metadata },
+    beforeItems: meta.beforeItems.map(emptySoftexItem),
+    afterItems: meta.afterItems.map(emptySoftexItem),
+  };
+}
+
+export function emptySoftexContent(): SoftexContent {
+  return { metas: SOFTEX_METAS.map(emptySoftexMeta) };
+}
 
 export function emptyPlanoEnsinoCard(): PlanoEnsinoCard {
   return {
@@ -76,7 +97,7 @@ const store = new Map<string, StoredDocument>();
 const EMPTY_CONTENT_BY_TYPE: Record<DocumentType, () => object> = {
   "Escopo e Proposta": emptyContent,
   "Plano de Ensino": emptyPlanoEnsinoContent,
-  Softex: emptyContent,
+  Softex: emptySoftexContent,
 };
 
 function seed() {

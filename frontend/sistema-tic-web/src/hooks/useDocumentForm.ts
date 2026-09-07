@@ -11,6 +11,7 @@ type UseDocumentFormOptions<
   empty: () => C;
   emptyErrors: () => E;
   validate: (content: C) => E;
+  validateReview?: (content: C) => E;
   hasErrors: (errors: E) => boolean;
   getCareer?: (content: C) => string;
 };
@@ -22,6 +23,7 @@ export function useDocumentForm<C extends object, E>(
     empty,
     emptyErrors,
     validate,
+    validateReview,
     hasErrors,
     getCareer,
   }: UseDocumentFormOptions<C, E>
@@ -37,8 +39,8 @@ export function useDocumentForm<C extends object, E>(
   const status: DocumentStatusValue = savedDoc?.status ?? "Rascunho";
   const isDirty = JSON.stringify(content) !== initialSnapshot;
 
-  function runValidation(): boolean {
-    const next = validate(content);
+  function runValidation(validateFn: (content: C) => E = validate): boolean {
+    const next = validateFn(content);
     setErrors(next);
     return !hasErrors(next);
   }
@@ -82,7 +84,7 @@ export function useDocumentForm<C extends object, E>(
   }
 
   async function sendToReview(): Promise<StoredDocument<C> | null> {
-    if (isBusy || !runValidation()) return null;
+    if (isBusy || !runValidation(validateReview ?? validate)) return null;
     setIsBusy(true);
     try {
       if (savedDoc) {
