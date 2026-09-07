@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useBlocker } from "react-router-dom";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { Input } from "../components/atoms/Input";
-import { Select } from "../components/atoms/Select";
 import { JourneySchedule } from "../components/organisms/JourneySchedule";
 import { DynamicInputList } from "../components/molecules/DynamicInputList";
 import { Button } from "../components/atoms/Button";
+import { FormField } from "../components/molecules/FormField";
+import { MultiSelectDropdown } from "../components/molecules/MultiSelectDropdown";
 
 import { ExcelImportButton } from "../components/molecules/ExcelImportButton";
 import { Toast } from "../components/organisms/Toast";
@@ -292,21 +293,28 @@ export function MemberForm() {
               />
 
               <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-                <Select
-                  id="position"
-                  label="Posição"
-                  value={position}
-                  options={POSITION_OPTIONS}
-                  onChange={(v) => { setPosition(v); setDirty(true); }}
-                  placeholder="Selecione uma posição"
-                />
+                <FormField id="position" label="Posição">
+                  <MultiSelectDropdown
+                    id="position"
+                    label="Posição"
+                    icon="badge"
+                    placeholder="Selecione uma posição"
+                    multiple={false}
+                    options={POSITION_OPTIONS}
+                    selected={position ? [position] : []}
+                    onChange={(selected) => { setPosition(selected[0] ?? ""); setDirty(true); }}
+                    size="md"
+                  />
+                </FormField>
 
-                <Input
-                  id="front"
-                  label="Frente"
-                  value={front}
-                  onChange={(e) => { setFront(e.target.value); setDirty(true); }}
-                />
+                <FormField id="front" label="Frente">
+                  <Input
+                    id="front"
+                    value={front}
+                    onChange={(e) => { setFront(e.target.value); setDirty(true); }}
+                    placeholder="Digite a frente"
+                  />
+                </FormField>
               </div>
 
               <Input
