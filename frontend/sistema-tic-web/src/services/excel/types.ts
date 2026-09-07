@@ -7,7 +7,6 @@ export interface MemberSpreadsheetDTO {
   institutionalEmail: string;
   administrativeEmail: string;
   journey: ScheduleItem[];
-  totalHours: string;
   location: string;
   trails: string[];
   documents: string[];

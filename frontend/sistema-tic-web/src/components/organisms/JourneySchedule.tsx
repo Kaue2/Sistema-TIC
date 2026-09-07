@@ -14,7 +14,6 @@ type JourneyScheduleProps = {
   schedule: ScheduleItem[];
   editable?: boolean;
   onScheduleChange?: (schedule: ScheduleItem[]) => void;
-  onTotalHoursChange?: (value: string) => void;
   onLocationChange?: (value: string) => void;
   bordered?: boolean;
 };
@@ -26,7 +25,6 @@ export function JourneySchedule({
   schedule,
   editable = false,
   onScheduleChange,
-  onTotalHoursChange,
   onLocationChange,
   bordered = true,
 }: JourneyScheduleProps) {
@@ -59,15 +57,9 @@ export function JourneySchedule({
     <section className={sectionClasses}>
       <div className="flex items-center justify-center gap-2 ">
         <h2 className="text-xl font-normal text-blue-100">{title}:</h2>
-        {editable && onTotalHoursChange ? (
+        {editable ? (
           <span className="flex items-center gap-1">
-            <input
-              type="number"
-              min={0}
-              value={totalHours ?? ""}
-              onChange={(e) => onTotalHoursChange(e.target.value)}
-              className="h-8 w-16 rounded border border-black-20 bg-card-background px-2 text-center text-xl text-black-80 outline-none transition-colors focus:border-blue-700 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
+            <span className="text-xl text-black-80">{totalHours}</span>
             <span className="text-xl text-black-80">horas</span>
           </span>
         ) : (

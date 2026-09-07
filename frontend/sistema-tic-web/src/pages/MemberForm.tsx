@@ -12,6 +12,7 @@ import { Toast } from "../components/organisms/Toast";
 import { ConfirmDialog } from "../components/molecules/ConfirmDialog";
 import type { ToastType } from "../components/organisms/Toast";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
+import { calculateTotalHours } from "../utils/schedule";
 import type { MemberSpreadsheetDTO } from "../services/excel/types";
 import { downloadTemplate } from "../services/excel/ExcelTemplateService";
 import { createUser } from "../services/user-services";
@@ -68,7 +69,6 @@ export function MemberForm() {
   const [educationalEmail, setEducationalEmail] = useState("");
   const [administrativeEmail, setAdministrativeEmail] = useState("");
   const [schedule, setSchedule] = useState<ScheduleItem[]>(DEFAULT_SCHEDULE);
-  const [totalHours, setTotalHours] = useState("");
   const [location, setLocation] = useState("");
   const [trails, setTrails] = useState<string[]>([""]);
   const [documents, setDocuments] = useState<string[]>([""]);
@@ -112,7 +112,7 @@ export function MemberForm() {
         { day: "Quinta", start: "08:00", end: "12:00" },
         { day: "Sexta", start: "08:00", end: "12:00" },
       ]);
-      setTotalHours("20");
+
       setLocation("E166");
       setTrails(["UI/UX", "Algoritmos em C"]);
       setDocuments(["Manual do Membro", "Contrato"]);
@@ -165,7 +165,6 @@ export function MemberForm() {
     setEducationalEmail(data.institutionalEmail);
     setAdministrativeEmail(data.administrativeEmail);
     setSchedule(data.journey);
-    setTotalHours(data.totalHours);
     setLocation(data.location);
     setTrails(data.trails.length > 0 ? data.trails : [""]);
     setDocuments(data.documents.length > 0 ? data.documents : [""]);
@@ -202,6 +201,8 @@ export function MemberForm() {
     if (hasError) return;
 
     setSubmitting(true);
+
+    const totalHours = calculateTotalHours(schedule);
 
     try {
       // "front", "trails" e "documents" ainda não têm tabela/endpoint no backend,
@@ -332,10 +333,9 @@ export function MemberForm() {
             <JourneySchedule
               schedule={schedule}
               editable
-              totalHours={totalHours}
+              totalHours={calculateTotalHours(schedule)}
               location={location}
               onScheduleChange={(s) => { setSchedule(s); setDirty(true); }}
-              onTotalHoursChange={(v) => { setTotalHours(v); setDirty(true); }}
               onLocationChange={(v) => { setLocation(v); setDirty(true); }}
             />
           </div>
