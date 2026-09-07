@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { DocumentHeader } from "../components/organisms/DocumentHeader";
 import { ConfirmDialog } from "../components/molecules/ConfirmDialog";
 import { MetaNavigation } from "../components/molecules/MetaNavigation";
+import { SoftexOverview } from "../components/molecules/SoftexOverview";
 import { SoftexPhaseGroup } from "../components/molecules/SoftexPhaseGroup";
 import { Textarea } from "../components/atoms/Textarea";
 import { useDocumentForm } from "../hooks/useDocumentForm";
@@ -17,7 +18,13 @@ import {
   hasSoftexErrors,
   type SoftexErrors,
 } from "../services/document/SoftexValidation";
-import type { DocumentMode, DocumentType, SoftexContent } from "../types/document";
+import { SOFTEX_PROGRESS_INDICATORS } from "../data/softexIntroFields";
+import type {
+  DocumentMode,
+  DocumentType,
+  SoftexContent,
+  SoftexIntro,
+} from "../types/document";
 import { initialsFrom } from "../utils/initials";
 import type { ToastType } from "../components/organisms/Toast";
 
@@ -138,6 +145,13 @@ export function SoftexForm({ mode, document, type, onToast }: SoftexFormProps) {
     }));
   }
 
+  function updateIntro(field: keyof SoftexIntro, value: string) {
+    setContent((prev) => ({
+      ...prev,
+      intro: { ...prev.intro, [field]: value },
+    }));
+  }
+
   const readonly = mode === "view" || mode === "review";
   const doc = document;
   const metas = content.metas;
@@ -213,7 +227,7 @@ export function SoftexForm({ mode, document, type, onToast }: SoftexFormProps) {
       />
 
       <div className="flex w-full flex-col gap-12">
-        {selectedMeta && (
+        {selectedMeta ? (
           <section key={selectedMeta.id} className="scroll-mt-52">
             <h2 className="text-2xl font-normal text-blue-100">
               Meta {selectedMeta.id}
@@ -245,6 +259,14 @@ export function SoftexForm({ mode, document, type, onToast }: SoftexFormProps) {
               />
             </div>
           </section>
+        ) : (
+          <SoftexOverview
+            intro={content.intro}
+            disabled={readonly}
+            onIntroChange={updateIntro}
+            indicators={SOFTEX_PROGRESS_INDICATORS}
+            onSelectIndicator={handleSelect}
+          />
         )}
       </div>
 

@@ -101,7 +101,31 @@ export interface SoftexMeta {
   afterItems: SoftexItem[];
 }
 
+export interface SoftexIntro {
+  trailName: string;
+  level: string;
+  modality: string;
+  summary: string;
+  presentialHours: string;
+  remoteHours: string;
+  totalHours: string;
+  prerequisites: string;
+  mentor: string;
+  firstMonitor: string;
+  secondMonitor: string;
+  location: string;
+  address: string;
+  building: string;
+  room: string;
+  enrollmentForm: string;
+  enrollmentStart: string;
+  enrollmentEnd: string;
+  vacancies: string;
+  contact: string;
+}
+
 export interface SoftexContent {
+  intro: SoftexIntro;
   metas: SoftexMeta[];
 }
 

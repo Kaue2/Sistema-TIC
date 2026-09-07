@@ -12,6 +12,7 @@ import type {
 } from "../../types/document";
 import { mockDocuments } from "../../data/mockDocuments";
 import { SOFTEX_METAS, type SoftexItemSeed, type SoftexMetaSeed } from "../../data/softexFields";
+import { SOFTEX_INTRODUCTION_DEFAULT } from "../../data/softexIntroFields";
 
 export function emptySoftexItem(item: SoftexItemSeed): SoftexItem {
   return { ...item, answer: "" };
@@ -27,7 +28,10 @@ export function emptySoftexMeta(meta: SoftexMetaSeed): SoftexMeta {
 }
 
 export function emptySoftexContent(): SoftexContent {
-  return { metas: SOFTEX_METAS.map(emptySoftexMeta) };
+  return {
+    intro: { ...SOFTEX_INTRODUCTION_DEFAULT },
+    metas: SOFTEX_METAS.map(emptySoftexMeta),
+  };
 }
 
 export function emptyPlanoEnsinoCard(): PlanoEnsinoCard {
