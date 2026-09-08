@@ -3,10 +3,12 @@ import { useParams, useBlocker } from "react-router-dom";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { Input } from "../components/atoms/Input";
 import { JourneySchedule } from "../components/organisms/JourneySchedule";
-import { DynamicInputList } from "../components/molecules/DynamicInputList";
 import { Button } from "../components/atoms/Button";
 import { FormField } from "../components/molecules/FormField";
 import { MultiSelectDropdown } from "../components/molecules/MultiSelectDropdown";
+import { TrailSelectField } from "../components/molecules/TrailSelectField";
+import { CheckboxGroup } from "../components/molecules/CheckboxGroup";
+import { mockTrails } from "../data/mockTrails";
 
 import { ExcelImportButton } from "../components/molecules/ExcelImportButton";
 import { Toast } from "../components/organisms/Toast";
@@ -23,6 +25,12 @@ const POSITION_OPTIONS = [
   { label: "Administração", value: "administrator" },
   { label: "Mentoria", value: "mentor" },
   { label: "Monitoria", value: "monitor" },
+];
+
+const DOCUMENT_OPTIONS = [
+  { label: "Escopo e Proposta", value: "Escopo e Proposta", group: "Selecionar todos" },
+  { label: "Plano de Ensino", value: "Plano de Ensino", group: "Selecionar todos" },
+  { label: "Softex", value: "Softex", group: "Selecionar todos" },
 ];
 
 const DEFAULT_SCHEDULE: ScheduleItem[] = [
@@ -71,8 +79,8 @@ export function MemberForm() {
   const [administrativeEmail, setAdministrativeEmail] = useState("");
   const [schedule, setSchedule] = useState<ScheduleItem[]>(DEFAULT_SCHEDULE);
   const [location, setLocation] = useState("");
-  const [trails, setTrails] = useState<string[]>([""]);
-  const [documents, setDocuments] = useState<string[]>([""]);
+  const [trails, setTrails] = useState<string[]>([]);
+  const [documents, setDocuments] = useState<string[]>([]);
 
   const [emailError, setEmailError] = useState(false);
   const [adminEmailError, setAdminEmailError] = useState(false);
@@ -115,8 +123,8 @@ export function MemberForm() {
       ]);
 
       setLocation("E166");
-      setTrails(["UI/UX", "Algoritmos em C"]);
-      setDocuments(["Manual do Membro", "Contrato"]);
+      setTrails(["2986", "2987"]);
+      setDocuments(["Escopo e Proposta", "Softex"]);
       setLoading(false);
     }, 600);
 
@@ -167,8 +175,20 @@ export function MemberForm() {
     setAdministrativeEmail(data.administrativeEmail);
     setSchedule(data.journey);
     setLocation(data.location);
-    setTrails(data.trails.length > 0 ? data.trails : [""]);
-    setDocuments(data.documents.length > 0 ? data.documents : [""]);
+    setTrails(
+      data.trails
+        .map(
+          (trail) =>
+            mockTrails.find((t) => t.id === trail || t.title === trail)?.id ??
+            trail,
+        )
+        .filter(Boolean),
+    );
+    setDocuments(
+      data.documents.filter((document) =>
+        DOCUMENT_OPTIONS.some((option) => option.value === document)
+      ),
+    );
     setDirty(true);
   }, []);
 
@@ -354,19 +374,27 @@ export function MemberForm() {
             Acessos e Vínculos
           </h2>
 
-          <div className="mt-6 grid grid-cols-2 gap-8 max-md:grid-cols-1">
-            <DynamicInputList
-              title="Trilhas"
-              placeholder="Digite o nome da trilha"
-              values={trails}
-              onChange={(v) => { setTrails(v); setDirty(true); }}
+          <div className="mt-6 grid grid-cols-[auto_minmax(0,1fr)] gap-8 max-md:grid-cols-1">
+            <CheckboxGroup
+              id="documents"
+              title="Documentos"
+              selectionMode="multiple"
+              options={DOCUMENT_OPTIONS}
+              value={documents}
+              onChange={(value) => {
+                setDocuments(value as string[]);
+                setDirty(true);
+              }}
+              contentClassName="min-w-64 rounded-lg border border-black-20 bg-card-background p-3"
             />
 
-            <DynamicInputList
-              title="Documentos"
-              placeholder="Digite o nome do documento"
-              values={documents}
-              onChange={(v) => { setDocuments(v); setDirty(true); }}
+            <TrailSelectField
+              title="Trilhas"
+              values={trails}
+              onChange={(v) => {
+                setTrails(v);
+                setDirty(true);
+              }}
             />
           </div>
         </section>

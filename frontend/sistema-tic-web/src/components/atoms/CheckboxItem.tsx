@@ -1,10 +1,14 @@
+import type { ReactNode } from "react";
+
 type CheckboxItemProps = {
-  label: string;
+  label?: string;
   checked: boolean;
   onChange: () => void;
   indeterminate?: boolean;
   disabled?: boolean;
   labelClassName?: string;
+  containerClassName?: string;
+  children?: ReactNode;
 };
 
 export function CheckboxItem({
@@ -14,12 +18,14 @@ export function CheckboxItem({
   indeterminate = false,
   disabled = false,
   labelClassName,
+  containerClassName,
+  children,
 }: CheckboxItemProps) {
   return (
     <label
       className={`flex cursor-pointer items-start gap-2.5 ${
         disabled ? "cursor-not-allowed opacity-50" : ""
-      }`}
+      } ${containerClassName ?? ""}`}
     >
       <input
         type="checkbox"
@@ -46,7 +52,11 @@ export function CheckboxItem({
           </span>
         )}
       </span>
-      <span className={`text-sm text-black-80 ${labelClassName ?? ""}`}>{label}</span>
+      {children ?? (
+        <span className={`text-sm text-black-80 ${labelClassName ?? ""}`}>
+          {label}
+        </span>
+      )}
     </label>
   );
 }

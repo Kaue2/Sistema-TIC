@@ -18,6 +18,7 @@ type CheckboxGroupProps = {
   helper?: string;
   error?: string;
   disabled?: boolean;
+  contentClassName?: string;
 };
 
 export function CheckboxGroup({
@@ -31,6 +32,7 @@ export function CheckboxGroup({
   helper,
   error,
   disabled = false,
+  contentClassName = "",
 }: CheckboxGroupProps) {
   const selected = selectionMode === "single"
     ? (value ? [value as string] : [])
@@ -98,7 +100,11 @@ export function CheckboxGroup({
       helper={helper}
       error={error}
     >
-      <div role="group" aria-label={title} className="flex flex-col gap-2">
+      <div
+        role="group"
+        aria-label={title}
+        className={`flex flex-col gap-2 ${contentClassName}`}
+      >
         {options.map((option, index) => {
           const isGroupMember = Boolean(option.group) && selectionMode === "multiple";
           if (isGroupMember) {
