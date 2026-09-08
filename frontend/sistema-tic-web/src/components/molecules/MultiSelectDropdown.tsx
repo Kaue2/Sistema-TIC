@@ -104,7 +104,7 @@ export function MultiSelectDropdown({
         <div
           role="listbox"
           aria-label={label}
-          className="absolute left-0 top-full z-50 mt-1 w-full origin-top-left rounded-lg border border-black-20 bg-card-background p-1 shadow-lg animate-fade-scale-in"
+          className="absolute left-0 top-full z-50 mt-1 max-h-80 w-full origin-top-left overflow-y-auto rounded-lg border border-black-20 bg-card-background p-1 shadow-lg animate-fade-scale-in"
         >
           {options.map((option) => {
             const isSelected = selected.includes(option.value);
