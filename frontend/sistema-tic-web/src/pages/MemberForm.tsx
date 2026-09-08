@@ -34,6 +34,29 @@ const DOCUMENT_OPTIONS = [
   { label: "Softex", value: "Softex", group: "Selecionar todos" },
 ];
 
+const OUTRA_AREA = "Outra área";
+
+const FRONT_OPTIONS = [
+  { label: "Lógica de programação", value: "Lógica de programação" },
+  { label: "Desenvolvimento front-end", value: "Desenvolvimento front-end" },
+  { label: "Desenvolvimento back-end", value: "Desenvolvimento back-end" },
+  { label: "Desenvolvimento mobile", value: "Desenvolvimento mobile" },
+  { label: "Desenvolvimento de jogos", value: "Desenvolvimento de jogos" },
+  { label: "Ciência de dados", value: "Ciência de dados" },
+  { label: "Computação em nuvem", value: "Computação em nuvem" },
+  { label: "Inteligência artificial", value: "Inteligência artificial" },
+  { label: "Qualidade e testes de software", value: "Qualidade e testes de software" },
+  { label: "Bancos de dados SQL", value: "Bancos de dados SQL" },
+  { label: "Bancos de dados NoSQL", value: "Bancos de dados NoSQL" },
+  { label: "Computação quântica", value: "Computação quântica" },
+  { label: "DevOps", value: "DevOps" },
+  { label: "UX e UI", value: "UX e UI" },
+  { label: "Inovação e gestão", value: "Inovação e gestão" },
+  { label: "Automação", value: "Automação" },
+  { label: "Redes e segurança", value: "Redes e segurança" },
+  { label: OUTRA_AREA, value: OUTRA_AREA },
+];
+
 const DEFAULT_SCHEDULE: ScheduleItem[] = [
   { day: "Segunda", start: "", end: "" },
   { day: "Terça", start: "", end: "" },
@@ -76,6 +99,7 @@ export function MemberForm() {
   const [fullName, setFullName] = useState("");
   const [position, setPosition] = useState("");
   const [front, setFront] = useState("");
+  const [frontCustom, setFrontCustom] = useState("");
   const [educationalEmail, setEducationalEmail] = useState("");
   const [administrativeEmail, setAdministrativeEmail] = useState("");
   const [schedule, setSchedule] = useState<ScheduleItem[]>(DEFAULT_SCHEDULE);
@@ -112,7 +136,7 @@ export function MemberForm() {
     const timer = setTimeout(() => {
       setFullName("Ana Beatriz Costa");
       setPosition("coordinator");
-      setFront("UX/UI");
+      setFront("UX e UI");
       setEducationalEmail("ana.costa@senacsp.edu.br");
       setAdministrativeEmail("ana.admin@sp.senac.br");
       setSchedule([
@@ -171,7 +195,9 @@ export function MemberForm() {
   const handleImport = useCallback((data: MemberSpreadsheetDTO) => {
     setFullName(data.fullName);
     setPosition(data.position[0] ?? "");
-    setFront(data.front);
+    const frontIsOption = FRONT_OPTIONS.some((option) => option.value === data.front);
+    setFront(frontIsOption ? data.front : data.front ? OUTRA_AREA : "");
+    setFrontCustom(!frontIsOption && data.front ? data.front : "");
     setEducationalEmail(data.institutionalEmail);
     setAdministrativeEmail(data.administrativeEmail);
     setSchedule(data.journey);
@@ -340,14 +366,30 @@ export function MemberForm() {
                   />
                 </FormField>
 
-                <FormField id="front" label="Frente">
-                  <Input
-                    id="front"
-                    value={front}
-                    onChange={(e) => { setFront(e.target.value); setDirty(true); }}
-                    placeholder="Digite a frente"
-                  />
-                </FormField>
+<FormField id="front" label="Frente">
+  <MultiSelectDropdown
+    id="front"
+    label="Frente"
+    icon="grid_view"
+    placeholder="Selecione uma frente"
+    multiple={false}
+    options={FRONT_OPTIONS}
+    selected={front ? [front] : []}
+    onChange={(selected) => { setFront(selected[0] ?? ""); setDirty(true); }}
+    size="md"
+  />
+
+  {front === OUTRA_AREA && (
+    <div className="mt-2">
+      <Input
+        id="frontCustom"
+        value={frontCustom}
+        onChange={(e) => { setFrontCustom(e.target.value); setDirty(true); }}
+        placeholder="Digite a área"
+      />
+    </div>
+  )}
+</FormField>
               </div>
 
               <Input
