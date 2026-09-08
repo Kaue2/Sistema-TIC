@@ -30,6 +30,7 @@ public static class DependencyInjection
 		services.AddScoped<ITrackTaskRepository, TrackTaskRepository>();
 		services.AddScoped<ITrackEventRepository, TrackEventRepository>();
 		services.AddScoped<ITrackDocumentRepository, TrackDocumentRepository>();
+		services.AddScoped<IDocumentTemplateRepository, DocumentTemplateRepository>();
 		services.AddScoped<INotificationRepository, NotificationRepository>();
 		services.AddScoped<INotificationRecipientRepository, NotificationRecipientRepository>();
 

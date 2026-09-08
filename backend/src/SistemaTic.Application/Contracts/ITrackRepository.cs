@@ -6,11 +6,10 @@ public interface ITrackRepository
 {
     public Task<Track?> GetByIdAsync(Guid id);
     public Task<Track> CreateAsync(
-        string? code,
         Guid? ideaId,
         Guid? sourceTrackId,
         Guid knowledgeAreaId,
-        Guid categoryId,
+        Guid? categoryId,
         string title,
         string? shortDescription,
         string modality,

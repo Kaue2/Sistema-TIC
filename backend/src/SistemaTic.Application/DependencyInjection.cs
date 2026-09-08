@@ -11,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddScoped<UserService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<TrackService>();
 
         return services;
     }

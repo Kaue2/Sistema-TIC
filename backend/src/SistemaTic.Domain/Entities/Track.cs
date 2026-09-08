@@ -3,11 +3,11 @@ namespace SistemaTic.Domain.Entities;
 public class Track
 {
     public Guid Id { get; set; }
-    public string? Code { get; set; }
+    public int Code { get; set; }
     public Guid? IdeaId { get; set; }
     public Guid? SourceTrackId { get; set; }
     public Guid KnowledgeAreaId { get; set; }
-    public Guid CategoryId { get; set; }
+    public Guid? CategoryId { get; set; }
     public string Title { get; set; }
     public string? ShortDescription { get; set; }
     public string Modality { get; set; }
@@ -31,8 +31,8 @@ public class Track
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? CancelledAt { get; set; }
 
-    public Track(Guid id, string? code, Guid? ideaId, Guid? sourceTrackId, Guid knowledgeAreaId,
-                 Guid categoryId, string title, string? shortDescription, string modality,
+    public Track(Guid id, int code, Guid? ideaId, Guid? sourceTrackId, Guid knowledgeAreaId,
+                 Guid? categoryId, string title, string? shortDescription, string modality,
                  string? learningLevel, string status, DateOnly? plannedProductionStartsOn,
                  DateOnly? plannedProductionEndsOn, DateOnly? plannedTrackStartsOn,
                  DateOnly? plannedTrackEndsOn, DateTimeOffset? registrationStartsAt,

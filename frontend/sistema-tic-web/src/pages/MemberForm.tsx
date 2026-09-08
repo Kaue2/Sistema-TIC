@@ -19,6 +19,7 @@ import { calculateTotalHours } from "../utils/schedule";
 import type { MemberSpreadsheetDTO } from "../services/excel/types";
 import { downloadTemplate } from "../services/excel/ExcelTemplateService";
 import { createUser } from "../services/user-services";
+import { createTrackTeamMember } from "../services/track-services";
 
 const POSITION_OPTIONS = [
   { label: "Coordenação", value: "coordinator" },
@@ -226,9 +227,9 @@ export function MemberForm() {
     const totalHours = calculateTotalHours(schedule);
 
     try {
-      // "front", "trails" e "documents" ainda não têm tabela/endpoint no backend,
+      // "front" e "documents" ainda não têm tabela/endpoint no backend,
       // então não entram no payload por enquanto.
-      await createUser({
+      const userId = await createUser({
         name: fullName,
         emailEducacional: educationalEmail,
         emailAdministrativo: administrativeEmail,
@@ -237,6 +238,18 @@ export function MemberForm() {
         location,
         schedule: schedule.map(({ day, start, end }) => ({ day, start, end })),
       });
+
+      await Promise.all(
+        trails.map((trackId) =>
+          createTrackTeamMember({
+            trackId,
+            userId,
+            responsibility: position,
+            isLead: false,
+            startsOn: null,
+          }),
+        ),
+      );
 
       setDirty(false);
       setToast({ message: "Membro salvo com sucesso.", type: "success" });
