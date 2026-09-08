@@ -10,6 +10,8 @@ import {
 } from "../services/user-services";
 import { useUser } from "../contexts/userContext";
 
+const APP_VERSION = "1.0.0";
+
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,7 +54,7 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="relative flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <p className="text-xl text-black-80 font-regular">
@@ -130,6 +132,13 @@ export function Login() {
           </div>
         </form>
       </div>
+
+      <footer className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-1 text-center text-xs text-black-40">
+        <p>© {new Date().getFullYear()} TIC em Trilhas — Todos os direitos reservados.</p>
+        <p>
+          v{APP_VERSION} · Powered by Senac SP
+        </p>
+</footer>
     </div>
   );
 }
