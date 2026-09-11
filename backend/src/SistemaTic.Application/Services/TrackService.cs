@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Application.DTO;
 using SistemaTic.Domain.Entities;
@@ -66,8 +67,30 @@ public class TrackService
         if (track is null)
             throw new Exception("Trilha não encontrada");
 
+        return await BuildDocumentSummariesAsync(track);
+    }
+
+    public async Task<IEnumerable<DocumentosTrilhaDTO>> GetAllTrackDocumentPairsAsync()
+    {
+        var tracks = await this._trackRepository.GetAllAsync();
+        var pairs = new List<DocumentosTrilhaDTO>();
+
+        foreach (var track in tracks)
+        {
+            var summaries = await BuildDocumentSummariesAsync(track);
+
+            pairs.Add(new DocumentosTrilhaDTO(
+                summaries.FirstOrDefault(s => s.DocumentType == "Escopo e Proposta"),
+                summaries.FirstOrDefault(s => s.DocumentType == "Plano de Ensino")));
+        }
+
+        return pairs;
+    }
+
+    private async Task<List<TrackDocumentSummaryDTO>> BuildDocumentSummariesAsync(Track track)
+    {
         KnowledgeArea? knowledgeArea = await this._knowledgeAreaRepository.GetByIdAsync(track.KnowledgeAreaId);
-        var documents = await this._trackDocumentRepository.GetByTrackIdAsync(trackId);
+        var documents = await this._trackDocumentRepository.GetByTrackIdAsync(track.Id);
         var summaries = new List<TrackDocumentSummaryDTO>();
 
         foreach (var document in documents)
@@ -83,6 +106,37 @@ public class TrackService
         }
 
         return summaries;
+    }
+
+    public async Task<TrackDocumentContentDTO?> GetTrackDocumentContentAsync(Guid documentId)
+    {
+        TrackDocument? document = await this._trackDocumentRepository.GetByIdAsync(documentId);
+        if (document is null)
+            return null;
+
+        return await ToContentDTOAsync(document);
+    }
+
+    public async Task<TrackDocumentContentDTO?> SaveTrackDocumentContentAsync(Guid documentId, string content, Guid updatedByUserId)
+    {
+        TrackDocument? document = await this._trackDocumentRepository.GetByIdAsync(documentId);
+        if (document is null)
+            return null;
+
+        TrackDocument updated = await this._trackDocumentRepository.ReplaceContentAsync(documentId, content, updatedByUserId);
+        return await ToContentDTOAsync(updated);
+    }
+
+    private async Task<TrackDocumentContentDTO> ToContentDTOAsync(TrackDocument document)
+    {
+        DocumentTemplateSummary? template = await this._documentTemplateRepository.GetByIdAsync(document.DocumentTemplateId);
+        using JsonDocument parsedContent = JsonDocument.Parse(document.CurrentContent);
+
+        return new TrackDocumentContentDTO(
+            document.Id,
+            template?.Name ?? string.Empty,
+            MapDocumentStatus(document.Status),
+            parsedContent.RootElement.Clone());
     }
 
     private static string MapDocumentStatus(string status)

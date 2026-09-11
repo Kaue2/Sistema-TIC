@@ -70,7 +70,7 @@ function DocumentEditor({ mode, type, onToast }: DocumentEditorProps) {
   useEffect(() => {
     if (mode === "create") return;
     let cancelled = false;
-    DocumentService.getDocument(id!).then((doc) => {
+    DocumentService.getDocument(id!, type).then((doc) => {
       if (cancelled) return;
       setDocument(doc);
       setNotFound(doc === null);
@@ -78,7 +78,7 @@ function DocumentEditor({ mode, type, onToast }: DocumentEditorProps) {
     return () => {
       cancelled = true;
     };
-  }, [id, mode]);
+  }, [id, mode, type]);
 
   if (mode === "create") {
     return (

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { SearchInput } from "../components/molecules/SearchInput";
@@ -12,7 +12,28 @@ import { Toast } from "../components/organisms/Toast";
 import { Skeleton } from "../components/atoms/Skeleton";
 import type { ToastType } from "../components/organisms/Toast";
 import type { Document, DocumentType, TeachingMode } from "../types/document";
-import { mockDocuments, SEMESTER_OPTIONS, CAREER_OPTIONS, TRAIL_OPTIONS } from "../data/mockDocuments";
+import { SEMESTER_OPTIONS, CAREER_OPTIONS, TRAIL_OPTIONS } from "../data/mockDocuments";
+import {
+  getAllTrackDocuments,
+  type TrackDocumentSummaryDTO,
+} from "../services/document-services";
+
+// number/semester/teachingMode ainda não existem no backend (só track_documents.status,
+// document_templates.name, tracks.title/knowledge_area) — ficam em branco em vez de inventados,
+// até decidirmos se/como modelar isso. Ver memória "document forms backend".
+function toDocument(summary: TrackDocumentSummaryDTO): Document {
+  return {
+    id: summary.id,
+    number: "",
+    title: summary.documentType,
+    type: summary.documentType as DocumentType,
+    trail: summary.trackTitle,
+    semester: "",
+    career: summary.knowledgeAreaName,
+    teachingMode: "" as unknown as TeachingMode,
+    status: summary.status as Document["status"],
+  };
+}
 
 const TYPE_OPTIONS = [
   { label: "Todos", value: "all", icon: "star" },
@@ -30,7 +51,7 @@ export function DocumentsPage() {
   const initialTrail = TRAIL_OPTIONS.find(
     (trail) => trail.value === trailFromShortcut
   )?.value;
-  const [documents, setDocuments] = useState<Document[]>(mockDocuments);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(() => initialTrail ?? "");
   const [debouncedSearch, setDebouncedSearch] = useState(
@@ -46,10 +67,25 @@ export function DocumentsPage() {
   const [teachingMode, setTeachingMode] = useState<TeachingMode | null>(null);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(timer);
+  const loadDocuments = useCallback(async () => {
+    try {
+      const pairs = await getAllTrackDocuments();
+      const flattened = pairs.flatMap((pair) =>
+        [pair.escopoPropostaDaTrilha, pair.planoEnsinoDaTrilha]
+          .filter((doc): doc is TrackDocumentSummaryDTO => doc !== null)
+          .map(toDocument)
+      );
+      setDocuments(flattened);
+    } catch {
+      setToast({ message: "Não foi possível carregar os documentos.", type: "error" });
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -132,11 +168,11 @@ export function DocumentsPage() {
   const showDocuments = !showEmpty && !showEmptySearch;
 
   function handleDuplicate(doc: Document) {
-    const nextNumber = parseInt(doc.number.replace("#", ""), 10) + 1;
+    const currentNumber = parseInt(doc.number.replace("#", ""), 10);
     const copy: Document = {
       ...doc,
       id: crypto.randomUUID(),
-      number: `#${nextNumber}`,
+      number: Number.isNaN(currentNumber) ? "" : `#${currentNumber + 1}`,
       status: "Rascunho",
     };
     setDocuments((prev) => [copy, ...prev]);
@@ -158,7 +194,7 @@ export function DocumentsPage() {
   }
 
   function handleEdit(doc: Document) {
-    navigate(`/documents/${doc.id}/edit`);
+    navigate(`/documents/${doc.id}/edit?type=${encodeURIComponent(doc.type)}`);
   }
 
   return (

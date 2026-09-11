@@ -51,6 +51,13 @@ public class TrackController : ControllerBase
         return await this._trackService.GetDocumentsByTrackIdAsync(id);
     }
 
+    [HttpGet("documents")]
+    [Authorize]
+    public async Task<IEnumerable<DocumentosTrilhaDTO>> GetAllDocuments()
+    {
+        return await this._trackService.GetAllTrackDocumentPairsAsync();
+    }
+
     [HttpPost("create-track")]
     [Authorize]
     public async Task<IActionResult> CreateTrack(CreateTrackDTO dto)
