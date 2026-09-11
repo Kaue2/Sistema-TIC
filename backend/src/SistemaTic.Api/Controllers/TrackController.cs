@@ -25,6 +25,13 @@ public class TrackController : ControllerBase
         return await this._trackService.GetKnowledgeAreasAsync();
     }
 
+    [HttpGet]
+    [Authorize]
+    public async Task<IEnumerable<TrackSummaryDTO>> GetAll()
+    {
+        return await this._trackService.GetAllTracksAsync();
+    }
+
     [HttpGet("{id:guid}")]
     [Authorize]
     public async Task<IActionResult> GetById(Guid id)
@@ -35,6 +42,13 @@ public class TrackController : ControllerBase
             return NotFound();
 
         return Ok(track);
+    }
+
+    [HttpGet("{id:guid}/documents")]
+    [Authorize]
+    public async Task<IEnumerable<TrackDocumentSummaryDTO>> GetDocuments(Guid id)
+    {
+        return await this._trackService.GetDocumentsByTrackIdAsync(id);
     }
 
     [HttpPost("create-track")]

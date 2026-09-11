@@ -36,6 +36,69 @@ public class TrackService
         return await this._trackRepository.GetByIdAsync(id);
     }
 
+    public async Task<IEnumerable<TrackSummaryDTO>> GetAllTracksAsync()
+    {
+        var tracks = await this._trackRepository.GetAllAsync();
+        var summaries = new List<TrackSummaryDTO>();
+
+        foreach (var track in tracks)
+        {
+            KnowledgeArea? knowledgeArea = await this._knowledgeAreaRepository.GetByIdAsync(track.KnowledgeAreaId);
+            var mentors = await this._trackTeamMemberRepository.GetActiveMembersAsync(track.Id, "mentor");
+
+            summaries.Add(new TrackSummaryDTO(
+                track.Id,
+                track.Code,
+                track.Title,
+                track.Modality,
+                track.LearningLevel,
+                track.Status,
+                knowledgeArea?.Name ?? string.Empty,
+                mentors.Select(m => new TrackMentorSummaryDTO(m.FullName, m.Email))));
+        }
+
+        return summaries;
+    }
+
+    public async Task<IEnumerable<TrackDocumentSummaryDTO>> GetDocumentsByTrackIdAsync(Guid trackId)
+    {
+        Track? track = await this._trackRepository.GetByIdAsync(trackId);
+        if (track is null)
+            throw new Exception("Trilha não encontrada");
+
+        KnowledgeArea? knowledgeArea = await this._knowledgeAreaRepository.GetByIdAsync(track.KnowledgeAreaId);
+        var documents = await this._trackDocumentRepository.GetByTrackIdAsync(trackId);
+        var summaries = new List<TrackDocumentSummaryDTO>();
+
+        foreach (var document in documents)
+        {
+            DocumentTemplateSummary? template = await this._documentTemplateRepository.GetByIdAsync(document.DocumentTemplateId);
+
+            summaries.Add(new TrackDocumentSummaryDTO(
+                document.Id,
+                template?.Name ?? string.Empty,
+                track.Title,
+                knowledgeArea?.Name ?? string.Empty,
+                MapDocumentStatus(document.Status)));
+        }
+
+        return summaries;
+    }
+
+    private static string MapDocumentStatus(string status)
+    {
+        // "rejected" ainda não tem um status equivalente no front (Rascunho/Em Revisão/Concluído/Arquivado);
+        // por ora devolvemos o código crudo até decidirmos a migration que trata isso.
+        return status switch
+        {
+            "draft" => "Rascunho",
+            "submitted" => "Em Revisão",
+            "changes_requested" => "Em Revisão",
+            "approved" => "Concluído",
+            _ => status,
+        };
+    }
+
     public async Task<Track> CreateTrackAsync(CreateTrackDTO dto, Guid createdByUserId)
     {
         Track track = await this._trackRepository.CreateAsync(

@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../components/atoms/Button";
+import { Skeleton } from "../components/atoms/Skeleton";
 import { EmptySearch } from "../components/molecules/EmptySearch";
 import { MultiSelectDropdown } from "../components/molecules/MultiSelectDropdown";
 import { SearchInput } from "../components/molecules/SearchInput";
@@ -9,8 +10,9 @@ import { Toast } from "../components/organisms/Toast";
 import type { ToastType } from "../components/organisms/Toast";
 import { TrailCard } from "../components/organisms/TrailCard";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
-import { mockTrails } from "../data/mockTrails";
-import type { Trail, TrailModality } from "../types/trail";
+import { CreateTrackModal } from "../components/molecules/CreateTrackModal";
+import { getTracks, type TrackSummaryDTO } from "../services/track-services";
+import type { Trail, TrailModality, TrailStage } from "../types/trail";
 
 const MODALITY_OPTIONS = [
   { label: "Todos", value: "all", icon: "star" },
@@ -18,24 +20,56 @@ const MODALITY_OPTIONS = [
   { label: "Assíncrono", value: "Assíncrono", icon: "computer" },
 ];
 
-const SEMESTER_OPTIONS = Array.from(
-  new Set(mockTrails.map((trail) => trail.semester))
-).map((semester) => ({ label: semester, value: semester }));
+const MODALITY_LABELS: Record<string, TrailModality> = {
+  online: "Assíncrono",
+  hybrid: "Híbrido",
+};
 
-const CAREER_OPTIONS = Array.from(
-  new Set(mockTrails.map((trail) => trail.career))
-).map((career) => ({ label: career, value: career }));
+const STATUS_TO_STAGE: Record<string, TrailStage> = {
+  draft: "Pré Trilha",
+  planning: "Pré Trilha",
+  production: "Pré Execução",
+  pre_track: "Pré Execução",
+  running: "Execução Trilha",
+  post_track: "Pós Trilha",
+  completed: "Pós Trilha",
+  cancelled: "Pós Trilha",
+};
 
-const MENTOR_OPTIONS = Array.from(
-  new Set(mockTrails.flatMap((trail) => trail.mentors.map((mentor) => mentor.fullName)))
-).map((mentor) => ({ label: mentor, value: mentor }));
+// semestre ainda não existe no back (tracks não tem essa coluna); fica com um valor fixo só
+// pra manter o layout do card até o time decidir o que fazer com isso.
+const NOT_AVAILABLE = "Não informado";
 
-const STAGE_OPTIONS = Array.from(
-  new Set(mockTrails.map((trail) => trail.stage))
-).map((stage) => ({ label: stage, value: stage }));
+function trackToTrail(track: TrackSummaryDTO): Trail {
+  const mentors =
+    track.mentors.length > 0
+      ? track.mentors.map((mentor) => ({
+          id: mentor.email,
+          fullName: mentor.fullName,
+          role: "mentor",
+          email: mentor.email,
+        }))
+      : [{ id: "placeholder", fullName: NOT_AVAILABLE, role: "", email: "" }];
+
+  return {
+    id: String(track.code),
+    title: track.title,
+    icon: "route",
+    career: track.knowledgeAreaName,
+    mentors,
+    semester: NOT_AVAILABLE,
+    modality: MODALITY_LABELS[track.modality] ?? "Assíncrono",
+    level: track.learningLevel ?? "",
+    stage: STATUS_TO_STAGE[track.status] ?? "Pré Trilha",
+    description: "",
+    progress: [],
+  };
+}
 
 export function CentralTrilhasPage() {
   const navigate = useNavigate();
+  const [tracks, setTracks] = useState<TrackSummaryDTO[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modality, setModality] = useState("all");
   const [selectedSemesters, setSelectedSemesters] = useState<string[]>([]);
@@ -45,11 +79,63 @@ export function CentralTrilhasPage() {
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(
     null
   );
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+
+  const loadTracks = useCallback(async () => {
+    try {
+      const data = await getTracks();
+      setTracks(data);
+    } catch {
+      setToast({ message: "Não foi possível carregar as trilhas.", type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTracks();
+  }, [loadTracks]);
+
+  const trails = useMemo(() => tracks.map(trackToTrail), [tracks]);
+
+  const SEMESTER_OPTIONS = useMemo(
+    () =>
+      Array.from(new Set(trails.map((trail) => trail.semester))).map(
+        (semester) => ({ label: semester, value: semester }),
+      ),
+    [trails],
+  );
+
+  const CAREER_OPTIONS = useMemo(
+    () =>
+      Array.from(new Set(trails.map((trail) => trail.career))).map((career) => ({
+        label: career,
+        value: career,
+      })),
+    [trails],
+  );
+
+  const MENTOR_OPTIONS = useMemo(
+    () =>
+      Array.from(
+        new Set(trails.flatMap((trail) => trail.mentors.map((mentor) => mentor.fullName))),
+      ).map((mentor) => ({ label: mentor, value: mentor })),
+    [trails],
+  );
+
+  const STAGE_OPTIONS = useMemo(
+    () =>
+      Array.from(new Set(trails.map((trail) => trail.stage))).map((stage) => ({
+        label: stage,
+        value: stage,
+      })),
+    [trails],
+  );
 
   const filteredTrails = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
 
-    return mockTrails.filter((trail) => {
+    return trails.filter((trail) => {
       if (modality !== "all" && trail.modality !== (modality as TrailModality)) {
         return false;
       }
@@ -91,6 +177,7 @@ export function CentralTrilhasPage() {
       return searchableContent.includes(normalizedSearch);
     });
   }, [
+    trails,
     modality,
     search,
     selectedCareers,
@@ -147,12 +234,7 @@ export function CentralTrilhasPage() {
             <Button
               variant="primary"
               icon="add_circle"
-              onClick={() =>
-                setToast({
-                  message: "A criação de trilhas será conectada em uma próxima etapa.",
-                  type: "info",
-                })
-              }
+              onClick={() => setCreateModalOpen(true)}
               className="!h-9 !w-full !justify-center !rounded-lg"
             >
               Nova Trilha
@@ -195,7 +277,13 @@ export function CentralTrilhasPage() {
           </div>
         </section>
 
-        {filteredTrails.length > 0 ? (
+        {loading ? (
+          <div className="mt-[72px] grid gap-x-12 gap-y-4 xl:grid-cols-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-40 w-full rounded-2xl" />
+            ))}
+          </div>
+        ) : filteredTrails.length > 0 ? (
           <section
             aria-label="Trilhas cadastradas"
             className="mt-[72px] grid gap-x-12 gap-y-4 xl:grid-cols-2"
@@ -229,6 +317,16 @@ export function CentralTrilhasPage() {
           onClose={() => setToast(null)}
         />
       )}
+
+      <CreateTrackModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreated={(track) => {
+          setCreateModalOpen(false);
+          setToast({ message: `Trilha ${track.title} #${track.code} criada com sucesso.`, type: "success" });
+          loadTracks();
+        }}
+      />
     </div>
   );
 }

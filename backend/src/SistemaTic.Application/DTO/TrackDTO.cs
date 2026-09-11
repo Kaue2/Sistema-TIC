@@ -22,6 +22,27 @@ public record CreateTrackDTO(
     decimal? AttendanceRequirementPercent
 );
 
+public record TrackMentorSummaryDTO(string FullName, string Email);
+
+public record TrackSummaryDTO(
+    Guid Id,
+    int Code,
+    string Title,
+    string Modality,
+    string? LearningLevel,
+    string Status,
+    string KnowledgeAreaName,
+    IEnumerable<TrackMentorSummaryDTO> Mentors
+);
+
+public record TrackDocumentSummaryDTO(
+    Guid Id,
+    string DocumentType,
+    string TrackTitle,
+    string KnowledgeAreaName,
+    string Status
+);
+
 public record CreateTrackTeamMemberDTO(
     Guid TrackId,
     Guid UserId,
