@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../../contexts/notificationContext";
+import { getCurrentUserId } from "../../services/auth";
 
 type NavigationPosition = "left" | "right" | "top" | "bottom";
 
@@ -202,14 +203,16 @@ interface AvatarItemProps {
 }
 
 function AvatarItem({ item, onNavigate, onKeyDown }: AvatarItemProps) {
+  const profileRoute = `/profile/${getCurrentUserId() ?? ""}`;
+
   return (
     <button
       type="button"
       aria-label="Perfil"
       tabIndex={0}
       disabled={!item.enabled}
-      onClick={() => item.enabled && onNavigate(item.route)}
-      onKeyDown={(e) => onKeyDown(e, item.route, item.enabled)}
+      onClick={() => item.enabled && onNavigate(profileRoute)}
+      onKeyDown={(e) => onKeyDown(e, profileRoute, item.enabled)}
       className={`
         relative
         flex items-center justify-center

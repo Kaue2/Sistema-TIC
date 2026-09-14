@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { DecorativeBackground } from "../components/atoms/DecorativeBackground";
 import { ProfileHeader } from "../components/organisms/ProfileHeader";
 import { ProfileContent } from "../components/organisms/ProfileContent";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
-import { type CustomJwtDecode } from "../services/api";
 import { getUserProfile } from "../services/user-services";
+import { getCurrentUserId } from "../services/auth";
 
 export interface User {
   id: string;
@@ -29,17 +28,6 @@ export interface User {
 const WEEKDAY_NAMES = [
   "Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado",
 ];
-
-function getCurrentUserId(): string | null {
-  const token = localStorage.getItem("token");
-  if (!token) return null;
-
-  try {
-    return jwtDecode<CustomJwtDecode>(token).sub;
-  } catch {
-    return null;
-  }
-}
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
