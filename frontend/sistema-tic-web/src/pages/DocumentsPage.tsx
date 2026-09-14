@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { SearchInput } from "../components/molecules/SearchInput";
 import { SegmentedControl } from "../components/molecules/SegmentedControl";
-import { CreateDocumentButton } from "../components/molecules/CreateDocumentButton";
 import { DocumentFilters } from "../components/molecules/DocumentFilters";
 import { DocumentCard } from "../components/organisms/DocumentCard";
 import { Empty } from "../components/molecules/Empty";
@@ -242,7 +241,6 @@ export function DocumentsPage() {
               value={typeFilter}
               onChange={setTypeFilter}
             />
-            <CreateDocumentButton />
           </div>
 
           <div className="mt-6 flex w-full justify-center">
