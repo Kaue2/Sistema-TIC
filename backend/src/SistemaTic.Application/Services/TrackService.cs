@@ -70,9 +70,10 @@ public class TrackService
         return await BuildDocumentSummariesAsync(track);
     }
 
-    public async Task<IEnumerable<DocumentosTrilhaDTO>> GetAllTrackDocumentPairsAsync()
+    public async Task<IEnumerable<DocumentosTrilhaDTO>> GetAllTrackDocumentPairsAsync(Guid userId)
     {
-        var tracks = await this._trackRepository.GetAllAsync();
+        var memberTrackIds = (await this._trackTeamMemberRepository.GetActiveTrackIdsByUserIdAsync(userId)).ToHashSet();
+        var tracks = (await this._trackRepository.GetAllAsync()).Where(t => memberTrackIds.Contains(t.Id));
         var pairs = new List<DocumentosTrilhaDTO>();
 
         foreach (var track in tracks)
@@ -187,6 +188,14 @@ public class TrackService
             dto.Prerequisites,
             dto.AttendanceRequirementPercent,
             createdByUserId);
+
+        await this._trackTeamMemberRepository.CreateAsync(
+            track.Id,
+            createdByUserId,
+            "coordinator",
+            isLead: true,
+            startsOn: null,
+            assignedByUserId: createdByUserId);
 
         var templates = await this._documentTemplateRepository.GetActivePublishedAsync();
         foreach (var template in templates)

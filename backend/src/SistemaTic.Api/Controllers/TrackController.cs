@@ -55,7 +55,8 @@ public class TrackController : ControllerBase
     [Authorize]
     public async Task<IEnumerable<DocumentosTrilhaDTO>> GetAllDocuments()
     {
-        return await this._trackService.GetAllTrackDocumentPairsAsync();
+        Guid currentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return await this._trackService.GetAllTrackDocumentPairsAsync(currentUserId);
     }
 
     [HttpPost("create-track")]

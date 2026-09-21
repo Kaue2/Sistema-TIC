@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useNotifications } from "../../contexts/notificationContext";
+import { useUser } from "../../contexts/userContext";
 import { getCurrentUserId } from "../../services/auth";
 
 type NavigationPosition = "left" | "right" | "top" | "bottom";
@@ -204,6 +205,8 @@ interface AvatarItemProps {
 
 function AvatarItem({ item, onNavigate, onKeyDown }: AvatarItemProps) {
   const profileRoute = `/profile/${getCurrentUserId() ?? ""}`;
+  const { userData } = useUser();
+  const avatarUrl = item.avatarUrl ?? userData?.avatarUrl ?? undefined;
 
   return (
     <button
@@ -221,9 +224,9 @@ function AvatarItem({ item, onNavigate, onKeyDown }: AvatarItemProps) {
         focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100
       `}
     >
-      {item.avatarUrl ? (
+      {avatarUrl ? (
         <img
-          src={item.avatarUrl}
+          src={avatarUrl}
           alt="Avatar"
           className="size-14 rounded-full border-2 border-blue-100 object-cover"
         />

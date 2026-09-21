@@ -63,6 +63,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPost("create-user")]
+    [Authorize(Roles = "coordinator")]
     public async Task<IActionResult> CreateUser(CreateUserDTO dto)
     {
         Guid id = await this._userService.CreateUser(dto);

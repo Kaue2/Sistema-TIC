@@ -9,7 +9,8 @@ import { MemberCard } from "../components/organisms/MemberRow";
 import { Empty } from "../components/molecules/Empty";
 import { EmptySearch } from "../components/molecules/EmptySearch";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
-import { getMembers } from "../services/user-services";
+import { getMembers, getUserPhotoUrl } from "../services/user-services";
+import { useUser } from "../contexts/userContext";
 
 export type Member = {
   id: string;
@@ -44,6 +45,7 @@ const filterOptions = [
 
 export function MembersPage() {
   const navigate = useNavigate();
+  const { userData } = useUser();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,6 +78,30 @@ export function MembersPage() {
           })),
         }))
       );
+
+      summaries.forEach((m) => {
+        // o usuário logado já tem a própria foto em cache no contexto (ver UserProvider),
+        // então reaproveita em vez de pedir de novo.
+        if (m.id === userData?.id) {
+          if (userData.avatarUrl) {
+            setMembers((current) =>
+              current.map((member) =>
+                member.id === m.id ? { ...member, avatar: userData.avatarUrl ?? undefined } : member
+              )
+            );
+          }
+          return;
+        }
+
+        getUserPhotoUrl(m.id).then((avatarUrl) => {
+          if (!avatarUrl) return;
+          setMembers((current) =>
+            current.map((member) =>
+              member.id === m.id ? { ...member, avatar: avatarUrl } : member
+            )
+          );
+        });
+      });
     });
   }, []);
 

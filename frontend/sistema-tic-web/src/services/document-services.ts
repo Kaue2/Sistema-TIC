@@ -37,3 +37,8 @@ export async function saveTrackDocumentContent(
   const response = await api.put<TrackDocumentContentDTO>(`track-documents/${id}`, content);
   return response.data;
 }
+
+export async function submitTrackDocumentForReview(id: string): Promise<TrackDocumentContentDTO> {
+  const response = await api.put<TrackDocumentContentDTO>(`track-documents/${id}/submit`);
+  return response.data;
+}

@@ -13,8 +13,16 @@ import {
 import { getMembers, type MemberSummaryDTO } from "../../services/user-services";
 
 const MODALITY_OPTIONS = [
-  { label: "Online", value: "online" },
+  // "online" no banco = regime assíncrono (sem aulas ao vivo); mantém o mesmo valor,
+  // só troca o rótulo exibido.
+  { label: "Assíncrono", value: "online" },
   { label: "Híbrido", value: "hybrid" },
+];
+
+// As trilhas só têm duas cargas horárias possíveis, em minutos.
+const WORKLOAD_OPTIONS = [
+  { label: "24h", value: "1440" },
+  { label: "32h", value: "1920" },
 ];
 
 const LEARNING_LEVEL_OPTIONS = [
@@ -22,10 +30,6 @@ const LEARNING_LEVEL_OPTIONS = [
   { label: "Intermediário", value: "intermediate" },
   { label: "Avançado", value: "advanced" },
 ];
-
-// Monitoria ainda não tem de onde vir (falta decidir o mesmo filtro por role pra monitor)
-// e não é enviada na criação da trilha; fica só visual até essa parte ser resolvida.
-const PENDING_OPTIONS: { label: string; value: string }[] = [];
 
 type CreateTrackModalProps = {
   open: boolean;
@@ -36,13 +40,15 @@ type CreateTrackModalProps = {
 export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalProps) {
   const [knowledgeAreas, setKnowledgeAreas] = useState<KnowledgeAreaDTO[]>([]);
   const [mentors, setMentors] = useState<MemberSummaryDTO[]>([]);
+  const [monitors, setMonitors] = useState<MemberSummaryDTO[]>([]);
   const [title, setTitle] = useState("");
   const [knowledgeAreaId, setKnowledgeAreaId] = useState("");
   const [modality, setModality] = useState("online");
   const [learningLevel, setLearningLevel] = useState("");
-  const [workloadMinutes, setWorkloadMinutes] = useState("60");
-  const [inPersonWorkloadMinutes, setInPersonWorkloadMinutes] = useState("60");
+  const [workloadMinutes, setWorkloadMinutes] = useState("1440");
+  const [inPersonWorkloadMinutes, setInPersonWorkloadMinutes] = useState("1440");
   const [mentorUserId, setMentorUserId] = useState("");
+  const [monitorUserId, setMonitorUserId] = useState("");
   const [titleError, setTitleError] = useState(false);
   const [knowledgeAreaError, setKnowledgeAreaError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -55,9 +61,10 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
     setKnowledgeAreaId("");
     setModality("online");
     setLearningLevel("");
-    setWorkloadMinutes("60");
-    setInPersonWorkloadMinutes("60");
+    setWorkloadMinutes("1440");
+    setInPersonWorkloadMinutes("1440");
     setMentorUserId("");
+    setMonitorUserId("");
     setTitleError(false);
     setKnowledgeAreaError(false);
     setError(null);
@@ -67,8 +74,11 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
       .catch(() => setError("Não foi possível carregar as áreas de conhecimento."));
 
     getMembers()
-      .then((members) => setMentors(members.filter((member) => member.roleCode === "mentor")))
-      .catch(() => setError("Não foi possível carregar os mentores."));
+      .then((members) => {
+        setMentors(members.filter((member) => member.roleCode === "mentor"));
+        setMonitors(members.filter((member) => member.roleCode === "monitor"));
+      })
+      .catch(() => setError("Não foi possível carregar os membros."));
   }, [open]);
 
   useEffect(() => {
@@ -135,6 +145,16 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
           trackId: created.id,
           userId: mentorUserId,
           responsibility: "mentor",
+          isLead: false,
+          startsOn: null,
+        });
+      }
+
+      if (monitorUserId) {
+        await createTrackTeamMember({
+          trackId: created.id,
+          userId: monitorUserId,
+          responsibility: "monitor",
           isLead: false,
           startsOn: null,
         });
@@ -246,22 +266,35 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
               </div>
 
               <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-                <Input
+                <FormField
                   id="track-online-workload"
-                  label="Carga Horária Online (min)"
-                  type="number"
-                  value={workloadMinutes}
-                  onChange={(e) => setWorkloadMinutes(e.target.value)}
-                />
+                  label={modality === "hybrid" ? "Carga Horária Online" : "Carga Horária"}
+                >
+                  <MultiSelectDropdown
+                    id="track-online-workload"
+                    label="Carga Horária"
+                    icon="schedule"
+                    multiple={false}
+                    options={WORKLOAD_OPTIONS}
+                    selected={[workloadMinutes]}
+                    onChange={(selected) => setWorkloadMinutes(selected[0] ?? "1440")}
+                    size="md"
+                  />
+                </FormField>
 
                 {modality === "hybrid" && (
-                  <Input
-                    id="track-in-person-workload"
-                    label="Carga Horária Presencial (min)"
-                    type="number"
-                    value={inPersonWorkloadMinutes}
-                    onChange={(e) => setInPersonWorkloadMinutes(e.target.value)}
-                  />
+                  <FormField id="track-in-person-workload" label="Carga Horária Presencial">
+                    <MultiSelectDropdown
+                      id="track-in-person-workload"
+                      label="Carga Horária Presencial"
+                      icon="schedule"
+                      multiple={false}
+                      options={WORKLOAD_OPTIONS}
+                      selected={[inPersonWorkloadMinutes]}
+                      onChange={(selected) => setInPersonWorkloadMinutes(selected[0] ?? "1440")}
+                      size="md"
+                    />
+                  </FormField>
                 )}
               </div>
             </div>
@@ -289,12 +322,11 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
                   id="track-monitor"
                   label="Monitoria"
                   icon="person"
-                  placeholder="Em breve"
+                  placeholder="Selecione um monitor"
                   multiple={false}
-                  disabled
-                  options={PENDING_OPTIONS}
-                  selected={[]}
-                  onChange={() => {}}
+                  options={monitors.map((monitor) => ({ label: monitor.fullName, value: monitor.id }))}
+                  selected={monitorUserId ? [monitorUserId] : []}
+                  onChange={(selected) => setMonitorUserId(selected[0] ?? "")}
                   size="md"
                 />
               </FormField>

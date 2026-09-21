@@ -107,3 +107,34 @@ export async function getMembers(): Promise<MemberSummaryDTO[]> {
   const response = await api.get<MemberSummaryDTO[]>("user/members");
   return response.data;
 }
+
+export async function uploadUserPhoto(id: string, file: File): Promise<void> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  await api.post(`user/${id}/photo`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// GET user/{id}/photo exige o token (interceptor do axios cuida disso), então uma <img src="...">
+// direta não funciona: baixamos o blob e convertemos pra data URL. Usamos data URL (em vez de
+// object URL) porque essa foto é cacheada em contexto/localStorage e precisa sobreviver a um
+// reload da página; um blob: URL morre assim que a página que o criou é descarregada.
+export async function getUserPhotoUrl(id: string): Promise<string | null> {
+  try {
+    const response = await api.get(`user/${id}/photo`, { responseType: "blob" });
+    return await blobToDataUrl(response.data);
+  } catch {
+    return null;
+  }
+}

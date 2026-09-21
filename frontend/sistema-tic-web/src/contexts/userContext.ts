@@ -5,6 +5,8 @@ export interface UserData {
     email: string;
     name: string;
     roleName: string;
+    // undefined = ainda não buscamos; null = buscamos e o usuário não tem foto.
+    avatarUrl?: string | null;
 }
 
 export interface UserContextType {

@@ -16,6 +16,7 @@ import { SOFTEX_INTRODUCTION_DEFAULT } from "../../data/softexIntroFields";
 import {
   getTrackDocumentContent,
   saveTrackDocumentContent,
+  submitTrackDocumentForReview,
 } from "../document-services";
 
 export function emptySoftexItem(item: SoftexItemSeed): SoftexItem {
@@ -127,8 +128,6 @@ const DOCUMENT_TITLE_BY_TYPE: Record<DocumentType, string> = {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// Escopo e Proposta / Plano de Ensino já têm backend real (track_documents); Softex ainda não
-// existe como document_template no banco, então continua 100% no store em memória por enquanto.
 const BACKED_TYPES: DocumentType[] = ["Escopo e Proposta", "Plano de Ensino"];
 
 export const DocumentService = {
@@ -145,9 +144,6 @@ export const DocumentService = {
 
     try {
       const dto = await getTrackDocumentContent(id);
-      // O tipo vem do próprio backend (nome do document_template), não do que foi passado
-      // aqui — assim uma navegação sem/com o "type" errado se autocorrige ao carregar os dados,
-      // em vez de depender de quem chamou ter adivinhado certo antes de saber o que o id é.
       const resolvedType = BACKED_TYPES.includes(dto.documentType as DocumentType)
         ? (dto.documentType as DocumentType)
         : type;
@@ -214,7 +210,13 @@ export const DocumentService = {
 
     if (!patch.content) return null;
     try {
-      const dto = await saveTrackDocumentContent(id, patch.content);
+      const dto =
+        patch.status === "Em Revisão"
+          ? await (async () => {
+              await saveTrackDocumentContent(id, patch.content!);
+              return submitTrackDocumentForReview(id);
+            })()
+          : await saveTrackDocumentContent(id, patch.content);
       const resolvedType = BACKED_TYPES.includes(dto.documentType as DocumentType)
         ? (dto.documentType as DocumentType)
         : type;
