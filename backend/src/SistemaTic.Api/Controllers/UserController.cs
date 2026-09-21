@@ -39,7 +39,31 @@ public class UserController : ControllerBase
         return Ok(await this._userService.GetUserProfileAsync(id));
     }
 
+    [HttpGet("{id:guid}/photo")]
+    [Authorize]
+    public async Task<IActionResult> GetUserPhoto(Guid id)
+    {
+        var photo = await this._userService.GetUserPhotoAsync(id);
+        if (photo is null)
+            return NotFound();
+
+        return File(photo.Value.Content, photo.Value.MediaType, photo.Value.FileName);
+    }
+
+    [HttpPost("{id:guid}/photo")]
+    [Authorize]
+    public async Task<IActionResult> UploadUserPhoto(Guid id, IFormFile file)
+    {
+        Guid uploadedByUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        await using var stream = file.OpenReadStream();
+        await this._userService.UploadUserPhotoAsync(id, stream, file.FileName, file.ContentType, file.Length, uploadedByUserId);
+
+        return NoContent();
+    }
+
     [HttpPost("create-user")]
+    [Authorize(Roles = "coordinator")]
     public async Task<IActionResult> CreateUser(CreateUserDTO dto)
     {
         Guid id = await this._userService.CreateUser(dto);

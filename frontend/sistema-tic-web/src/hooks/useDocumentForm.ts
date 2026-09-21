@@ -54,11 +54,11 @@ export function useDocumentForm<C extends object, E>(
   ): Promise<StoredDocument<C> | null> {
     if (!type) return null;
     const created = await DocumentService.createDocument<C>(type);
-    const updated = await DocumentService.updateDocument(created.id, {
-      content,
-      ...careerPatch,
-      status: target,
-    });
+    const updated = await DocumentService.updateDocument(
+      created.id,
+      { content, ...careerPatch, status: target },
+      type
+    );
     if (!updated) return null;
     setSavedDoc(updated);
     return updated;
@@ -69,11 +69,11 @@ export function useDocumentForm<C extends object, E>(
     setIsBusy(true);
     try {
       if (savedDoc) {
-        const updated = await DocumentService.updateDocument(savedDoc.id, {
-          content,
-          ...careerPatch,
-          status: "Rascunho",
-        });
+        const updated = await DocumentService.updateDocument(
+          savedDoc.id,
+          { content, ...careerPatch, status: "Rascunho" },
+          savedDoc.type ?? type
+        );
         if (updated) setSavedDoc(updated);
         return updated;
       }
@@ -88,11 +88,11 @@ export function useDocumentForm<C extends object, E>(
     setIsBusy(true);
     try {
       if (savedDoc) {
-        const updated = await DocumentService.updateDocument(savedDoc.id, {
-          content,
-          ...careerPatch,
-          status: "Em Revisão",
-        });
+        const updated = await DocumentService.updateDocument(
+          savedDoc.id,
+          { content, ...careerPatch, status: "Em Revisão" },
+          savedDoc.type ?? type
+        );
         if (updated) setSavedDoc(updated);
         return updated;
       }

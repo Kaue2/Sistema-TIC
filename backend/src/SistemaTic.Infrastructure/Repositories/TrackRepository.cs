@@ -65,6 +65,19 @@ public class TrackRepository : ITrackRepository
         return null;
     }
 
+    public async Task<IEnumerable<Track>> GetAllAsync()
+    {
+        List<Track> tracks = new List<Track>();
+        await using var cmd = _dataSource.CreateCommand("SELECT * FROM tracks ORDER BY created_at DESC");
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            tracks.Add(Map(reader));
+        }
+        return tracks;
+    }
+
     public async Task<Track> CreateAsync(
         Guid? ideaId,
         Guid? sourceTrackId,

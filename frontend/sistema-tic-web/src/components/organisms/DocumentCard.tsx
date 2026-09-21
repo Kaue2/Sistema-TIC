@@ -48,7 +48,7 @@ export function DocumentCard({
   const [menuAnchor, setMenuAnchor] = useState<ContextMenuAnchor | null>(null);
 
   function handleOpen() {
-    navigate(`/documents/${document.id}`);
+    navigate(`/documents/${document.id}?type=${encodeURIComponent(document.type)}`);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {

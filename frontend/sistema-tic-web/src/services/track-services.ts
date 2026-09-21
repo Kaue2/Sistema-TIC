@@ -63,6 +63,27 @@ export async function getTrack(id: string): Promise<TrackResponseDTO> {
   return response.data;
 }
 
+export interface TrackMentorSummaryDTO {
+  fullName: string;
+  email: string;
+}
+
+export interface TrackSummaryDTO {
+  id: string;
+  code: number;
+  title: string;
+  modality: string;
+  learningLevel: string | null;
+  status: string;
+  knowledgeAreaName: string;
+  mentors: TrackMentorSummaryDTO[];
+}
+
+export async function getTracks(): Promise<TrackSummaryDTO[]> {
+  const response = await api.get<TrackSummaryDTO[]>("track");
+  return response.data;
+}
+
 export interface KnowledgeAreaDTO {
   id: string;
   code: string;

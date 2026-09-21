@@ -25,6 +25,13 @@ public class TrackController : ControllerBase
         return await this._trackService.GetKnowledgeAreasAsync();
     }
 
+    [HttpGet]
+    [Authorize]
+    public async Task<IEnumerable<TrackSummaryDTO>> GetAll()
+    {
+        return await this._trackService.GetAllTracksAsync();
+    }
+
     [HttpGet("{id:guid}")]
     [Authorize]
     public async Task<IActionResult> GetById(Guid id)
@@ -45,6 +52,21 @@ public class TrackController : ControllerBase
         if (document is null) return NotFound();
 
         return Ok(new SoftexDocumentDTO(document.Id, document.Status));
+    }
+
+    [HttpGet("{id:guid}/documents")]
+    [Authorize]
+    public async Task<IEnumerable<TrackDocumentSummaryDTO>> GetDocuments(Guid id)
+    {
+        return await this._trackService.GetDocumentsByTrackIdAsync(id);
+    }
+
+    [HttpGet("documents")]
+    [Authorize]
+    public async Task<IEnumerable<DocumentosTrilhaDTO>> GetAllDocuments()
+    {
+        Guid currentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return await this._trackService.GetAllTrackDocumentPairsAsync(currentUserId);
     }
 
     [HttpPost("create-track")]

@@ -5,6 +5,7 @@ namespace SistemaTic.Application.Contracts;
 public interface ITrackRepository
 {
     public Task<Track?> GetByIdAsync(Guid id);
+    public Task<IEnumerable<Track>> GetAllAsync();
     public Task<Track> CreateAsync(
         Guid? ideaId,
         Guid? sourceTrackId,

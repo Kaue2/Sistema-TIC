@@ -43,6 +43,45 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
         return members;
     }
 
+    public async Task<IEnumerable<TrackMemberSummary>> GetActiveMembersAsync(Guid trackId, string responsibility)
+    {
+        List<TrackMemberSummary> members = new List<TrackMemberSummary>();
+        await using var cmd = _dataSource.CreateCommand();
+        cmd.CommandText = """
+            SELECT u.full_name, u.email
+              FROM track_team_members ttm
+              JOIN users u ON u.id = ttm.user_id
+             WHERE ttm.track_id = @trackId
+               AND ttm.responsibility = @responsibility
+               AND ttm.ends_on IS NULL
+             ORDER BY u.full_name;
+        """;
+        cmd.Parameters.AddWithValue("trackId", trackId);
+        cmd.Parameters.AddWithValue("responsibility", responsibility);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            members.Add(new TrackMemberSummary(reader.GetString(0), reader.GetString(1)));
+        }
+        return members;
+    }
+
+    public async Task<IEnumerable<Guid>> GetActiveTrackIdsByUserIdAsync(Guid userId)
+    {
+        List<Guid> trackIds = new List<Guid>();
+        await using var cmd = _dataSource.CreateCommand(
+            "SELECT DISTINCT track_id FROM track_team_members WHERE user_id = @userId AND ends_on IS NULL");
+        cmd.Parameters.AddWithValue("userId", userId);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            trackIds.Add(reader.GetGuid(0));
+        }
+        return trackIds;
+    }
+
     public async Task<TrackTeamMember> CreateAsync(
         Guid trackId,
         Guid userId,

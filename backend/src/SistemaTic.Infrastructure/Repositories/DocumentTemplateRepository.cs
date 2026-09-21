@@ -34,4 +34,16 @@ public class DocumentTemplateRepository : IDocumentTemplateRepository
         }
         return templates;
     }
+
+    public async Task<DocumentTemplateSummary?> GetByIdAsync(Guid id)
+    {
+        await using var cmd = _dataSource.CreateCommand("SELECT id, code, name FROM document_templates WHERE id = @id");
+        cmd.Parameters.AddWithValue("id", id);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        if (!await reader.ReadAsync())
+            return null;
+
+        return new DocumentTemplateSummary(reader.GetGuid(0), reader.GetString(1), reader.GetString(2));
+    }
 }

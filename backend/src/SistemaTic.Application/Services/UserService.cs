@@ -12,6 +12,11 @@ public class UserService
     private readonly IRoleRepository _roleRepository;
     private readonly IUserContactRepository _userContactRepository;
     private readonly IUserProfileRepository _userProfileRepository;
+    private readonly IFileAssetRepository _fileAssetRepository;
+    private readonly IUserPhotoStorage _userPhotoStorage;
+
+    private static readonly string[] AllowedPhotoMediaTypes = { "image/jpeg", "image/png", "image/webp" };
+    private const long MaxPhotoSizeBytes = 5 * 1024 * 1024;
 
     public UserService(
         IUserRepository userRepository,
@@ -19,7 +24,9 @@ public class UserService
         IUserAvailabilityRepository userAvailabilityRepository,
         IRoleRepository roleRepository,
         IUserContactRepository userContactRepository,
-        IUserProfileRepository userProfileRepository)
+        IUserProfileRepository userProfileRepository,
+        IFileAssetRepository fileAssetRepository,
+        IUserPhotoStorage userPhotoStorage)
     {
         this._userRepository = userRepository;
         this._userCredentialsRepository = userCredentialsRepository;
@@ -27,6 +34,8 @@ public class UserService
         this._roleRepository = roleRepository;
         this._userContactRepository = userContactRepository;
         this._userProfileRepository = userProfileRepository;
+        this._fileAssetRepository = fileAssetRepository;
+        this._userPhotoStorage = userPhotoStorage;
     }
 
     public async Task<IEnumerable<User>> GetAllUsersAsync()
@@ -87,6 +96,13 @@ public class UserService
 
     public async Task<Guid> CreateUser(CreateUserDTO dto)
     {
+        if (!int.TryParse(dto.TotalHours, out int hours) || hours <= 0)
+            throw new Exception("É necessário informar a carga horária semanal do usuário");
+
+        bool hasSchedule = dto.Schedule.Any(s => !string.IsNullOrWhiteSpace(s.Start) && !string.IsNullOrWhiteSpace(s.End));
+        if (!hasSchedule)
+            throw new Exception("É necessário informar ao menos um dia de disponibilidade do usuário");
+
         Roles? role = await _roleRepository.GetByCodeAsync(dto.RoleCode);
         if (role is null)
             throw new Exception("Role informada não encontrada");
@@ -109,7 +125,6 @@ public class UserService
         }
 
         // front manda a jornada em horas (string); o banco guarda minutos
-        int? weeklyWorkloadMinutes = int.TryParse(dto.TotalHours, out int hours) ? hours * 60 : null;
         string? workLocation = string.IsNullOrWhiteSpace(dto.Location) ? null : dto.Location;
 
         await _userProfileRepository.UpsertAsync(
@@ -117,12 +132,65 @@ public class UserService
             preferredName: null,
             photoFileId: null,
             workLocation: workLocation,
-            weeklyWorkloadMinutes: weeklyWorkloadMinutes,
+            weeklyWorkloadMinutes: hours * 60,
             biography: null,
             lattesUrl: null,
             knowledgeAreaId: null);
 
         return userId;
+    }
+
+    public async Task UploadUserPhotoAsync(Guid userId, Stream content, string fileName, string? contentType, long length, Guid uploadedByUserId)
+    {
+        User? user = await this._userRepository.GetUserByIdAsync(userId);
+        if (user is null)
+            throw new Exception("não foi possível encontrar o usuário");
+
+        if (length <= 0)
+            throw new Exception("arquivo de foto não enviado");
+
+        if (length > MaxPhotoSizeBytes)
+            throw new Exception("a foto excede o tamanho máximo permitido (5MB)");
+
+        if (contentType is null || !AllowedPhotoMediaTypes.Contains(contentType))
+            throw new Exception("formato de foto não suportado, use JPEG, PNG ou WEBP");
+
+        UserProfile? profile = await this._userProfileRepository.GetByUserIdAsync(userId);
+        FileAsset? existingAsset = profile?.PhotoFileId is Guid existingId
+            ? await this._fileAssetRepository.GetByIdAsync(existingId)
+            : null;
+
+        string storageKey = await this._userPhotoStorage.SaveAsync(userId, content, fileName);
+
+        if (existingAsset is not null)
+        {
+            if (existingAsset.StorageKey is not null && existingAsset.StorageKey != storageKey)
+                this._userPhotoStorage.DeleteIfExists(existingAsset.StorageKey);
+
+            await this._fileAssetRepository.UpdateAsync(existingAsset.Id, storageKey, fileName, contentType, length);
+        }
+        else
+        {
+            FileAsset asset = await this._fileAssetRepository.CreateAsync("local", storageKey, fileName, contentType, length, uploadedByUserId);
+            await this._userProfileRepository.UpdatePhotoFileIdAsync(userId, asset.Id);
+        }
+    }
+
+    public async Task<(Stream Content, string MediaType, string FileName)?> GetUserPhotoAsync(Guid userId)
+    {
+        UserProfile? profile = await this._userProfileRepository.GetByUserIdAsync(userId);
+        if (profile?.PhotoFileId is not Guid photoFileId)
+            return null;
+
+        FileAsset? asset = await this._fileAssetRepository.GetByIdAsync(photoFileId);
+        if (asset?.StorageKey is null)
+            return null;
+
+        Stream? content = await this._userPhotoStorage.OpenAsync(asset.StorageKey);
+        if (content is null)
+            return null;
+
+        return (content, asset.MediaType ?? "application/octet-stream", asset.OriginalFileName);
     }
 
     public async Task<UserCredentials> ChangeUserPasswordAsync(string email, string oldPassword, string newPassword, string confirmNewPassword)

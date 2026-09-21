@@ -173,7 +173,7 @@ export function PlanoEnsinoForm({
           mode === "view" &&
           status !== "Arquivado" &&
           status !== "Concluído"
-            ? () => navigate(`/documents/${doc!.id}/edit`)
+            ? () => navigate(`/documents/${doc!.id}/edit?type=${encodeURIComponent(doc!.type)}`)
             : undefined
         }
         onReopen={

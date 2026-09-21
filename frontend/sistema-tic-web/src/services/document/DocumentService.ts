@@ -13,6 +13,11 @@ import type {
 import { mockDocuments } from "../../data/mockDocuments";
 import { SOFTEX_METAS, type SoftexItemSeed, type SoftexMetaSeed } from "../../data/softexFields";
 import { SOFTEX_INTRODUCTION_DEFAULT } from "../../data/softexIntroFields";
+import {
+  getTrackDocumentContent,
+  saveTrackDocumentContent,
+  submitTrackDocumentForReview,
+} from "../document-services";
 
 export function emptySoftexItem(item: SoftexItemSeed): SoftexItem {
   return { ...item, answer: "" };
@@ -123,12 +128,40 @@ const DOCUMENT_TITLE_BY_TYPE: Record<DocumentType, string> = {
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const BACKED_TYPES: DocumentType[] = ["Escopo e Proposta", "Plano de Ensino"];
+
 export const DocumentService = {
-  async getDocument(id: string): Promise<StoredDocument | null> {
-    await wait(400);
-    const doc = store.get(id);
-    if (!doc) return null;
-    return { ...doc, content: { ...doc.content } };
+  async getDocument(
+    id: string,
+    type: DocumentType = "Escopo e Proposta"
+  ): Promise<StoredDocument | null> {
+    if (!BACKED_TYPES.includes(type)) {
+      await wait(400);
+      const doc = store.get(id);
+      if (!doc) return null;
+      return { ...doc, content: { ...doc.content } };
+    }
+
+    try {
+      const dto = await getTrackDocumentContent(id);
+      const resolvedType = BACKED_TYPES.includes(dto.documentType as DocumentType)
+        ? (dto.documentType as DocumentType)
+        : type;
+      return {
+        id: dto.id,
+        number: "",
+        title: DOCUMENT_TITLE_BY_TYPE[resolvedType],
+        type: resolvedType,
+        trail: "",
+        semester: "",
+        career: "",
+        teachingMode: "" as unknown as StoredDocument["teachingMode"],
+        status: dto.status as DocumentStatusValue,
+        content: { ...EMPTY_CONTENT_BY_TYPE[resolvedType](), ...dto.content } as unknown as DocumentContent,
+      };
+    } catch {
+      return null;
+    }
   },
 
   async createDocument<C extends object = DocumentContent>(
@@ -159,18 +192,49 @@ export const DocumentService = {
     id: string,
     patch: Partial<
       Pick<StoredDocument<C>, "content" | "status" | "trail" | "semester" | "career">
-    >
+    >,
+    type: DocumentType = "Escopo e Proposta"
   ): Promise<StoredDocument<C> | null> {
-    await wait(150);
-    const doc = store.get(id);
-    if (!doc) return null;
-    const updated = {
-      ...doc,
-      ...patch,
-      content: { ...doc.content, ...(patch.content ?? {}) },
-    } as StoredDocument<C>;
-    store.set(id, updated as StoredDocument);
-    return { ...updated };
+    if (!BACKED_TYPES.includes(type)) {
+      await wait(150);
+      const doc = store.get(id);
+      if (!doc) return null;
+      const updated = {
+        ...doc,
+        ...patch,
+        content: { ...doc.content, ...(patch.content ?? {}) },
+      } as StoredDocument<C>;
+      store.set(id, updated as StoredDocument);
+      return { ...updated };
+    }
+
+    if (!patch.content) return null;
+    try {
+      const dto =
+        patch.status === "Em Revisão"
+          ? await (async () => {
+              await saveTrackDocumentContent(id, patch.content!);
+              return submitTrackDocumentForReview(id);
+            })()
+          : await saveTrackDocumentContent(id, patch.content);
+      const resolvedType = BACKED_TYPES.includes(dto.documentType as DocumentType)
+        ? (dto.documentType as DocumentType)
+        : type;
+      return {
+        id: dto.id,
+        number: "",
+        title: DOCUMENT_TITLE_BY_TYPE[resolvedType],
+        type: resolvedType,
+        trail: patch.trail ?? "",
+        semester: patch.semester ?? "",
+        career: patch.career ?? "",
+        teachingMode: "" as unknown as StoredDocument["teachingMode"],
+        status: dto.status as DocumentStatusValue,
+        content: dto.content as unknown as C,
+      } as StoredDocument<C>;
+    } catch {
+      return null;
+    }
   },
 
   async transitionStatus<C extends object = DocumentContent>(

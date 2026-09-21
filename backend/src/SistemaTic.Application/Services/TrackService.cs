@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Application.DTO;
 using SistemaTic.Domain.Entities;
@@ -41,6 +42,133 @@ public class TrackService
         return await this._trackDocumentRepository.GetSoftexDocumentByTrackIdAsync(trackId);
     }
 
+    public async Task<IEnumerable<TrackSummaryDTO>> GetAllTracksAsync()
+    {
+        var tracks = await this._trackRepository.GetAllAsync();
+        var summaries = new List<TrackSummaryDTO>();
+
+        foreach (var track in tracks)
+        {
+            KnowledgeArea? knowledgeArea = await this._knowledgeAreaRepository.GetByIdAsync(track.KnowledgeAreaId);
+            var mentors = await this._trackTeamMemberRepository.GetActiveMembersAsync(track.Id, "mentor");
+
+            summaries.Add(new TrackSummaryDTO(
+                track.Id,
+                track.Code,
+                track.Title,
+                track.Modality,
+                track.LearningLevel,
+                track.Status,
+                knowledgeArea?.Name ?? string.Empty,
+                mentors.Select(m => new TrackMentorSummaryDTO(m.FullName, m.Email))));
+        }
+
+        return summaries;
+    }
+
+    public async Task<IEnumerable<TrackDocumentSummaryDTO>> GetDocumentsByTrackIdAsync(Guid trackId)
+    {
+        Track? track = await this._trackRepository.GetByIdAsync(trackId);
+        if (track is null)
+            throw new Exception("Trilha não encontrada");
+
+        return await BuildDocumentSummariesAsync(track);
+    }
+
+    public async Task<IEnumerable<DocumentosTrilhaDTO>> GetAllTrackDocumentPairsAsync(Guid userId)
+    {
+        var memberTrackIds = (await this._trackTeamMemberRepository.GetActiveTrackIdsByUserIdAsync(userId)).ToHashSet();
+        var tracks = (await this._trackRepository.GetAllAsync()).Where(t => memberTrackIds.Contains(t.Id));
+        var pairs = new List<DocumentosTrilhaDTO>();
+
+        foreach (var track in tracks)
+        {
+            var summaries = await BuildDocumentSummariesAsync(track);
+
+            pairs.Add(new DocumentosTrilhaDTO(
+                summaries.FirstOrDefault(s => s.DocumentType == "Escopo e Proposta"),
+                summaries.FirstOrDefault(s => s.DocumentType == "Plano de Ensino")));
+        }
+
+        return pairs;
+    }
+
+    private async Task<List<TrackDocumentSummaryDTO>> BuildDocumentSummariesAsync(Track track)
+    {
+        KnowledgeArea? knowledgeArea = await this._knowledgeAreaRepository.GetByIdAsync(track.KnowledgeAreaId);
+        var documents = await this._trackDocumentRepository.GetByTrackIdAsync(track.Id);
+        var summaries = new List<TrackDocumentSummaryDTO>();
+
+        foreach (var document in documents)
+        {
+            DocumentTemplateSummary? template = await this._documentTemplateRepository.GetByIdAsync(document.DocumentTemplateId);
+
+            summaries.Add(new TrackDocumentSummaryDTO(
+                document.Id,
+                template?.Name ?? string.Empty,
+                track.Title,
+                knowledgeArea?.Name ?? string.Empty,
+                MapDocumentStatus(document.Status)));
+        }
+
+        return summaries;
+    }
+
+    public async Task<TrackDocumentContentDTO?> GetTrackDocumentContentAsync(Guid documentId)
+    {
+        TrackDocument? document = await this._trackDocumentRepository.GetByIdAsync(documentId);
+        if (document is null)
+            return null;
+
+        return await ToContentDTOAsync(document);
+    }
+
+    public async Task<TrackDocumentContentDTO?> SaveTrackDocumentContentAsync(Guid documentId, string content, Guid updatedByUserId)
+    {
+        TrackDocument? document = await this._trackDocumentRepository.GetByIdAsync(documentId);
+        if (document is null)
+            return null;
+
+        TrackDocument updated = await this._trackDocumentRepository.ReplaceContentAsync(documentId, content, updatedByUserId);
+        return await ToContentDTOAsync(updated);
+    }
+
+    public async Task<TrackDocumentContentDTO?> SubmitTrackDocumentForReviewAsync(Guid documentId, Guid updatedByUserId)
+    {
+        TrackDocument? document = await this._trackDocumentRepository.GetByIdAsync(documentId);
+        if (document is null)
+            return null;
+
+        TrackDocument updated = await this._trackDocumentRepository.SubmitForReviewAsync(documentId, updatedByUserId);
+        return await ToContentDTOAsync(updated);
+    }
+
+    private async Task<TrackDocumentContentDTO> ToContentDTOAsync(TrackDocument document)
+    {
+        DocumentTemplateSummary? template = await this._documentTemplateRepository.GetByIdAsync(document.DocumentTemplateId);
+        using JsonDocument parsedContent = JsonDocument.Parse(document.CurrentContent);
+
+        return new TrackDocumentContentDTO(
+            document.Id,
+            template?.Name ?? string.Empty,
+            MapDocumentStatus(document.Status),
+            parsedContent.RootElement.Clone());
+    }
+
+    private static string MapDocumentStatus(string status)
+    {
+        // "rejected" ainda não tem um status equivalente no front (Rascunho/Em Revisão/Concluído/Arquivado);
+        // por ora devolvemos o código crudo até decidirmos a migration que trata isso.
+        return status switch
+        {
+            "draft" => "Rascunho",
+            "submitted" => "Em Revisão",
+            "changes_requested" => "Em Revisão",
+            "approved" => "Concluído",
+            _ => status,
+        };
+    }
+
     public async Task<Track> CreateTrackAsync(CreateTrackDTO dto, Guid createdByUserId)
     {
         Track track = await this._trackRepository.CreateAsync(
@@ -65,6 +193,14 @@ public class TrackService
             dto.Prerequisites,
             dto.AttendanceRequirementPercent,
             createdByUserId);
+
+        await this._trackTeamMemberRepository.CreateAsync(
+            track.Id,
+            createdByUserId,
+            "coordinator",
+            isLead: true,
+            startsOn: null,
+            assignedByUserId: createdByUserId);
 
         var templates = await this._documentTemplateRepository.GetActivePublishedAsync();
         foreach (var template in templates)

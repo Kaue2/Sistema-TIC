@@ -5,12 +5,14 @@ type ProfileHeaderProps = {
   user: User;
   mode: "self" | "user";
   onEditClick?: () => void;
+  onAvatarEditClick?: () => void;
 };
 
 export function ProfileHeader({
   user,
   mode,
   onEditClick,
+  onAvatarEditClick,
 }: ProfileHeaderProps) {
   return (
     <header className="flex flex-col items-center">
@@ -20,7 +22,7 @@ export function ProfileHeader({
           fullName={user.fullName}
           size="lg"
           editable={mode === "self"}
-          onEditClick={onEditClick}
+          onEditClick={onAvatarEditClick}
         />
       </div>
 

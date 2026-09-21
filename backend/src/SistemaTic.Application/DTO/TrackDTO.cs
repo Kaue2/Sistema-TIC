@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace SistemaTic.Application.DTO;
 
 public record CreateTrackDTO(
@@ -20,6 +22,39 @@ public record CreateTrackDTO(
     string? TargetAudience,
     string? Prerequisites,
     decimal? AttendanceRequirementPercent
+);
+
+public record TrackMentorSummaryDTO(string FullName, string Email);
+
+public record TrackSummaryDTO(
+    Guid Id,
+    int Code,
+    string Title,
+    string Modality,
+    string? LearningLevel,
+    string Status,
+    string KnowledgeAreaName,
+    IEnumerable<TrackMentorSummaryDTO> Mentors
+);
+
+public record TrackDocumentSummaryDTO(
+    Guid Id,
+    string DocumentType,
+    string TrackTitle,
+    string KnowledgeAreaName,
+    string Status
+);
+
+public record TrackDocumentContentDTO(
+    Guid Id,
+    string DocumentType,
+    string Status,
+    JsonElement Content
+);
+
+public record DocumentosTrilhaDTO(
+    TrackDocumentSummaryDTO? EscopoPropostaDaTrilha,
+    TrackDocumentSummaryDTO? PlanoEnsinoDaTrilha
 );
 
 public record CreateTrackTeamMemberDTO(

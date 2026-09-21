@@ -5,4 +5,5 @@ namespace SistemaTic.Application.Contracts;
 public interface IKnowledgeAreaRepository
 {
     public Task<IEnumerable<KnowledgeArea>> GetActiveAsync();
+    public Task<KnowledgeArea?> GetByIdAsync(Guid id);
 }

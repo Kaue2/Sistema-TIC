@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { jwtDecode } from "jwt-decode";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { DecorativeBackground } from "../components/atoms/DecorativeBackground";
 import { ProfileHeader } from "../components/organisms/ProfileHeader";
 import { ProfileContent } from "../components/organisms/ProfileContent";
+import { Toast } from "../components/organisms/Toast";
+import type { ToastType } from "../components/organisms/Toast";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
-import { type CustomJwtDecode } from "../services/api";
-import { getUserProfile } from "../services/user-services";
+import { getUserProfile, getUserPhotoUrl, uploadUserPhoto } from "../services/user-services";
+import { getCurrentUserId } from "../services/auth";
+import { useUser } from "../contexts/userContext";
 
 export interface User {
   id: string;
@@ -30,22 +32,15 @@ const WEEKDAY_NAMES = [
   "Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado",
 ];
 
-function getCurrentUserId(): string | null {
-  const token = localStorage.getItem("token");
-  if (!token) return null;
-
-  try {
-    return jwtDecode<CustomJwtDecode>(token).sub;
-  } catch {
-    return null;
-  }
-}
-
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
   const mode = id === getCurrentUserId() ? "self" : "user";
+  const { userData, setUserData } = useUser();
 
   const [user, setUser] = useState<User | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -69,7 +64,47 @@ export function ProfilePage() {
         })),
       });
     });
-  }, [id]);
+
+    // pro próprio usuário logado a foto já vem cacheada pelo UserProvider (busca única no
+    // login/reload); só buscamos aqui quando é o perfil de outra pessoa.
+    if (mode === "user") {
+      getUserPhotoUrl(id).then((avatarUrl) => {
+        if (avatarUrl) {
+          setUser((current) => (current ? { ...current, avatar: avatarUrl } : current));
+        }
+      });
+    }
+  }, [id, mode]);
+
+  useEffect(() => {
+    // depende de user?.id (não só de userData.avatarUrl) porque o fetch do perfil e o fetch
+    // da foto (cacheada no contexto) terminam em momentos diferentes; sem isso, se a foto já
+    // estava em cache quando este efeito rodou a 1ª vez e `user` ainda era null, a atualização
+    // se perdia e não disparava de novo.
+    if (mode !== "self" || !userData?.avatarUrl || !user) return;
+    setUser((current) => (current ? { ...current, avatar: userData.avatarUrl ?? current.avatar } : current));
+  }, [mode, userData?.avatarUrl, user?.id]);
+
+  async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !id) return;
+
+    setUploadingPhoto(true);
+    try {
+      await uploadUserPhoto(id, file);
+      const avatarUrl = await getUserPhotoUrl(id);
+      setUser((current) => (current ? { ...current, avatar: avatarUrl ?? current.avatar } : current));
+      if (mode === "self" && userData) {
+        setUserData({ ...userData, avatarUrl });
+      }
+      setToast({ message: "Foto de perfil atualizada.", type: "success" });
+    } catch {
+      setToast({ message: "Não foi possível enviar a foto de perfil.", type: "error" });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }
 
   if (!user) return null;
 
@@ -90,8 +125,22 @@ export function ProfilePage() {
 
       <main className="relative mx-auto flex min-h-screen w-full max-w-300 flex-col items-center px-6 pb-16 pt-12">
         <div className="mb-14 flex flex-col items-center">
-          <ProfileHeader user={user} mode={mode} />
+          <ProfileHeader
+            user={user}
+            mode={mode}
+            onAvatarEditClick={() => {
+              if (!uploadingPhoto) fileInputRef.current?.click();
+            }}
+          />
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handlePhotoSelected}
+        />
 
         <ProfileContent
           user={user}
@@ -101,6 +150,14 @@ export function ProfilePage() {
           onLogout={() => console.log("Sair")}
         />
       </main>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
