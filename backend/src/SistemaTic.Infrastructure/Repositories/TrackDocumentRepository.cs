@@ -159,6 +159,31 @@ public class TrackDocumentRepository : ITrackDocumentRepository
         return updated;
     }
 
+    public async Task<TrackDocument> SubmitForReviewAsync(Guid trackDocumentId, Guid updatedByUserId)
+    {
+        await using var cmd = _dataSource.CreateCommand("""
+            UPDATE track_documents
+               SET status = 'submitted',
+                   updated_by_user_id = @updatedByUserId,
+                   submitted_at = clock_timestamp()
+             WHERE id = @id
+               AND status IN ('draft', 'changes_requested')
+            RETURNING *;
+        """);
+        cmd.Parameters.AddWithValue("id", trackDocumentId);
+        cmd.Parameters.AddWithValue("updatedByUserId", updatedByUserId);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
+            return Map(reader);
+
+        TrackDocument? current = await GetByIdAsync(trackDocumentId);
+        if (current is null)
+            throw new Exception("Documento não encontrado");
+
+        throw new Exception("Somente documentos em rascunho ou com alterações solicitadas podem ser enviados para revisão");
+    }
+
     public async Task<TrackDocument> CreateAsync(
         Guid trackId,
         Guid documentTemplateId,

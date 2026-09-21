@@ -127,6 +127,16 @@ public class TrackService
         return await ToContentDTOAsync(updated);
     }
 
+    public async Task<TrackDocumentContentDTO?> SubmitTrackDocumentForReviewAsync(Guid documentId, Guid updatedByUserId)
+    {
+        TrackDocument? document = await this._trackDocumentRepository.GetByIdAsync(documentId);
+        if (document is null)
+            return null;
+
+        TrackDocument updated = await this._trackDocumentRepository.SubmitForReviewAsync(documentId, updatedByUserId);
+        return await ToContentDTOAsync(updated);
+    }
+
     private async Task<TrackDocumentContentDTO> ToContentDTOAsync(TrackDocument document)
     {
         DocumentTemplateSummary? template = await this._documentTemplateRepository.GetByIdAsync(document.DocumentTemplateId);

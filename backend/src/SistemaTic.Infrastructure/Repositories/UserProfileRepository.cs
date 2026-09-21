@@ -94,4 +94,18 @@ public class UserProfileRepository : IUserProfileRepository
 
         return Map(reader);
     }
+
+    public async Task UpdatePhotoFileIdAsync(Guid userId, Guid photoFileId)
+    {
+        await using var cmd = _dataSource.CreateCommand(
+            "UPDATE user_profiles SET photo_file_id = @photoFileId, updated_at = clock_timestamp() WHERE user_id = @userId");
+        cmd.Parameters.AddWithValue("photoFileId", photoFileId);
+        cmd.Parameters.AddWithValue("userId", userId);
+
+        int affected = await cmd.ExecuteNonQueryAsync();
+        if (affected == 0)
+        {
+            throw new Exception("perfil do usuário não encontrado");
+        }
+    }
 }

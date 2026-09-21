@@ -14,4 +14,5 @@ public interface IUserProfileRepository
         string? biography,
         string? lattesUrl,
         Guid? knowledgeAreaId);
+    public Task UpdatePhotoFileIdAsync(Guid userId, Guid photoFileId);
 }

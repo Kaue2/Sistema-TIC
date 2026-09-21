@@ -33,6 +33,8 @@ public static class DependencyInjection
 		services.AddScoped<IDocumentTemplateRepository, DocumentTemplateRepository>();
 		services.AddScoped<INotificationRepository, NotificationRepository>();
 		services.AddScoped<INotificationRecipientRepository, NotificationRecipientRepository>();
+		services.AddScoped<IFileAssetRepository, FileAssetRepository>();
+		services.AddSingleton<IUserPhotoStorage, UserPhotoStorage>();
 
 		return services;
 	}

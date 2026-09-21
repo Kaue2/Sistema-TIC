@@ -44,4 +44,18 @@ public class TrackDocumentController : ControllerBase
 
         return Ok(updated);
     }
+
+    [HttpPut("{id:guid}/submit")]
+    [Authorize]
+    public async Task<IActionResult> SubmitForReview(Guid id)
+    {
+        Guid updatedByUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        TrackDocumentContentDTO? updated = await this._trackService.SubmitTrackDocumentForReviewAsync(id, updatedByUserId);
+
+        if (updated is null)
+            return NotFound();
+
+        return Ok(updated);
+    }
 }

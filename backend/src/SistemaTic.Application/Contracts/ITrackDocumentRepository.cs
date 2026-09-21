@@ -16,4 +16,7 @@ public interface ITrackDocumentRepository
         Guid trackDocumentId,
         string newContent,
         Guid changedByUserId);
+    public Task<TrackDocument> SubmitForReviewAsync(
+        Guid trackDocumentId,
+        Guid updatedByUserId);
 }
