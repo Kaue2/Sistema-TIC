@@ -1,16 +1,22 @@
+import { useRef, useState } from "react";
 import type { Trail } from "../../types/trail";
+import { ContextMenu } from "../molecules/ContextMenu";
+import type { ContextMenuAnchor } from "../molecules/ContextMenu";
 
 type TrailCardProps = {
   trail: Trail;
   onOpen: (trail: Trail) => void;
-  onMore: (trail: Trail) => void;
+  onGenerateReport: (trail: Trail) => void;
 };
 
 function getStageColor(stage: Trail["stage"]): string {
   return stage === "Pré Trilha" ? "bg-yellow-100" : "bg-blue-100";
 }
 
-export function TrailCard({ trail, onOpen, onMore }: TrailCardProps) {
+export function TrailCard({ trail, onOpen, onGenerateReport }: TrailCardProps) {
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const [menuAnchor, setMenuAnchor] = useState<ContextMenuAnchor | null>(null);
+
   function handleKeyDown(event: React.KeyboardEvent<HTMLElement>) {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -18,8 +24,21 @@ export function TrailCard({ trail, onOpen, onMore }: TrailCardProps) {
     }
   }
 
+  function openActionsMenu() {
+    const rect = moreButtonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMenuAnchor({ left: rect.right, top: rect.bottom });
+  }
+
+  function handleAction(action: string) {
+    setMenuAnchor(null);
+    if (action === "open") onOpen(trail);
+    if (action === "generate-report") onGenerateReport(trail);
+  }
+
   return (
-    <article
+    <>
+      <article
       role="link"
       tabIndex={0}
       aria-label={`Abrir trilha ${trail.title} #${trail.id}`}
@@ -63,11 +82,14 @@ export function TrailCard({ trail, onOpen, onMore }: TrailCardProps) {
       </div>
 
       <button
+        ref={moreButtonRef}
         type="button"
+        aria-haspopup="menu"
+        aria-expanded={menuAnchor !== null}
         aria-label={`Mais ações para ${trail.title}`}
         onClick={(event) => {
           event.stopPropagation();
-          onMore(trail);
+          openActionsMenu();
         }}
         onKeyDown={(event) => event.stopPropagation()}
         className="absolute right-3 top-3 flex size-8 items-center justify-center rounded-full text-black-40 transition-colors hover:bg-blue-100 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100"
@@ -76,6 +98,19 @@ export function TrailCard({ trail, onOpen, onMore }: TrailCardProps) {
           more_horiz
         </span>
       </button>
-    </article>
+      </article>
+
+      <ContextMenu
+        items={[
+          { id: "open", label: "Abrir", icon: "open_in_new" },
+          { id: "generate-report", label: "Gerar relat\u00f3rio", icon: "description" },
+        ]}
+        anchor={menuAnchor}
+        align="right"
+        ariaLabel={`A\u00e7\u00f5es da trilha ${trail.title}`}
+        onSelect={handleAction}
+        onClose={() => setMenuAnchor(null)}
+      />
+    </>
   );
 }

@@ -18,6 +18,7 @@ type ContextMenuProps = {
   onSelect: (id: string) => void;
   onClose: () => void;
   align?: "left" | "right";
+  ariaLabel?: string;
 };
 
 export function ContextMenu({
@@ -26,6 +27,7 @@ export function ContextMenu({
   onSelect,
   onClose,
   align = "left",
+  ariaLabel = "Ações",
 }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -61,8 +63,8 @@ export function ContextMenu({
     <div
       ref={ref}
       role="menu"
-      aria-label="Ações do documento"
-      className="fixed z-50 origin-top-right rounded-lg border border-black-20 bg-card-background p-1 shadow-lg animate-fade-scale-in"
+      aria-label={ariaLabel}
+      className="fixed z-[1100] origin-top-right rounded-lg border border-black-20 bg-card-background p-1 shadow-lg animate-fade-scale-in"
       style={{ left, top, width: menuWidth }}
     >
       {items.map((item) => (

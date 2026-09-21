@@ -50,6 +50,21 @@ public class TrackDocumentRepository : ITrackDocumentRepository
         return documents;
     }
 
+    public async Task<TrackDocument?> GetSoftexDocumentByTrackIdAsync(Guid trackId)
+    {
+        await using var cmd = _dataSource.CreateCommand("""
+            SELECT td.*
+              FROM track_documents td
+              JOIN document_templates dt ON dt.id = td.document_template_id
+             WHERE td.track_id = @trackId
+               AND dt.code = 'softex_accountability_report';
+            """);
+        cmd.Parameters.AddWithValue("trackId", trackId);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? Map(reader) : null;
+    }
+
     public async Task<TrackDocument> CreateAsync(
         Guid trackId,
         Guid documentTemplateId,

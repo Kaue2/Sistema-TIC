@@ -5,6 +5,7 @@ namespace SistemaTic.Application.Contracts;
 public interface ITrackDocumentRepository
 {
     public Task<IEnumerable<TrackDocument>> GetByTrackIdAsync(Guid trackId);
+    public Task<TrackDocument?> GetSoftexDocumentByTrackIdAsync(Guid trackId);
     public Task<TrackDocument> CreateAsync(
         Guid trackId,
         Guid documentTemplateId,

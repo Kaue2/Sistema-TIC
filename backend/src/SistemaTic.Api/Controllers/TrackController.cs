@@ -37,6 +37,16 @@ public class TrackController : ControllerBase
         return Ok(track);
     }
 
+    [HttpGet("{id:guid}/documents/softex")]
+    [Authorize]
+    public async Task<IActionResult> GetSoftexDocument(Guid id)
+    {
+        var document = await this._trackService.GetSoftexDocumentAsync(id);
+        if (document is null) return NotFound();
+
+        return Ok(new SoftexDocumentDTO(document.Id, document.Status));
+    }
+
     [HttpPost("create-track")]
     [Authorize]
     public async Task<IActionResult> CreateTrack(CreateTrackDTO dto)

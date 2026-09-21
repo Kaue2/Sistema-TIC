@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.3.0" />
     <PackageReference Include="DotNetEnv" Version="3.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.9" />
@@ -19,6 +20,10 @@
     <ProjectReference Include="..\SistemaTic.Application\SistemaTic.Application.csproj" />
     <ProjectReference Include="..\SistemaTic.Infrastructure\SistemaTic.Infrastructure.csproj" />
     <ProjectReference Include="..\SistemaTic.Domain\SistemaTic.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Templates\Softex\*.docx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

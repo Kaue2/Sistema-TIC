@@ -7,9 +7,11 @@ import { SearchInput } from "../components/molecules/SearchInput";
 import { SegmentedControl } from "../components/molecules/SegmentedControl";
 import { Toast } from "../components/organisms/Toast";
 import type { ToastType } from "../components/organisms/Toast";
+import { SoftexReportDialog } from "../components/organisms/SoftexReportDialog";
 import { TrailCard } from "../components/organisms/TrailCard";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { mockTrails } from "../data/mockTrails";
+import { AttachmentService } from "../services/document/AttachmentService";
 import type { Trail, TrailModality } from "../types/trail";
 
 const MODALITY_OPTIONS = [
@@ -34,6 +36,10 @@ const STAGE_OPTIONS = Array.from(
   new Set(mockTrails.map((trail) => trail.stage))
 ).map((stage) => ({ label: stage, value: stage }));
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 export function CentralTrilhasPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -45,6 +51,7 @@ export function CentralTrilhasPage() {
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(
     null
   );
+  const [reportTrail, setReportTrail] = useState<Trail | null>(null);
 
   const filteredTrails = useMemo(() => {
     const normalizedSearch = search.trim().toLocaleLowerCase("pt-BR");
@@ -110,6 +117,25 @@ export function CentralTrilhasPage() {
 
   function handleOpenTrail(trail: Trail) {
     navigate(`/trails/${trail.id}`);
+  }
+
+  async function exportSoftexReport(stageCodes: string[]) {
+    if (!reportTrail || !isUuid(reportTrail.id)) {
+      throw new Error("A trilha selecionada ainda n\u00e3o possui um documento Softex no servidor.");
+    }
+
+    const document = await AttachmentService.getSoftexDocumentForTrail(reportTrail.id);
+    const exportFile = await AttachmentService.exportSoftexReport(document.id, stageCodes);
+    const objectUrl = URL.createObjectURL(exportFile.content);
+    const link = window.document.createElement("a");
+    link.href = objectUrl;
+    link.download = exportFile.fileName;
+    window.document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+
+    setToast({ message: "Relat\u00f3rio DOCX gerado com sucesso.", type: "success" });
   }
 
   return (
@@ -205,12 +231,7 @@ export function CentralTrilhasPage() {
                 key={trail.id}
                 trail={trail}
                 onOpen={handleOpenTrail}
-                onMore={(selectedTrail) =>
-                  setToast({
-                    message: `Ações de ${selectedTrail.title} ainda serão conectadas.`,
-                    type: "info",
-                  })
-                }
+                onGenerateReport={setReportTrail}
               />
             ))}
           </section>
@@ -221,6 +242,13 @@ export function CentralTrilhasPage() {
           />
         )}
       </main>
+
+      <SoftexReportDialog
+        open={reportTrail !== null}
+        trailTitle={reportTrail?.title ?? ""}
+        onClose={() => setReportTrail(null)}
+        onExport={exportSoftexReport}
+      />
 
       {toast && (
         <Toast

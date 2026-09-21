@@ -1,7 +1,12 @@
 import axios from "axios";
 
+const configuredBaseUrl =
+  import.meta.env.VITE_API_URL ?? "http://localhost:5246/api/";
+
 export const api = axios.create({
-  baseURL: "https://localhost:7981/api/",
+  baseURL: configuredBaseUrl.endsWith("/")
+    ? configuredBaseUrl
+    : `${configuredBaseUrl}/`,
 });
 
 api.interceptors.request.use(

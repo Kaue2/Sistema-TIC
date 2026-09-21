@@ -29,3 +29,5 @@ public record CreateTrackTeamMemberDTO(
     bool IsLead,
     DateOnly? StartsOn
 );
+
+public record SoftexDocumentDTO(Guid Id, string Status);

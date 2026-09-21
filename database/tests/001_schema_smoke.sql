@@ -123,11 +123,10 @@ END;
 $$;
 
 INSERT INTO tracks (
-    id, code, knowledge_area_id, category_id, title, modality, status,
+    id, knowledge_area_id, category_id, title, modality, status,
     online_workload_minutes, in_person_workload_minutes, created_by_user_id
 ) VALUES (
     '20000000-0000-4000-8000-000000000001',
-    'TRACK-ONLINE-TEST',
     '00000000-0000-4000-8000-000000000203',
     '00000000-0000-4000-8000-000000000301',
     'Online Test Track',
@@ -138,7 +137,6 @@ INSERT INTO tracks (
     '10000000-0000-4000-8000-000000000003'
 ), (
     '20000000-0000-4000-8000-000000000002',
-    'TRACK-HYBRID-TEST',
     '00000000-0000-4000-8000-000000000203',
     '00000000-0000-4000-8000-000000000301',
     'Hybrid Test Track',
@@ -149,13 +147,39 @@ INSERT INTO tracks (
     '10000000-0000-4000-8000-000000000003'
 );
 
+-- A criação automática de documentos pertence ao TrackService. Como este teste exercita
+-- o PostgreSQL diretamente, reproduzimos aqui a seleção dos templates publicados.
+INSERT INTO track_documents (
+    track_id, document_template_id, template_version_id,
+    created_by_user_id, updated_by_user_id
+)
+SELECT t.id,
+       selected.document_template_id,
+       selected.id,
+       t.created_by_user_id,
+       t.created_by_user_id
+  FROM tracks t
+ CROSS JOIN LATERAL (
+       SELECT DISTINCT ON (dtv.document_template_id)
+              dtv.id, dtv.document_template_id
+         FROM document_template_versions dtv
+         JOIN document_templates dt ON dt.id = dtv.document_template_id
+        WHERE dt.is_active
+          AND dtv.is_published
+        ORDER BY dtv.document_template_id, dtv.version DESC
+ ) selected
+ WHERE t.id IN (
+     '20000000-0000-4000-8000-000000000001',
+     '20000000-0000-4000-8000-000000000002'
+ );
+
 SELECT pg_temp.assert_true(
     (SELECT count(DISTINCT phase) = 5 FROM track_tasks WHERE track_id = '20000000-0000-4000-8000-000000000001'),
     'the default workflow must instantiate independent tasks in all five phases'
 );
 SELECT pg_temp.assert_true(
-    (SELECT count(*) = 2 FROM track_documents WHERE track_id = '20000000-0000-4000-8000-000000000001'),
-    'new tracks must receive both initial document templates'
+    (SELECT count(*) = 3 FROM track_documents WHERE track_id = '20000000-0000-4000-8000-000000000001'),
+    'new tracks must receive all three initial document templates'
 );
 
 DO $$
@@ -384,11 +408,10 @@ END;
 $$;
 
 INSERT INTO tracks (
-    id, code, knowledge_area_id, category_id, title, modality, status,
+    id, knowledge_area_id, category_id, title, modality, status,
     online_workload_minutes, in_person_workload_minutes, created_by_user_id
 ) VALUES (
     '20000000-0000-4000-8000-000000000003',
-    'TRACK-TEMPLATE-V2-TEST',
     '00000000-0000-4000-8000-000000000203',
     '00000000-0000-4000-8000-000000000301',
     'Template V2 Test Track',
@@ -398,6 +421,27 @@ INSERT INTO tracks (
     0,
     '10000000-0000-4000-8000-000000000003'
 );
+
+INSERT INTO track_documents (
+    track_id, document_template_id, template_version_id,
+    created_by_user_id, updated_by_user_id
+)
+SELECT t.id,
+       selected.document_template_id,
+       selected.id,
+       t.created_by_user_id,
+       t.created_by_user_id
+  FROM tracks t
+ CROSS JOIN LATERAL (
+       SELECT DISTINCT ON (dtv.document_template_id)
+              dtv.id, dtv.document_template_id
+         FROM document_template_versions dtv
+         JOIN document_templates dt ON dt.id = dtv.document_template_id
+        WHERE dt.is_active
+          AND dtv.is_published
+        ORDER BY dtv.document_template_id, dtv.version DESC
+ ) selected
+ WHERE t.id = '20000000-0000-4000-8000-000000000003';
 
 SELECT pg_temp.assert_true(
     (
@@ -438,5 +482,148 @@ SELECT pg_temp.assert_true(
     ),
     'notification read timestamps must be persisted'
 );
+
+SELECT pg_temp.assert_true(
+    (SELECT count(*) = 8 FROM report_stages WHERE is_active),
+    'the report export catalog must contain eight stages'
+);
+SELECT pg_temp.assert_true(
+    (SELECT count(*) = 130 FROM report_questions WHERE is_active),
+    'the report export catalog must contain all one hundred and thirty report questions'
+);
+SELECT pg_temp.assert_true(
+    (SELECT count(*) = 12 FROM attachment_types WHERE is_active),
+    'the report export catalog must contain twelve attachment types'
+);
+SELECT pg_temp.assert_true(
+    (SELECT count(*) = 23 FROM question_attachment_types),
+    'the question/type map must include the twenty-three configured operational relationships'
+);
+SELECT pg_temp.assert_true(
+    (SELECT count(*) = 8 FROM report_stages WHERE is_active),
+    'the export catalog must include the M2.3 stage'
+);
+SELECT pg_temp.assert_true(
+    (SELECT count(*) = 12 FROM attachment_types WHERE is_active),
+    'the export catalog must include all twelve attachment types'
+);
+SELECT pg_temp.assert_true(
+    EXISTS (
+        SELECT 1
+          FROM question_attachment_types qat
+          JOIN report_questions rq ON rq.id = qat.report_question_id
+          JOIN attachment_types at ON at.id = qat.attachment_type_id
+         WHERE rq.code = 'M2.3_Q13'
+           AND at.code = 'PESQUISA_SATISFACAO_OPINA_AI'
+    ),
+    'M2.3_Q13 must accept the Opina Aí survey attachment'
+);
+SELECT pg_temp.assert_true(
+    NOT EXISTS (
+        SELECT 1
+          FROM question_attachment_types qat
+          JOIN report_questions rq ON rq.id = qat.report_question_id
+          JOIN attachment_types at ON at.id = qat.attachment_type_id
+         WHERE (rq.code = 'M1.13_Q02' AND at.code = 'MATERIAL_INSTRUCIONAL_AMOSTRA')
+            OR (rq.code = 'M1.13_Q15' AND at.code = 'ATIVIDADE_AVALIATIVA')
+    ),
+    'the attachment map must not keep the two obsolete M1.13 links'
+);
+
+DO $$
+DECLARE
+    softex_document_id uuid;
+    annex_id uuid := '43000000-0000-4000-8000-000000000001';
+    was_rejected boolean := false;
+BEGIN
+    SELECT td.id
+      INTO softex_document_id
+      FROM track_documents td
+      JOIN document_templates dt ON dt.id = td.document_template_id
+     WHERE td.track_id = '20000000-0000-4000-8000-000000000001'
+       AND dt.code = 'softex_accountability_report';
+
+    INSERT INTO report_annexes (
+        id, track_document_id, report_stage_id, attachment_type_id,
+        title, created_by_user_id
+    ) VALUES (
+        annex_id,
+        softex_document_id,
+        '40000000-0000-4000-8000-000000000114',
+        '41000000-0000-4000-8000-000000000003',
+        'Plano de ensino de teste',
+        '10000000-0000-4000-8000-000000000003'
+    );
+
+    INSERT INTO file_assets (
+        id, provider, storage_key, original_file_name, media_type,
+        size_bytes, sha256, uploaded_by_user_id
+    ) VALUES (
+        '44000000-0000-4000-8000-000000000001',
+        'local',
+        'report-annexes/test/image.png',
+        'image.png',
+        'image/png',
+        8,
+        repeat('a', 64),
+        '10000000-0000-4000-8000-000000000003'
+    );
+
+    INSERT INTO report_annex_images (
+        id, report_annex_id, file_asset_id, display_order
+    ) VALUES (
+        '45000000-0000-4000-8000-000000000001',
+        annex_id,
+        '44000000-0000-4000-8000-000000000001',
+        1
+    );
+
+    INSERT INTO question_annexes (
+        report_question_id, report_annex_id, linked_by_user_id
+    ) VALUES (
+        '42000000-0000-4000-8000-000000000005',
+        annex_id,
+        '10000000-0000-4000-8000-000000000003'
+    );
+
+    INSERT INTO report_answers (
+        track_document_id, report_question_id, answer,
+        created_by_user_id, updated_by_user_id
+    ) VALUES (
+        softex_document_id,
+        '42000000-0000-4000-8000-000000000005',
+        'A trilha utilizou o plano de ensino aprovado.',
+        '10000000-0000-4000-8000-000000000003',
+        '10000000-0000-4000-8000-000000000003'
+    );
+
+    IF NOT EXISTS (
+        SELECT 1
+          FROM report_export_questions
+         WHERE track_document_id = softex_document_id
+           AND question_code = 'M1.14_Q06'
+           AND answer = 'A trilha utilizou o plano de ensino aprovado.'
+           AND annexes @> '[{"attachment_type_code":"PLANO_ENSINO"}]'::jsonb
+    ) THEN
+        RAISE EXCEPTION 'The export view must combine each answer with its annexes';
+    END IF;
+
+    BEGIN
+        INSERT INTO question_annexes (
+            report_question_id, report_annex_id, linked_by_user_id
+        ) VALUES (
+            '42000000-0000-4000-8000-000000000006',
+            annex_id,
+            '10000000-0000-4000-8000-000000000003'
+        );
+    EXCEPTION WHEN raise_exception THEN
+        was_rejected := true;
+    END;
+
+    IF NOT was_rejected THEN
+        RAISE EXCEPTION 'An annex was linked to a question that does not allow its type';
+    END IF;
+END;
+$$;
 
 ROLLBACK;

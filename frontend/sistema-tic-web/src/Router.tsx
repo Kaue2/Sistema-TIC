@@ -10,6 +10,7 @@ import { DocumentEditorPage } from "./pages/DocumentEditorPage";
 import { CentralTrilhasPage } from "./pages/CentralTrilhasPage";
 import { TrilhasPage } from "./pages/TrilhasPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
+import { AttachmentUploadPage } from "./pages/AttachmentUploadPage";
 
 export const router = createBrowserRouter([
   {
@@ -71,5 +72,9 @@ export const router = createBrowserRouter([
   {
     path: "/trails/:id",
     element: <TrilhasPage />,
+  },
+  {
+    path: "/trails/:id/attachments",
+    element: <AttachmentUploadPage />,
   },
 ]);

@@ -3,6 +3,7 @@ using Npgsql;
 using SistemaTic.Infrastructure;
 using SistemaTic.Application;
 using SistemaTic.Api;
+using SistemaTic.Api.Services;
 
 Env.Load(FindEnvFile());
 
@@ -14,6 +15,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
+builder.Services.AddScoped<SoftexDocxExportService>();
 
 builder.Services.AddCors(options =>
 {

@@ -36,6 +36,11 @@ public class TrackService
         return await this._trackRepository.GetByIdAsync(id);
     }
 
+    public async Task<TrackDocument?> GetSoftexDocumentAsync(Guid trackId)
+    {
+        return await this._trackDocumentRepository.GetSoftexDocumentByTrackIdAsync(trackId);
+    }
+
     public async Task<Track> CreateTrackAsync(CreateTrackDTO dto, Guid createdByUserId)
     {
         Track track = await this._trackRepository.CreateAsync(
