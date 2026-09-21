@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useParams, useBlocker } from "react-router-dom";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useParams, useBlocker, useNavigate } from "react-router-dom";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { Input } from "../components/atoms/Input";
 import { JourneySchedule } from "../components/organisms/JourneySchedule";
@@ -9,6 +9,7 @@ import { MultiSelectDropdown } from "../components/molecules/MultiSelectDropdown
 import { TrailSelectField } from "../components/molecules/TrailSelectField";
 import { CheckboxGroup } from "../components/molecules/CheckboxGroup";
 import { mockTrails } from "../data/mockTrails";
+import type { Trail, TrailModality, TrailStage } from "../types/trail";
 
 import { ExcelImportButton } from "../components/molecules/ExcelImportButton";
 import { Toast } from "../components/organisms/Toast";
@@ -19,7 +20,8 @@ import { calculateTotalHours } from "../utils/schedule";
 import type { MemberSpreadsheetDTO } from "../services/excel/types";
 import { downloadTemplate } from "../services/excel/ExcelTemplateService";
 import { createUser } from "../services/user-services";
-import { createTrackTeamMember } from "../services/track-services";
+import { createTrackTeamMember, getTracks } from "../services/track-services";
+import type { TrackSummaryDTO } from "../services/track-services";
 
 const POSITION_OPTIONS = [
   { label: "Coordenação", value: "coordinator" },
@@ -65,6 +67,54 @@ const DEFAULT_SCHEDULE: ScheduleItem[] = [
   { day: "Sexta", start: "", end: "" },
 ];
 
+const TRAIL_MODALITY_LABELS: Record<string, TrailModality> = {
+  online: "Assíncrono",
+  hybrid: "Híbrido",
+};
+
+const TRAIL_STATUS_TO_STAGE: Record<string, TrailStage> = {
+  draft: "Pré Trilha",
+  planning: "Pré Trilha",
+  production: "Pré Execução",
+  pre_track: "Pré Execução",
+  running: "Execução Trilha",
+  post_track: "Pós Trilha",
+  completed: "Pós Trilha",
+  cancelled: "Pós Trilha",
+};
+
+// "semestre" ainda não existe na tabela tracks no backend.
+const TRAIL_SEMESTER_NOT_AVAILABLE = "Não informado";
+
+// Igual em espírito ao trackToTrail de CentralTrilhasPage.tsx, mas usa o id real (Guid) da
+// trilha em vez do "code" sequencial: esse id vira o trackId enviado pro backend ao vincular
+// o membro à trilha, e o code não bate com nenhuma FK.
+function trackToTrail(track: TrackSummaryDTO): Trail {
+  const mentors =
+    track.mentors.length > 0
+      ? track.mentors.map((mentor) => ({
+          id: mentor.email,
+          fullName: mentor.fullName,
+          role: "mentor",
+          email: mentor.email,
+        }))
+      : [{ id: "placeholder", fullName: TRAIL_SEMESTER_NOT_AVAILABLE, role: "", email: "" }];
+
+  return {
+    id: track.id,
+    title: track.title,
+    icon: "route",
+    career: track.knowledgeAreaName,
+    mentors,
+    semester: TRAIL_SEMESTER_NOT_AVAILABLE,
+    modality: TRAIL_MODALITY_LABELS[track.modality] ?? "Assíncrono",
+    level: track.learningLevel ?? "",
+    stage: TRAIL_STATUS_TO_STAGE[track.status] ?? "Pré Trilha",
+    description: "",
+    progress: [],
+  };
+}
+
 function Skeleton() {
   return (
     <div className="min-h-screen bg-background p-8 animate-pulse">
@@ -90,11 +140,13 @@ function Skeleton() {
 
 export function MemberForm() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const isEdit = Boolean(id);
 
-  const [loading, setLoading] = useState(() => isEdit);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [tracks, setTracks] = useState<TrackSummaryDTO[]>([]);
 
   const [fullName, setFullName] = useState("");
   const [position, setPosition] = useState("");
@@ -155,6 +207,30 @@ export function MemberForm() {
 
     return () => clearTimeout(timer);
   }, [isEdit]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getTracks()
+      .then((data) => {
+        if (!cancelled) setTracks(data);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setToast({ message: "Não foi possível carregar as trilhas.", type: "error" });
+        }
+      })
+      .finally(() => {
+        // no modo de edição, quem controla o fim do loading é o preenchimento mockado acima.
+        if (!cancelled && !isEdit) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isEdit]);
+
+  const availableTrails = useMemo(() => tracks.map(trackToTrail), [tracks]);
 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -265,7 +341,7 @@ export function MemberForm() {
         schedule: schedule.map(({ day, start, end }) => ({ day, start, end })),
       });
 
-      await Promise.all(
+      const linkResults = await Promise.allSettled(
         trails.map((trackId) =>
           createTrackTeamMember({
             trackId,
@@ -278,7 +354,25 @@ export function MemberForm() {
       );
 
       setDirty(false);
-      setToast({ message: "Membro salvo com sucesso.", type: "success" });
+
+      // o usuário já foi criado nesse ponto; uma falha aqui é só no vínculo com a(s) trilha(s),
+      // então usa um toast diferente do erro genérico (que faria parecer que nada foi salvo).
+      const failedLinks = linkResults.filter((result) => result.status === "rejected").length;
+      if (failedLinks > 0) {
+        setToast({
+          message:
+            failedLinks === trails.length
+              ? "Membro criado, mas não foi possível vincular nenhuma trilha selecionada."
+              : `Membro criado, mas ${failedLinks} trilha(s) não puderam ser vinculadas.`,
+          type: "error",
+        });
+      } else {
+        setToast({ message: "Membro salvo com sucesso.", type: "success" });
+      }
+
+      // o membro já foi persistido (com ou sem falha no vínculo de trilhas), então volta pra
+      // lista; o pequeno atraso deixa o toast visível antes da navegação desmontar a página.
+      setTimeout(() => navigate("/members"), 1200);
     } catch {
       setToast({ message: "Erro ao salvar membro.", type: "error" });
     } finally {
@@ -446,6 +540,7 @@ export function MemberForm() {
             <TrailSelectField
               title="Trilhas"
               values={trails}
+              trails={availableTrails}
               onChange={(v) => {
                 setTrails(v);
                 setDirty(true);
