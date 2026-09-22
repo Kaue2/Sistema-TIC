@@ -54,7 +54,8 @@ public record TrackDocumentContentDTO(
 
 public record DocumentosTrilhaDTO(
     TrackDocumentSummaryDTO? EscopoPropostaDaTrilha,
-    TrackDocumentSummaryDTO? PlanoEnsinoDaTrilha
+    TrackDocumentSummaryDTO? PlanoEnsinoDaTrilha,
+    TrackDocumentSummaryDTO? SoftexDaTrilha
 );
 
 public record CreateTrackTeamMemberDTO(

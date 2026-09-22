@@ -70,7 +70,11 @@ export function DocumentsPage() {
     try {
       const pairs = await getAllTrackDocuments();
       const flattened = pairs.flatMap((pair) =>
-        [pair.escopoPropostaDaTrilha, pair.planoEnsinoDaTrilha]
+        [
+          pair.escopoPropostaDaTrilha,
+          pair.planoEnsinoDaTrilha,
+          pair.softexDaTrilha,
+        ]
           .filter((doc): doc is TrackDocumentSummaryDTO => doc !== null)
           .map(toDocument)
       );

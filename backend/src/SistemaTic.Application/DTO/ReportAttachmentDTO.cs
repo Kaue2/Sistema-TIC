@@ -53,6 +53,10 @@ public record SaveReportAnswerDTO(string Answer);
 
 public record CreateSoftexDocxExportDTO(IReadOnlyList<string>? StageCodes);
 
+public record CreateMultiTrailSoftexDocxExportDTO(
+    IReadOnlyList<Guid>? DocumentIds,
+    IReadOnlyList<string>? StageCodes);
+
 public record ReportExportContextDTO(
     string TrackTitle,
     string StageName);

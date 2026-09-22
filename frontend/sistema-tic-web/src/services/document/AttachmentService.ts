@@ -21,6 +21,18 @@ export const AttachmentService = {
     };
   },
 
+  async exportSoftexReports(documentIds: string[], stageCodes: string[]) {
+    const response = await api.post<Blob>(
+      "reports/softex/export/docx",
+      { documentIds, stageCodes },
+      { responseType: "blob" }
+    );
+    return {
+      content: response.data,
+      fileName: "relatorio-softex-trilhas.docx",
+    };
+  },
+
   async getStage(documentId: string, stageCode: string) {
     const response = await api.get<AttachmentStage>(
       `documents/${documentId}/attachments/stages/${encodeURIComponent(stageCode)}`

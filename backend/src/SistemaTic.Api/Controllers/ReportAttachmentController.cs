@@ -143,6 +143,33 @@ public class ReportAttachmentController : ControllerBase
         }
     }
 
+    [HttpPost("/api/reports/softex/export/docx")]
+    public async Task<IActionResult> ExportMultiTrailDocx(
+        [FromBody] CreateMultiTrailSoftexDocxExportDTO request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var export = await _docxExportService.CreateMultiTrailAsync(
+                request.DocumentIds,
+                request.StageCodes,
+                cancellationToken);
+            return File(export.Content, export.ContentType, export.FileName);
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
+        catch (FileNotFoundException exception)
+        {
+            return Problem(statusCode: StatusCodes.Status500InternalServerError, detail: exception.Message);
+        }
+    }
+
     [HttpPost("annexes/{annexId:guid}/images")]
     [RequestSizeLimit(314_572_800)]
     public async Task<IActionResult> UploadImages(

@@ -484,12 +484,21 @@ SELECT pg_temp.assert_true(
 );
 
 SELECT pg_temp.assert_true(
-    (SELECT count(*) = 8 FROM report_stages WHERE is_active),
-    'the report export catalog must contain eight stages'
+    (SELECT count(*) = 12 FROM report_stages WHERE is_active),
+    'the report export catalog must contain twelve stages'
 );
 SELECT pg_temp.assert_true(
-    (SELECT count(*) = 130 FROM report_questions WHERE is_active),
-    'the report export catalog must contain all one hundred and thirty report questions'
+    (SELECT count(*) = 177 FROM report_questions WHERE is_active),
+    'the report export catalog must contain all one hundred and seventy-seven report questions'
+);
+SELECT pg_temp.assert_true(
+    (
+        SELECT count(softex_field_id) = 137
+           AND count(DISTINCT softex_field_id) = 137
+          FROM report_questions
+         WHERE is_active
+    ),
+    'every Softex form field must map to exactly one report question'
 );
 SELECT pg_temp.assert_true(
     (SELECT count(*) = 12 FROM attachment_types WHERE is_active),
@@ -500,8 +509,8 @@ SELECT pg_temp.assert_true(
     'the question/type map must include the twenty-three configured operational relationships'
 );
 SELECT pg_temp.assert_true(
-    (SELECT count(*) = 8 FROM report_stages WHERE is_active),
-    'the export catalog must include the M2.3 stage'
+    (SELECT count(*) = 12 FROM report_stages WHERE is_active),
+    'the export catalog must include all selectable report stages'
 );
 SELECT pg_temp.assert_true(
     (SELECT count(*) = 12 FROM attachment_types WHERE is_active),

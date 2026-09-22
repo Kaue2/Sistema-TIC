@@ -87,7 +87,8 @@ public class TrackService
 
             pairs.Add(new DocumentosTrilhaDTO(
                 summaries.FirstOrDefault(s => s.DocumentType == "Escopo e Proposta"),
-                summaries.FirstOrDefault(s => s.DocumentType == "Plano de Ensino")));
+                summaries.FirstOrDefault(s => s.DocumentType == "Plano de Ensino"),
+                summaries.FirstOrDefault(s => s.DocumentType == "Softex")));
         }
 
         return pairs;
@@ -105,7 +106,7 @@ public class TrackService
 
             summaries.Add(new TrackDocumentSummaryDTO(
                 document.Id,
-                template?.Name ?? string.Empty,
+                MapDocumentType(template),
                 track.Title,
                 knowledgeArea?.Name ?? string.Empty,
                 MapDocumentStatus(document.Status)));
@@ -150,7 +151,7 @@ public class TrackService
 
         return new TrackDocumentContentDTO(
             document.Id,
-            template?.Name ?? string.Empty,
+            MapDocumentType(template),
             MapDocumentStatus(document.Status),
             parsedContent.RootElement.Clone());
     }
@@ -166,6 +167,17 @@ public class TrackService
             "changes_requested" => "Em Revisão",
             "approved" => "Concluído",
             _ => status,
+        };
+    }
+
+    private static string MapDocumentType(DocumentTemplateSummary? template)
+    {
+        return template?.Code switch
+        {
+            "proposal_scope" => "Escopo e Proposta",
+            "teaching_plan" => "Plano de Ensino",
+            "softex_accountability_report" => "Softex",
+            _ => template?.Name ?? string.Empty,
         };
     }
 

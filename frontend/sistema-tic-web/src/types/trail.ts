@@ -21,6 +21,7 @@ export type TrailProgress = {
 
 export type Trail = {
   id: string;
+  backendId?: string;
   title: string;
   icon: string;
   career: string;

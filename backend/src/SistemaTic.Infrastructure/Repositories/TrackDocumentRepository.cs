@@ -83,6 +83,15 @@ public class TrackDocumentRepository : ITrackDocumentRepository
         await using var connection = await _dataSource.OpenConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
+        await using (var actorCmd = new NpgsqlCommand(
+            "SELECT set_config('app.current_user_id', @userId, true);",
+            connection,
+            transaction))
+        {
+            actorCmd.Parameters.AddWithValue("userId", changedByUserId.ToString());
+            await actorCmd.ExecuteScalarAsync();
+        }
+
         // 1. Trava a linha do documento até o fim da transação, pra dois saves concorrentes
         //    não se pisarem (equivalente ao "SELECT ... FOR UPDATE" da function que ela substitui).
         TrackDocument current;
@@ -170,8 +179,89 @@ public class TrackDocumentRepository : ITrackDocumentRepository
             updated = Map(reader);
         }
 
+        await SynchronizeSoftexAnswersAsync(
+            connection,
+            transaction,
+            trackDocumentId,
+            newContent,
+            changedByUserId);
+
         await transaction.CommitAsync();
         return updated;
+    }
+
+    private static async Task SynchronizeSoftexAnswersAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid trackDocumentId,
+        string content,
+        Guid changedByUserId)
+    {
+        await using var command = new NpgsqlCommand("""
+            WITH softex_document AS (
+                SELECT td.id
+                  FROM track_documents td
+                  JOIN document_templates dt ON dt.id = td.document_template_id
+                 WHERE td.id = @documentId
+                   AND dt.code = 'softex_accountability_report'
+            ), answer_items AS (
+                SELECT item.value ->> 'id' AS softex_field_id,
+                       btrim(COALESCE(item.value ->> 'answer', '')) AS answer
+                  FROM jsonb_array_elements(
+                           COALESCE(CAST(@content AS jsonb) -> 'metas', '[]'::jsonb)
+                       ) AS meta(value)
+                 CROSS JOIN LATERAL jsonb_array_elements(
+                     COALESCE(meta.value -> 'beforeItems', '[]'::jsonb)
+                     || COALESCE(meta.value -> 'afterItems', '[]'::jsonb)
+                 ) AS item(value)
+                 WHERE nullif(btrim(COALESCE(item.value ->> 'answer', '')), '') IS NOT NULL
+            )
+            INSERT INTO report_answers (
+                track_document_id, report_question_id, answer,
+                created_by_user_id, updated_by_user_id
+            )
+            SELECT document.id, question.id, answer.answer, @userId, @userId
+              FROM softex_document document
+              JOIN answer_items answer ON true
+              JOIN report_questions question
+                ON question.softex_field_id = answer.softex_field_id
+               AND question.is_active
+            ON CONFLICT (track_document_id, report_question_id) DO UPDATE
+               SET answer = EXCLUDED.answer,
+                   updated_by_user_id = EXCLUDED.updated_by_user_id;
+
+            WITH softex_document AS (
+                SELECT td.id
+                  FROM track_documents td
+                  JOIN document_templates dt ON dt.id = td.document_template_id
+                 WHERE td.id = @documentId
+                   AND dt.code = 'softex_accountability_report'
+            ), answer_items AS (
+                SELECT item.value ->> 'id' AS softex_field_id
+                  FROM jsonb_array_elements(
+                           COALESCE(CAST(@content AS jsonb) -> 'metas', '[]'::jsonb)
+                       ) AS meta(value)
+                 CROSS JOIN LATERAL jsonb_array_elements(
+                     COALESCE(meta.value -> 'beforeItems', '[]'::jsonb)
+                     || COALESCE(meta.value -> 'afterItems', '[]'::jsonb)
+                 ) AS item(value)
+                 WHERE nullif(btrim(COALESCE(item.value ->> 'answer', '')), '') IS NOT NULL
+            )
+            DELETE FROM report_answers saved
+             USING softex_document document, report_questions question
+             WHERE saved.track_document_id = document.id
+               AND saved.report_question_id = question.id
+               AND question.softex_field_id IS NOT NULL
+               AND NOT EXISTS (
+                   SELECT 1
+                     FROM answer_items current_answer
+                    WHERE current_answer.softex_field_id = question.softex_field_id
+               );
+            """, connection, transaction);
+        command.Parameters.AddWithValue("documentId", trackDocumentId);
+        command.Parameters.Add(new NpgsqlParameter("content", NpgsqlDbType.Jsonb) { Value = content });
+        command.Parameters.AddWithValue("userId", changedByUserId);
+        await command.ExecuteNonQueryAsync();
     }
 
     public async Task<TrackDocument> SubmitForReviewAsync(Guid trackDocumentId, Guid updatedByUserId)

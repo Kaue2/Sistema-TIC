@@ -13,6 +13,7 @@ import { TrailCard } from "../components/organisms/TrailCard";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { AttachmentService } from "../services/document/AttachmentService";
 import { CreateTrackModal } from "../components/molecules/CreateTrackModal";
+import { mockTrails } from "../data/mockTrails";
 import { getTracks, type TrackSummaryDTO } from "../services/track-services";
 import type { Trail, TrailModality, TrailStage } from "../types/trail";
 
@@ -55,6 +56,7 @@ function trackToTrail(track: TrackSummaryDTO): Trail {
 
   return {
     id: String(track.code),
+    backendId: track.id,
     title: track.title,
     icon: "route",
     career: track.knowledgeAreaName,
@@ -68,13 +70,14 @@ function trackToTrail(track: TrackSummaryDTO): Trail {
   };
 }
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+function trailSelectionKey(trail: Trail) {
+  return trail.backendId ?? `mock:${trail.id}`;
 }
 
 export function CentralTrilhasPage() {
   const navigate = useNavigate();
   const [tracks, setTracks] = useState<TrackSummaryDTO[]>([]);
+  const [useMockTrails, setUseMockTrails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [modality, setModality] = useState("all");
@@ -85,15 +88,21 @@ export function CentralTrilhasPage() {
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(
     null
   );
-  const [reportTrail, setReportTrail] = useState<Trail | null>(null);
+  const [reportSelectionMode, setReportSelectionMode] = useState(false);
+  const [selectedTrailKeys, setSelectedTrailKeys] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
   const loadTracks = useCallback(async () => {
     try {
       const data = await getTracks();
       setTracks(data);
+      setUseMockTrails(data.length === 0);
     } catch {
-      setToast({ message: "Não foi possível carregar as trilhas.", type: "error" });
+      setTracks([]);
+      setUseMockTrails(true);
     } finally {
       setLoading(false);
     }
@@ -103,7 +112,15 @@ export function CentralTrilhasPage() {
     loadTracks();
   }, [loadTracks]);
 
-  const trails = useMemo(() => tracks.map(trackToTrail), [tracks]);
+  const trails = useMemo(
+    () => (useMockTrails ? mockTrails : tracks.map(trackToTrail)),
+    [tracks, useMockTrails],
+  );
+
+  const selectedTrails = useMemo(
+    () => trails.filter((trail) => selectedTrailKeys.has(trailSelectionKey(trail))),
+    [selectedTrailKeys, trails],
+  );
 
   const SEMESTER_OPTIONS = useMemo(
     () =>
@@ -206,13 +223,48 @@ export function CentralTrilhasPage() {
     navigate(`/trails/${trail.id}`);
   }
 
+  function startReportSelection(trail: Trail) {
+    setReportSelectionMode(true);
+    setSelectedTrailKeys(new Set([trailSelectionKey(trail)]));
+  }
+
+  function toggleTrailSelection(trail: Trail) {
+    const key = trailSelectionKey(trail);
+    setSelectedTrailKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function cancelReportSelection() {
+    setReportDialogOpen(false);
+    setReportSelectionMode(false);
+    setSelectedTrailKeys(new Set());
+  }
+
   async function exportSoftexReport(stageCodes: string[]) {
-    if (!reportTrail || !isUuid(reportTrail.id)) {
-      throw new Error("A trilha selecionada ainda n\u00e3o possui um documento Softex no servidor.");
+    if (selectedTrails.length === 0) {
+      throw new Error("Selecione ao menos uma trilha para gerar o relat\u00f3rio.");
     }
 
-    const document = await AttachmentService.getSoftexDocumentForTrail(reportTrail.id);
-    const exportFile = await AttachmentService.exportSoftexReport(document.id, stageCodes);
+    const trailsWithoutBackend = selectedTrails.filter((trail) => !trail.backendId);
+    if (trailsWithoutBackend.length > 0) {
+      throw new Error(
+        "As trilhas de demonstra\u00e7\u00e3o n\u00e3o possuem perguntas, respostas e anexos persistidos no servidor. Inicie a API e selecione trilhas cadastradas para exportar."
+      );
+    }
+
+    const documents = await Promise.all(
+      selectedTrails.map((trail) =>
+        AttachmentService.getSoftexDocumentForTrail(trail.backendId!)
+      )
+    );
+    const exportFile = await AttachmentService.exportSoftexReports(
+      documents.map((document) => document.id),
+      stageCodes
+    );
     const objectUrl = URL.createObjectURL(exportFile.content);
     const link = window.document.createElement("a");
     link.href = objectUrl;
@@ -223,6 +275,7 @@ export function CentralTrilhasPage() {
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
 
     setToast({ message: "Relat\u00f3rio DOCX gerado com sucesso.", type: "success" });
+    cancelReportSelection();
   }
 
   return (
@@ -319,7 +372,10 @@ export function CentralTrilhasPage() {
                 key={trail.id}
                 trail={trail}
                 onOpen={handleOpenTrail}
-                onGenerateReport={setReportTrail}
+                selectionMode={reportSelectionMode}
+                selected={selectedTrailKeys.has(trailSelectionKey(trail))}
+                onStartReportSelection={startReportSelection}
+                onToggleSelection={toggleTrailSelection}
               />
             ))}
           </section>
@@ -331,10 +387,40 @@ export function CentralTrilhasPage() {
         )}
       </main>
 
+      {reportSelectionMode && !reportDialogOpen && (
+        <aside
+          aria-label="Seleção de trilhas para relatório"
+          className="fixed bottom-6 left-1/2 z-[1050] flex w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 flex-col gap-4 rounded-2xl border border-blue-100/20 bg-card-background px-5 py-4 shadow-2xl sm:flex-row sm:items-center"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="font-medium text-blue-100">
+              {selectedTrails.length} {selectedTrails.length === 1 ? "trilha selecionada" : "trilhas selecionadas"}
+            </p>
+            <p className="mt-1 truncate text-sm text-black-60">
+              Clique nos cards para adicionar ou remover trilhas.
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-3">
+            <Button variant="outline" onClick={cancelReportSelection} className="justify-center">
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              icon="arrow_forward"
+              disabled={selectedTrails.length === 0}
+              onClick={() => setReportDialogOpen(true)}
+              className="justify-center"
+            >
+              Continuar para metas
+            </Button>
+          </div>
+        </aside>
+      )}
+
       <SoftexReportDialog
-        open={reportTrail !== null}
-        trailTitle={reportTrail?.title ?? ""}
-        onClose={() => setReportTrail(null)}
+        open={reportDialogOpen}
+        trailTitles={selectedTrails.map((trail) => `${trail.title} #${trail.id}`)}
+        onClose={() => setReportDialogOpen(false)}
         onExport={exportSoftexReport}
       />
 

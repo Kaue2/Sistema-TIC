@@ -11,6 +11,7 @@ export interface TrackDocumentSummaryDTO {
 export interface DocumentosTrilhaDTO {
   escopoPropostaDaTrilha: TrackDocumentSummaryDTO | null;
   planoEnsinoDaTrilha: TrackDocumentSummaryDTO | null;
+  softexDaTrilha: TrackDocumentSummaryDTO | null;
 }
 
 export async function getAllTrackDocuments(): Promise<DocumentosTrilhaDTO[]> {

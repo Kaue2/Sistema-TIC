@@ -5,23 +5,29 @@ const REPORT_STAGES = [
   { code: "M1.13", name: "Materiais instrucionais" },
   { code: "M1.14", name: "Objetos de aprendizagem" },
   { code: "M1.15", name: "LMS e recursos t\u00e9cnicos" },
+  { code: "M1.18", name: "Materiais audiovisuais e did\u00e1ticos" },
+  { code: "M1.19", name: "Conte\u00fados na plataforma virtual" },
+  { code: "M1.20", name: "Perfis e m\u00e9todos de sele\u00e7\u00e3o" },
   { code: "M2.1", name: "Processo seletivo" },
   { code: "M2.2", name: "Oferta das capacita\u00e7\u00f5es" },
   { code: "M2.3", name: "Acompanhamento pedag\u00f3gico" },
   { code: "M2.4", name: "Indicadores pedag\u00f3gicos" },
+  { code: "M2.5", name: "Desempenho dos estudantes" },
   { code: "M2.6", name: "Emiss\u00e3o de microcredenciais" },
 ] as const;
 
 type SoftexReportDialogProps = {
   open: boolean;
-  trailTitle: string;
+  trailTitle?: string;
+  trailTitles?: string[];
   onClose: () => void;
   onExport: (stageCodes: string[]) => Promise<void>;
 };
 
 export function SoftexReportDialog({
   open,
-  trailTitle,
+  trailTitle = "",
+  trailTitles,
   onClose,
   onExport,
 }: SoftexReportDialogProps) {
@@ -48,6 +54,7 @@ export function SoftexReportDialog({
 
   if (!open) return null;
 
+  const selectedTrailTitles = trailTitles ?? (trailTitle ? [trailTitle] : []);
   const allSelected = selectedStages.length === REPORT_STAGES.length;
 
   function toggleStage(code: string) {
@@ -75,8 +82,10 @@ export function SoftexReportDialog({
     try {
       await onExport(selectedStages);
       onClose();
-    } catch {
-      setError("N\u00e3o foi poss\u00edvel gerar o relat\u00f3rio. Tente novamente.");
+    } catch (caught) {
+      setError(caught instanceof Error
+        ? caught.message
+        : "N\u00e3o foi poss\u00edvel gerar o relat\u00f3rio. Tente novamente.");
     } finally {
       setIsExporting(false);
     }
@@ -94,7 +103,7 @@ export function SoftexReportDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="softex-report-title"
-        className="w-full max-w-2xl rounded-2xl border border-blue-100/20 bg-card-background shadow-2xl"
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col rounded-2xl border border-blue-100/20 bg-card-background shadow-2xl"
       >
         <header className="flex items-start justify-between gap-6 border-b border-black-20 px-6 py-5 sm:px-8">
           <div>
@@ -102,7 +111,19 @@ export function SoftexReportDialog({
             <h2 id="softex-report-title" className="mt-1 text-2xl font-normal text-black-80">
               Escolha as metas do relat&oacute;rio
             </h2>
-            <p className="mt-2 text-sm text-black-60">{trailTitle}</p>
+            <p className="mt-2 text-sm text-black-60">
+              {selectedTrailTitles.length === 1
+                ? selectedTrailTitles[0]
+                : `${selectedTrailTitles.length} trilhas selecionadas`}
+            </p>
+            {selectedTrailTitles.length > 1 && (
+              <p
+                className="mt-1 max-w-xl truncate text-xs text-black-40"
+                title={selectedTrailTitles.join(", ")}
+              >
+                {selectedTrailTitles.join(" • ")}
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -115,10 +136,10 @@ export function SoftexReportDialog({
           </button>
         </header>
 
-        <div className="px-6 py-5 sm:px-8">
+        <div className="overflow-y-auto px-6 py-5 sm:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-black-60">
-              As perguntas, respostas e anexos das metas selecionadas ser&atilde;o reunidos em um &uacute;nico arquivo DOCX.
+              As perguntas, respostas e anexos das metas selecionadas ser&atilde;o reunidos para todas as trilhas em um &uacute;nico arquivo DOCX.
             </p>
             <button
               type="button"

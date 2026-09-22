@@ -125,6 +125,21 @@ public sealed class SoftexDocxExportService
         IEnumerable<string>? stageCodes,
         CancellationToken cancellationToken = default)
     {
+        return await CreateMultiTrailAsync([documentId], stageCodes, cancellationToken);
+    }
+
+    public async Task<SoftexDocxExport> CreateMultiTrailAsync(
+        IEnumerable<Guid>? documentIds,
+        IEnumerable<string>? stageCodes,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedDocumentIds = (documentIds ?? [])
+            .Where(documentId => documentId != Guid.Empty)
+            .Distinct()
+            .ToArray();
+        if (normalizedDocumentIds.Length == 0)
+            throw new ArgumentException("Selecione ao menos uma trilha para exportar.");
+
         var normalizedStageCodes = (stageCodes ?? [])
             .Where(stageCode => !string.IsNullOrWhiteSpace(stageCode))
             .Select(NormalizeStageCode)
@@ -133,52 +148,70 @@ public sealed class SoftexDocxExportService
         if (normalizedStageCodes.Length == 0)
             throw new ArgumentException("Selecione ao menos uma meta para exportar.");
 
-        var allQuestions = await _reportAttachmentService
-            .GetExportQuestionsAsync(documentId, cancellationToken);
-        var stages = new List<CombinedStage>();
-        var templatePaths = new List<string>();
-
-        foreach (var stageCode in normalizedStageCodes)
+        var reports = new List<CombinedDocument>();
+        string? baseTemplatePath = null;
+        foreach (var documentId in normalizedDocumentIds)
         {
-            var context = await _reportAttachmentService
-                .GetExportContextAsync(documentId, stageCode, cancellationToken)
-                ?? throw new KeyNotFoundException("O documento Softex ou a etapa n\u00e3o foi encontrada.");
-            var questions = allQuestions
-                .Where(question => question.StageCode.Equals(stageCode, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(question => question.QuestionDisplayOrder)
-                .ThenBy(question => question.QuestionCode, StringComparer.Ordinal)
-                .Select(question => new ExportQuestion(question, ReadAnnexes(question.Annexes)))
-                .ToArray();
-            if (questions.Length == 0)
-                throw new KeyNotFoundException("N\u00e3o h\u00e1 perguntas Softex para esta etapa.");
+            var allQuestions = await _reportAttachmentService
+                .GetExportQuestionsAsync(documentId, cancellationToken);
+            var stages = new List<CombinedStage>();
 
-            var templatePath = Path.Combine(
-                _environment.ContentRootPath,
-                "Templates",
-                "Softex",
-                stageCode[1..] + ".docx");
-            if (!File.Exists(templatePath))
-                throw new FileNotFoundException("O modelo DOCX da etapa n\u00e3o est\u00e1 dispon\u00edvel.", templatePath);
+            foreach (var stageCode in normalizedStageCodes)
+            {
+                var context = await _reportAttachmentService
+                    .GetExportContextAsync(documentId, stageCode, cancellationToken)
+                    ?? throw new KeyNotFoundException(
+                        $"O documento Softex ou a meta {stageCode} não foi encontrada.");
+                var questions = allQuestions
+                    .Where(question => question.StageCode.Equals(stageCode, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(question => question.QuestionDisplayOrder)
+                    .ThenBy(question => question.QuestionCode, StringComparer.Ordinal)
+                    .Select(question => new ExportQuestion(question, ReadAnnexes(question.Annexes)))
+                    .ToArray();
+                if (questions.Length == 0)
+                    throw new KeyNotFoundException($"Não há perguntas Softex para a meta {stageCode}.");
 
-            using var template = WordprocessingDocument.Open(templatePath, false);
-            var templateBody = template.MainDocumentPart?.Document.Body
-                ?? throw new InvalidOperationException("O modelo DOCX n\u00e3o possui corpo de documento.");
-            var templateTable = FindQuestionTable(templateBody);
-            stages.Add(new CombinedStage(
-                stageCode,
-                context,
-                questions,
-                templateTable is null ? null : (Table)templateTable.CloneNode(true)));
-            templatePaths.Add(templatePath);
+                Table? templateTable = null;
+                var templatePath = Path.Combine(
+                    _environment.ContentRootPath,
+                    "Templates",
+                    "Softex",
+                    stageCode[1..] + ".docx");
+                if (File.Exists(templatePath))
+                {
+                    using var template = WordprocessingDocument.Open(templatePath, false);
+                    var templateBody = template.MainDocumentPart?.Document.Body
+                        ?? throw new InvalidOperationException("O modelo DOCX não possui corpo de documento.");
+                    var sourceTable = FindQuestionTable(templateBody);
+                    templateTable = sourceTable is null
+                        ? null
+                        : (Table)sourceTable.CloneNode(true);
+                    baseTemplatePath ??= templatePath;
+                }
+
+                stages.Add(new CombinedStage(stageCode, context, questions, templateTable));
+            }
+
+            reports.Add(new CombinedDocument(documentId, stages[0].Context.TrackTitle, stages));
         }
 
-        var annexes = GetUniqueAnnexes(stages.SelectMany(stage => stage.Questions));
+        baseTemplatePath ??= Directory
+            .EnumerateFiles(
+                Path.Combine(_environment.ContentRootPath, "Templates", "Softex"),
+                "*.docx")
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+        if (baseTemplatePath is null)
+            throw new FileNotFoundException("Nenhum modelo DOCX Softex está disponível.");
+
+        var annexes = GetUniqueAnnexes(
+            reports.SelectMany(report => report.Stages).SelectMany(stage => stage.Questions));
         var annexNumbers = annexes
             .Select((annex, index) => new { annex.AnnexId, Number = index + 1 })
             .ToDictionary(item => item.AnnexId, item => item.Number);
 
         var output = new MemoryStream();
-        await using (var input = File.OpenRead(templatePaths[0]))
+        await using (var input = File.OpenRead(baseTemplatePath))
             await input.CopyToAsync(output, cancellationToken);
 
         output.Position = 0;
@@ -195,43 +228,56 @@ public sealed class SoftexDocxExportService
 
             sourceBody.RemoveAllChildren();
             sourceBody.Append(CreateTitleParagraph("RELAT\u00d3RIO DE PRESTA\u00c7\u00c3O DE CONTAS SENAC PARA SOFTEX"));
-            sourceBody.Append(CreateSubtitleParagraph($"Trilha: {stages[0].Context.TrackTitle}"));
+            sourceBody.Append(CreateSubtitleParagraph(
+                reports.Count == 1
+                    ? $"Trilha: {reports[0].TrackTitle}"
+                    : $"Trilhas selecionadas: {reports.Count}"));
             sourceBody.Append(CreateSubtitleParagraph($"Metas selecionadas: {string.Join(", ", normalizedStageCodes)}"));
 
-            for (var index = 0; index < stages.Count; index++)
+            for (var reportIndex = 0; reportIndex < reports.Count; reportIndex++)
             {
-                var stage = stages[index];
-                var questionTable = stage.TemplateTable is null
-                    ? CreateQuestionTable(stage.Questions)
-                    : (Table)stage.TemplateTable.CloneNode(true);
-                PopulateQuestionTable(questionTable, stage.Questions, annexNumbers);
                 sourceBody.Append(CreateStageTitleParagraph(
-                    $"META {stage.StageCode} - {stage.Context.StageName}",
-                    index > 0));
-                sourceBody.Append(questionTable);
+                    $"TRILHA: {reports[reportIndex].TrackTitle}",
+                    reportIndex > 0));
+
+                for (var stageIndex = 0; stageIndex < reports[reportIndex].Stages.Count; stageIndex++)
+                {
+                    var stage = reports[reportIndex].Stages[stageIndex];
+                    var questionTable = stage.TemplateTable is null
+                        ? CreateQuestionTable(stage.Questions)
+                        : (Table)stage.TemplateTable.CloneNode(true);
+                    PopulateQuestionTable(questionTable, stage.Questions, annexNumbers);
+                    sourceBody.Append(CreateStageTitleParagraph(
+                        $"META {stage.StageCode} - {stage.Context.StageName}",
+                        stageIndex > 0));
+                    sourceBody.Append(questionTable);
+                }
             }
 
             uint drawingId = 1;
             AppendAnnexHeading(sourceBody, annexes.Count > 0);
             var addedAnnexes = new HashSet<Guid>();
-            foreach (var stage in stages)
+            foreach (var report in reports)
             {
-                foreach (var annex in GetUniqueAnnexes(stage.Questions))
+                foreach (var stage in report.Stages)
                 {
-                    if (!addedAnnexes.Add(annex.AnnexId)) continue;
+                    foreach (var annex in GetUniqueAnnexes(stage.Questions))
+                    {
+                        if (!addedAnnexes.Add(annex.AnnexId)) continue;
 
-                    AppendAnnexTitle(
-                        sourceBody,
-                        annexNumbers[annex.AnnexId],
-                        annex,
-                        stages.Count > 1 ? stage.StageCode : null);
-                    drawingId = await AppendAnnexImagesAsync(
-                        sourceBody,
-                        mainPart,
-                        documentId,
-                        annex,
-                        drawingId,
-                        cancellationToken);
+                        AppendAnnexTitle(
+                            sourceBody,
+                            annexNumbers[annex.AnnexId],
+                            annex,
+                            $"{report.TrackTitle} - Meta {stage.StageCode}");
+                        drawingId = await AppendAnnexImagesAsync(
+                            sourceBody,
+                            mainPart,
+                            report.DocumentId,
+                            annex,
+                            drawingId,
+                            cancellationToken);
+                    }
                 }
             }
 
@@ -244,7 +290,9 @@ public sealed class SoftexDocxExportService
         return new SoftexDocxExport(
             new MemoryStream(bytes, writable: false),
             DocxContentType,
-            $"relatorio-softex-{string.Join("-", normalizedStageCodes).ToLowerInvariant()}.docx");
+            reports.Count == 1
+                ? $"relatorio-softex-{normalizedStageCodes.Length}-metas.docx"
+                : $"relatorio-softex-{reports.Count}-trilhas.docx");
     }
 
     private static string NormalizeStageCode(string stageCode)
@@ -496,12 +544,12 @@ public sealed class SoftexDocxExportService
         Body body,
         int number,
         ExportAnnex annex,
-        string? stageCode)
+        string? contextLabel)
     {
         body.Append(CreateTextParagraph(
-            string.IsNullOrWhiteSpace(stageCode)
+            string.IsNullOrWhiteSpace(contextLabel)
                 ? $"ANEXO {number}: {annex.Title}"
-                : $"ANEXO {number} - Meta {stageCode}: {annex.Title}",
+                : $"ANEXO {number} - {contextLabel}: {annex.Title}",
             new ParagraphProperties(new SpacingBetweenLines { Before = "180", After = "80" }),
             new RunProperties(new Bold(), new FontSize { Val = "22" })));
 
@@ -693,6 +741,11 @@ public sealed class SoftexDocxExportService
                 DistanceFromRight = 0U
             });
     }
+
+    private sealed record CombinedDocument(
+        Guid DocumentId,
+        string TrackTitle,
+        IReadOnlyList<CombinedStage> Stages);
 
     private sealed record CombinedStage(
         string StageCode,
