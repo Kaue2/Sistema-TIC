@@ -20,6 +20,7 @@ public class UserController : ControllerBase
     }
 
     [HttpGet("get-users")]
+    [Authorize]
     public async Task<IEnumerable<User>> GetUsers()
     {
         return await this._userService.GetAllUsersAsync();
