@@ -11,6 +11,7 @@ import { CentralTrilhasPage } from "./pages/CentralTrilhasPage";
 import { TrilhasPage } from "./pages/TrilhasPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { AttachmentUploadPage } from "./pages/AttachmentUploadPage";
+import { RequireAuth } from "./components/atoms/RequireAuth";
 
 export const router = createBrowserRouter([
   {
@@ -18,63 +19,68 @@ export const router = createBrowserRouter([
     element: <Login />,
   },
   {
-    path: "/welcome",
-    element: <WelcomeConfirmation />,
-  },
-  {
-    path: "/access-update",
-    element: <AccessUpdate />,
-  },
-  {
-    path: "/profile/:id",
-    element: <ProfilePage />,
-  },
-  {
-    path: "/members",
-    element: <MembersPage />,
-  },
-  {
-    path: "/members/new",
-    element: <MemberForm />,
-  },
-  {
-    path: "/members/:id/edit",
-    element: <MemberForm />,
-  },
-  {
-    path: "/documents",
-    element: <DocumentsPage />,
-  },
-  {
-    path: "/documents/new",
-    element: <DocumentEditorPage mode="create" />,
-  },
-  {
-    path: "/documents/:id",
-    element: <DocumentEditorPage mode="view" />,
-  },
-  {
-    path: "/documents/:id/edit",
-    element: <DocumentEditorPage mode="edit" />,
-  },
-  {
-    path: "/documents/:id/review",
-    element: <DocumentEditorPage mode="review" />,
-  },
-  {
-    path: "/notifications",
-    element: <NotificationsPage />,
-  },
-  {
-    path: "/trails",
-    element: <CentralTrilhasPage />,
-  },
-  {
-    path: "/trails/:id",
-    element: <TrilhasPage />,
-  },
-  {
-    path: "/trails/:id/attachments",
-    element: <AttachmentUploadPage />,
+    element: <RequireAuth />,
+    children: [
+      {
+        path: "/welcome",
+        element: <WelcomeConfirmation />,
+      },
+      {
+        path: "/access-update",
+        element: <AccessUpdate />,
+      },
+      {
+        path: "/profile/:id",
+        element: <ProfilePage />,
+      },
+      {
+        path: "/members",
+        element: <MembersPage />,
+      },
+      {
+        path: "/members/new",
+        element: <MemberForm />,
+      },
+      {
+        path: "/members/:id/edit",
+        element: <MemberForm />,
+      },
+      {
+        path: "/documents",
+        element: <DocumentsPage />,
+      },
+      {
+        path: "/documents/new",
+        element: <DocumentEditorPage mode="create" />,
+      },
+      {
+        path: "/documents/:id",
+        element: <DocumentEditorPage mode="view" />,
+      },
+      {
+        path: "/documents/:id/edit",
+        element: <DocumentEditorPage mode="edit" />,
+      },
+      {
+        path: "/documents/:id/review",
+        element: <DocumentEditorPage mode="review" />,
+      },
+      {
+        path: "/notifications",
+        element: <NotificationsPage />,
+      },
+      {
+        path: "/trails",
+        element: <CentralTrilhasPage />,
+      },
+      {
+        path: "/trails/:id",
+        element: <TrilhasPage />,
+      },
+      {
+        path: "/trails/:id/attachments",
+        element: <AttachmentUploadPage />,
+      },
+    ],
   },
 ]);
