@@ -49,54 +49,33 @@ export function useDocumentForm<C extends object, E>(
     ? { career: getCareer(content) }
     : {};
 
-  async function createAndPersist(
-    target: DocumentStatusValue
-  ): Promise<StoredDocument<C> | null> {
-    if (!type) return null;
-    const created = await DocumentService.createDocument<C>(type);
-    const updated = await DocumentService.updateDocument(
-      created.id,
-      { content, ...careerPatch, status: target },
-      type
-    );
-    if (!updated) return null;
-    setSavedDoc(updated);
-    return updated;
-  }
-
   async function save(): Promise<StoredDocument<C> | null> {
-    if (isBusy || !runValidation()) return null;
+    if (isBusy || !runValidation() || !savedDoc) return null;
     setIsBusy(true);
     try {
-      if (savedDoc) {
-        const updated = await DocumentService.updateDocument(
-          savedDoc.id,
-          { content, ...careerPatch, status: "Rascunho" },
-          savedDoc.type ?? type
-        );
-        if (updated) setSavedDoc(updated);
-        return updated;
-      }
-      return await createAndPersist("Rascunho");
+      const updated = await DocumentService.updateDocument(
+        savedDoc.id,
+        { content, ...careerPatch, status: "Rascunho" },
+        savedDoc.type ?? type
+      );
+      if (updated) setSavedDoc(updated);
+      return updated;
     } finally {
       setIsBusy(false);
     }
   }
 
   async function sendToReview(): Promise<StoredDocument<C> | null> {
-    if (isBusy || !runValidation(validateReview ?? validate)) return null;
+    if (isBusy || !runValidation(validateReview ?? validate) || !savedDoc) return null;
     setIsBusy(true);
     try {
-      if (savedDoc) {
-        const updated = await DocumentService.updateDocument(
-          savedDoc.id,
-          { content, ...careerPatch, status: "Em Revisão" },
-          savedDoc.type ?? type
-        );
-        if (updated) setSavedDoc(updated);
-        return updated;
-      }
-      return await createAndPersist("Em Revisão");
+      const updated = await DocumentService.updateDocument(
+        savedDoc.id,
+        { content, ...careerPatch, status: "Em Revisão" },
+        savedDoc.type ?? type
+      );
+      if (updated) setSavedDoc(updated);
+      return updated;
     } finally {
       setIsBusy(false);
     }

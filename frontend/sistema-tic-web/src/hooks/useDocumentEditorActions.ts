@@ -17,7 +17,6 @@ type UseDocumentEditorActionsOptions<C extends object> = {
 };
 
 export function useDocumentEditorActions<C extends object>({
-  mode,
   save,
   sendToReview,
   devolve,
@@ -33,18 +32,19 @@ export function useDocumentEditorActions<C extends object>({
 
   async function handleSave() {
     const saved = await save();
-    if (!saved) return;
-    if (mode === "create") {
-      onToast("Rascunho salvo.", "success");
-      navigate(`/documents/${saved.id}/edit`);
-    } else {
-      onToast("Alterações salvas.", "success");
+    if (!saved) {
+      onToast("Não foi possível salvar o documento.", "error");
+      return;
     }
+    onToast("Alterações salvas.", "success");
   }
 
   async function handleSendToReview() {
     const saved = await sendToReview();
-    if (!saved) return;
+    if (!saved) {
+      onToast("Não foi possível enviar o documento para revisão.", "error");
+      return;
+    }
     onToast("Documento enviado para revisão.", "success");
     navigate(`/documents/${saved.id}/review`);
   }
@@ -56,7 +56,10 @@ export function useDocumentEditorActions<C extends object>({
 
   async function confirmDevolve() {
     const updated = await devolve(devolveNote.trim() || undefined);
-    if (!updated) return;
+    if (!updated) {
+      onToast("Não foi possível devolver o documento.", "error");
+      return;
+    }
     setDevolveOpen(false);
     onToast("Documento devolvido para correção.", "success");
     navigate(`/documents/${updated.id}/edit`);
@@ -64,28 +67,40 @@ export function useDocumentEditorActions<C extends object>({
 
   async function handleClose() {
     const updated = await close();
-    if (!updated) return;
+    if (!updated) {
+      onToast("Não foi possível concluir o documento.", "error");
+      return;
+    }
     onToast("Documento concluído.", "success");
     navigate(`/documents/${updated.id}`);
   }
 
   async function handleReopen() {
     const updated = await reopen();
-    if (!updated) return;
+    if (!updated) {
+      onToast("Não foi possível reabrir o documento.", "error");
+      return;
+    }
     onToast("Documento reaberto.", "success");
     navigate(`/documents/${updated.id}/review`);
   }
 
   async function handleArchive() {
     const updated = await archive();
-    if (!updated) return;
+    if (!updated) {
+      onToast("Não foi possível arquivar o documento.", "error");
+      return;
+    }
     onToast("Documento arquivado.", "success");
     navigate(`/documents/${updated.id}`);
   }
 
   async function handleRestore() {
     const updated = await restore();
-    if (!updated) return;
+    if (!updated) {
+      onToast("Não foi possível restaurar o documento.", "error");
+      return;
+    }
     onToast("Documento restaurado para rascunho.", "success");
   }
 

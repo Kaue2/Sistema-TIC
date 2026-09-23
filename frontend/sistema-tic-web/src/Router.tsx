@@ -50,10 +50,6 @@ export const router = createBrowserRouter([
         element: <DocumentsPage />,
       },
       {
-        path: "/documents/new",
-        element: <DocumentEditorPage mode="create" />,
-      },
-      {
         path: "/documents/:id",
         element: <DocumentEditorPage mode="view" />,
       },

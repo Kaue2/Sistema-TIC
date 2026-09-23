@@ -41,8 +41,6 @@ const TYPE_OPTIONS = [
   { label: "Softex", value: "Softex", icon: "business_center" },
 ];
 
-const CREATE_TYPE_OPTIONS = TYPE_OPTIONS.filter((opt) => opt.value !== "all");
-
 export function DocumentsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -170,18 +168,6 @@ export function DocumentsPage() {
     !showEmpty && filteredDocuments.length === 0 && hasActiveFilters;
   const showDocuments = !showEmpty && !showEmptySearch;
 
-  function handleDuplicate(doc: Document) {
-    const currentNumber = parseInt(doc.number.replace("#", ""), 10);
-    const copy: Document = {
-      ...doc,
-      id: crypto.randomUUID(),
-      number: Number.isNaN(currentNumber) ? "" : `#${currentNumber + 1}`,
-      status: "Rascunho",
-    };
-    setDocuments((prev) => [copy, ...prev]);
-    setToast({ message: "Documento duplicado.", type: "success" });
-  }
-
   function handleArchive(doc: Document) {
     setDocuments((prev) =>
       prev.map((d) => (d.id === doc.id ? { ...d, status: "Arquivado" } : d))
@@ -269,29 +255,10 @@ export function DocumentsPage() {
                 icon="description"
                 iconTinted
                 title="Nenhum documento cadastrado"
-                description="Comece criando o primeiro documento da sua trilha."
-              >
-                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                  {CREATE_TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() =>
-                        navigate(`/documents/new?type=${encodeURIComponent(opt.value)}`)
-                      }
-                      className="flex h-9 items-center gap-2 rounded-lg border border-blue-100 px-4 text-sm text-blue-100 transition-colors hover:bg-blue-100 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100"
-                    >
-                      <span
-                        className="material-symbols-outlined"
-                        style={{ fontSize: 18 }}
-                      >
-                        {opt.icon}
-                      </span>
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </Empty>
+                description="Os documentos são gerados automaticamente junto com a trilha."
+                actionLabel="Nova Trilha"
+                onAction={() => navigate("/trails")}
+              />
             )}
 
             {showEmptySearch && (
@@ -305,7 +272,6 @@ export function DocumentsPage() {
                     key={doc.id}
                     document={doc}
                     onEdit={handleEdit}
-                    onDuplicate={handleDuplicate}
                     onArchive={handleArchive}
                     onRestore={handleRestore}
                   />

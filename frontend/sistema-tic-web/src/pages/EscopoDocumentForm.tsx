@@ -76,26 +76,22 @@ export function EscopoDocumentForm({
     setContent((prev) => ({ ...prev, [field]: value }));
   }
 
-  const title = mode === "create" ? "Novo documento" : doc!.title;
-  const subtitle =
-    mode === "create" ? type : `${doc!.type} · ${doc!.number}`;
+  const title = doc!.title;
+  const subtitle = `${doc!.type} · ${doc!.number}`;
   const teacherName = content.teacherName.trim();
   const initials = initialsFrom(teacherName || title);
 
   return (
     <>
       <DocumentHeader
-        mode={mode}
         title={title}
         subtitle={subtitle}
         initials={initials}
-        status={mode === "create" ? undefined : status}
+        status={status}
         disabled={isBusy}
-        onSave={mode === "create" || mode === "edit" ? actions.handleSave : undefined}
+        onSave={mode === "edit" ? actions.handleSave : undefined}
         onSendToReview={
-          mode === "create" || mode === "edit"
-            ? actions.handleSendToReview
-            : undefined
+          mode === "edit" ? actions.handleSendToReview : undefined
         }
         onDevolve={mode === "review" ? actions.openDevolveDialog : undefined}
         onClose={mode === "review" ? actions.handleClose : undefined}
@@ -110,7 +106,7 @@ export function EscopoDocumentForm({
           mode === "view" && status === "Concluído" ? actions.handleReopen : undefined
         }
         onArchive={
-          mode !== "create" && status !== "Arquivado" && status !== "Concluído"
+          status !== "Arquivado" && status !== "Concluído"
             ? actions.handleArchive
             : undefined
         }

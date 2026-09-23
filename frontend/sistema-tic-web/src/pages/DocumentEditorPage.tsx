@@ -41,7 +41,7 @@ export function DocumentEditorPage({ mode }: { mode: DocumentMode }) {
 
       <main className="relative mx-auto flex min-h-screen w-full max-w-300 flex-col px-6 pb-16">
         <DocumentEditor
-          key={mode === "create" ? `create:${type}` : id}
+          key={id}
           mode={mode}
           type={type}
           onToast={(message, toastType) => setToast({ message, type: toastType })}
@@ -68,7 +68,6 @@ function DocumentEditor({ mode, type, onToast }: DocumentEditorProps) {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (mode === "create") return;
     let cancelled = false;
     DocumentService.getDocument(id!, type).then((doc) => {
       if (cancelled) return;
@@ -79,17 +78,6 @@ function DocumentEditor({ mode, type, onToast }: DocumentEditorProps) {
       cancelled = true;
     };
   }, [id, mode, type]);
-
-  if (mode === "create") {
-    return (
-      <DocumentEditorForm
-        mode={mode}
-        document={null}
-        type={type}
-        onToast={onToast}
-      />
-    );
-  }
 
   if (notFound) {
     return (

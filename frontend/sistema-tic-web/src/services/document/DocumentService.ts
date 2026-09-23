@@ -211,30 +211,6 @@ export const DocumentService = {
     }
   },
 
-  async createDocument<C extends object = DocumentContent>(
-    type: DocumentType
-  ): Promise<StoredDocument<C>> {
-    await wait(400);
-    const numbers = [...store.values()].map((d) =>
-      parseInt(d.number.replace("#", ""), 10)
-    );
-    const next = (numbers.length > 0 ? Math.max(...numbers) : 2985) + 1;
-    const doc = {
-      id: crypto.randomUUID(),
-      number: `#${next}`,
-      title: DOCUMENT_TITLE_BY_TYPE[type],
-      type,
-      trail: "",
-      semester: "",
-      career: "",
-      teachingMode: "Híbrido",
-      status: "Rascunho",
-      content: EMPTY_CONTENT_BY_TYPE[type]() as DocumentContent,
-    } as StoredDocument<C>;
-    store.set(doc.id, doc as StoredDocument);
-    return { ...doc };
-  },
-
   async updateDocument<C extends object = DocumentContent>(
     id: string,
     patch: Partial<

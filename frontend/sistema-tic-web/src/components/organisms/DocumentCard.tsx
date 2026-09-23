@@ -9,7 +9,6 @@ import type { ContextMenuItem, ContextMenuAnchor } from "../molecules/ContextMen
 type DocumentCardProps = {
   document: Document;
   onEdit?: (document: Document) => void;
-  onDuplicate?: (document: Document) => void;
   onArchive?: (document: Document) => void;
   onRestore?: (document: Document) => void;
 };
@@ -18,20 +17,17 @@ function getContextMenuItems(status: DocumentStatusValue): ContextMenuItem[] {
   if (status === "Arquivado") {
     return [
       { id: "open", label: "Abrir", icon: "open_in_new" },
-      { id: "duplicate", label: "Duplicar", icon: "content_copy" },
       { id: "restore", label: "Restaurar", icon: "unarchive" },
     ];
   }
   if (status === "Concluído") {
     return [
       { id: "open", label: "Abrir", icon: "open_in_new" },
-      { id: "duplicate", label: "Duplicar", icon: "content_copy" },
     ];
   }
   return [
     { id: "open", label: "Abrir", icon: "open_in_new" },
     { id: "edit", label: "Editar", icon: "edit" },
-    { id: "duplicate", label: "Duplicar", icon: "content_copy" },
     { id: "archive", label: "Arquivar", icon: "archive", danger: true },
   ];
 }
@@ -39,7 +35,6 @@ function getContextMenuItems(status: DocumentStatusValue): ContextMenuItem[] {
 export function DocumentCard({
   document,
   onEdit,
-  onDuplicate,
   onArchive,
   onRestore,
 }: DocumentCardProps) {
@@ -72,9 +67,6 @@ export function DocumentCard({
         break;
       case "edit":
         onEdit?.(document);
-        break;
-      case "duplicate":
-        onDuplicate?.(document);
         break;
       case "archive":
         onArchive?.(document);
