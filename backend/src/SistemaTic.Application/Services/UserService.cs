@@ -219,6 +219,9 @@ public class UserService
         credentials.IsTemporary = false;
         credentials.PasswordChangedAt = DateTimeOffset.Now.ToUniversalTime();
         credentials.MustChangePassword = false;
+        credentials.FailedAttempts = 0;
+        credentials.LockedUntil = null;
+        credentials.TemporaryPasswordExpiresAt = null;
 
         UserCredentials? newCredentials = await this._userCredentialsRepository.UpdateUserCredentialsAsync(credentials);
 

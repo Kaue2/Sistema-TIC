@@ -61,13 +61,14 @@ public class UserCredentialsRepository : IUserCredentialsRepository
 
         await using var cmd = this._dataSource.CreateCommand();
         cmd.CommandText = """
-        INSERT INTO user_credentials (user_id, password_hash, is_temporary, must_change_password)
-        VALUES (@userId, @passwordHash, true, true)
+        INSERT INTO user_credentials (user_id, password_hash, is_temporary, must_change_password, temporary_password_expires_at)
+        VALUES (@userId, @passwordHash, true, true, @tempExpiresAt)
         RETURNING *;
         """;
 
         cmd.Parameters.AddWithValue("userId", userId);
         cmd.Parameters.AddWithValue("passwordHash", passwordHash);
+        cmd.Parameters.AddWithValue("tempExpiresAt", DateTimeOffset.UtcNow.AddDays(7));
 
         await using var reader = await cmd.ExecuteReaderAsync();
         await reader.ReadAsync();
@@ -104,7 +105,10 @@ public class UserCredentialsRepository : IUserCredentialsRepository
             password_hash = @passwordHash,
             is_temporary = @isTemporary,
             must_change_password = @mustChangePassword,
-            password_changed_at = @passwordChangedAt
+            temporary_password_expires_at = @tempExpiresAt,
+            password_changed_at = @passwordChangedAt,
+            failed_attempts = @failedAttempts,
+            locked_until = @lockedUntil
         WHERE user_id = @userId
         RETURNING user_id, 
                   password_hash, 
@@ -121,7 +125,10 @@ public class UserCredentialsRepository : IUserCredentialsRepository
         cmd.Parameters.AddWithValue("passwordHash", credentials.PasswordHash);
         cmd.Parameters.AddWithValue("isTemporary", credentials.IsTemporary);
         cmd.Parameters.AddWithValue("mustChangePassword", credentials.MustChangePassword);
-        cmd.Parameters.AddWithValue("passwordChangedAt", credentials.PasswordChangedAt.Value.ToUniversalTime());
+        cmd.Parameters.AddWithValue("tempExpiresAt", (object?)credentials.TemporaryPasswordExpiresAt ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("passwordChangedAt", (object?)credentials.PasswordChangedAt ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("failedAttempts", credentials.FailedAttempts);
+        cmd.Parameters.AddWithValue("lockedUntil", (object?)credentials.LockedUntil ?? DBNull.Value);
 
 
         await using var reader = await cmd.ExecuteReaderAsync();
