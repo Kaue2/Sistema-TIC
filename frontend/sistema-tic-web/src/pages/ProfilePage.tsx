@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { DecorativeBackground } from "../components/atoms/DecorativeBackground";
 import { ProfileHeader } from "../components/organisms/ProfileHeader";
 import { ProfileContent } from "../components/organisms/ProfileContent";
 import { Toast } from "../components/organisms/Toast";
+import { PersonalizationDialog } from "../components/organisms/PersonalizationDialog";
 import type { ToastType } from "../components/organisms/Toast";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
 import { getUserProfile, getUserPhotoUrl, uploadUserPhoto } from "../services/user-services";
-import { getCurrentUserId } from "../services/auth";
+import { clearAuthSession, getCurrentUserId } from "../services/auth";
 import { useUser } from "../contexts/userContext";
 
 export interface User {
@@ -36,10 +37,12 @@ export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
   const mode = id === getCurrentUserId() ? "self" : "user";
   const { userData, setUserData } = useUser();
+  const navigate = useNavigate();
 
   const [user, setUser] = useState<User | null>(null);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [personalizationOpen, setPersonalizationOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -84,6 +87,16 @@ export function ProfilePage() {
     if (mode !== "self" || !userData?.avatarUrl || !user) return;
     setUser((current) => (current ? { ...current, avatar: userData.avatarUrl ?? current.avatar } : current));
   }, [mode, userData?.avatarUrl, user?.id]);
+
+  function handleLogout() {
+    clearAuthSession();
+    setUserData(null);
+    navigate("/", { replace: true });
+  }
+
+  function handleChangePassword() {
+    navigate("/access-update");
+  }
 
   async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -145,11 +158,15 @@ export function ProfilePage() {
         <ProfileContent
           user={user}
           mode={mode}
-          onPersonalize={() => console.log("Personalizar")}
-          onChangePassword={() => console.log("Alterar senha")}
-          onLogout={() => console.log("Sair")}
+          onPersonalize={() => setPersonalizationOpen(true)}
+          onChangePassword={handleChangePassword}
+          onLogout={handleLogout}
         />
       </main>
+
+      {personalizationOpen && (
+        <PersonalizationDialog onClose={() => setPersonalizationOpen(false)} />
+      )}
 
       {toast && (
         <Toast
