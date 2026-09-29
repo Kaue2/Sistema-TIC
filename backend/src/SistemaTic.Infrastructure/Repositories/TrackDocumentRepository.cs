@@ -266,27 +266,65 @@ public class TrackDocumentRepository : ITrackDocumentRepository
 
     public async Task<TrackDocument> SubmitForReviewAsync(Guid trackDocumentId, Guid updatedByUserId)
     {
-        await using var cmd = _dataSource.CreateCommand("""
-            UPDATE track_documents
-               SET status = 'submitted',
-                   updated_by_user_id = @updatedByUserId,
-                   submitted_at = clock_timestamp()
-             WHERE id = @id
-               AND status IN ('draft', 'changes_requested')
-            RETURNING *;
-        """);
-        cmd.Parameters.AddWithValue("id", trackDocumentId);
-        cmd.Parameters.AddWithValue("updatedByUserId", updatedByUserId);
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
 
-        await using var reader = await cmd.ExecuteReaderAsync();
-        if (await reader.ReadAsync())
-            return Map(reader);
+        await using (var actorCmd = new NpgsqlCommand(
+            "SELECT set_config('app.current_user_id', @userId, true);",
+            connection,
+            transaction))
+        {
+            actorCmd.Parameters.AddWithValue("userId", updatedByUserId.ToString());
+            await actorCmd.ExecuteScalarAsync();
+        }
 
-        TrackDocument? current = await GetByIdAsync(trackDocumentId);
-        if (current is null)
-            throw new Exception("Documento não encontrado");
+        TrackDocument current;
+        await using (var selectCmd = new NpgsqlCommand(
+            "SELECT * FROM track_documents WHERE id = @id FOR UPDATE", connection, transaction))
+        {
+            selectCmd.Parameters.AddWithValue("id", trackDocumentId);
+            await using var reader = await selectCmd.ExecuteReaderAsync();
+            if (!await reader.ReadAsync())
+                throw new Exception("Documento não encontrado");
+            current = Map(reader);
+        }
 
-        throw new Exception("Somente documentos em rascunho ou com alterações solicitadas podem ser enviados para revisão");
+        if (current.Status is not ("draft" or "changes_requested"))
+            throw new Exception("Somente documentos em rascunho ou com alterações solicitadas podem ser enviados para revisão");
+
+        await using (var submitCmd = new NpgsqlCommand(
+            "SELECT submit_document_revision(@id, @submittedByUserId, NULL);", connection, transaction))
+        {
+            submitCmd.Parameters.AddWithValue("id", trackDocumentId);
+            submitCmd.Parameters.AddWithValue("submittedByUserId", updatedByUserId);
+            try
+            {
+                await submitCmd.ExecuteScalarAsync();
+            }
+            catch (PostgresException ex) when (
+                ex.MessageText.Contains("There is no draft revision to submit", StringComparison.Ordinal))
+            {
+                throw new Exception("Não há revisão em rascunho para enviar para revisão");
+            }
+            catch (PostgresException ex) when (
+                ex.MessageText.Contains("An empty revision cannot be submitted", StringComparison.Ordinal))
+            {
+                throw new Exception("O documento não possui alterações para enviar para revisão");
+            }
+        }
+
+        TrackDocument updated;
+        await using (var updatedCmd = new NpgsqlCommand(
+            "SELECT * FROM track_documents WHERE id = @id", connection, transaction))
+        {
+            updatedCmd.Parameters.AddWithValue("id", trackDocumentId);
+            await using var reader = await updatedCmd.ExecuteReaderAsync();
+            await reader.ReadAsync();
+            updated = Map(reader);
+        }
+
+        await transaction.CommitAsync();
+        return updated;
     }
 
     public async Task<TrackDocument> CreateAsync(
