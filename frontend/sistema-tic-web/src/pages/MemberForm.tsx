@@ -9,7 +9,6 @@ import { MultiSelectDropdown } from "../components/molecules/MultiSelectDropdown
 import { TrailSelectField } from "../components/molecules/TrailSelectField";
 import { CheckboxGroup } from "../components/molecules/CheckboxGroup";
 import { mockTrails } from "../data/mockTrails";
-import type { Trail, TrailModality, TrailStage } from "../types/trail";
 
 import { ExcelImportButton } from "../components/molecules/ExcelImportButton";
 import { Toast } from "../components/organisms/Toast";
@@ -22,6 +21,7 @@ import { downloadTemplate } from "../services/excel/ExcelTemplateService";
 import { createUser } from "../services/user-services";
 import { createTrackTeamMember, getTracks } from "../services/track-services";
 import type { TrackSummaryDTO } from "../services/track-services";
+import { trackSummaryToTrail } from "../utils/trail";
 
 const POSITION_OPTIONS = [
   { label: "Coordenação", value: "coordinator" },
@@ -67,53 +67,6 @@ const DEFAULT_SCHEDULE: ScheduleItem[] = [
   { day: "Sexta", start: "", end: "" },
 ];
 
-const TRAIL_MODALITY_LABELS: Record<string, TrailModality> = {
-  online: "Assíncrono",
-  hybrid: "Híbrido",
-};
-
-const TRAIL_STATUS_TO_STAGE: Record<string, TrailStage> = {
-  draft: "Pré Trilha",
-  planning: "Pré Trilha",
-  production: "Pré Execução",
-  pre_track: "Pré Execução",
-  running: "Execução Trilha",
-  post_track: "Pós Trilha",
-  completed: "Pós Trilha",
-  cancelled: "Pós Trilha",
-};
-
-// "semestre" ainda não existe na tabela tracks no backend.
-const TRAIL_SEMESTER_NOT_AVAILABLE = "Não informado";
-
-// Igual em espírito ao trackToTrail de CentralTrilhasPage.tsx, mas usa o id real (Guid) da
-// trilha em vez do "code" sequencial: esse id vira o trackId enviado pro backend ao vincular
-// o membro à trilha, e o code não bate com nenhuma FK.
-function trackToTrail(track: TrackSummaryDTO): Trail {
-  const mentors =
-    track.mentors.length > 0
-      ? track.mentors.map((mentor) => ({
-          id: mentor.email,
-          fullName: mentor.fullName,
-          role: "mentor",
-          email: mentor.email,
-        }))
-      : [{ id: "placeholder", fullName: TRAIL_SEMESTER_NOT_AVAILABLE, role: "", email: "" }];
-
-  return {
-    id: track.id,
-    title: track.title,
-    icon: "route",
-    career: track.knowledgeAreaName,
-    mentors,
-    semester: TRAIL_SEMESTER_NOT_AVAILABLE,
-    modality: TRAIL_MODALITY_LABELS[track.modality] ?? "Assíncrono",
-    level: track.learningLevel ?? "",
-    stage: TRAIL_STATUS_TO_STAGE[track.status] ?? "Pré Trilha",
-    description: "",
-    progress: [],
-  };
-}
 
 function Skeleton() {
   return (
@@ -230,7 +183,7 @@ export function MemberForm() {
     };
   }, [isEdit]);
 
-  const availableTrails = useMemo(() => tracks.map(trackToTrail), [tracks]);
+  const availableTrails = useMemo(() => tracks.map(trackSummaryToTrail), [tracks]);
 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

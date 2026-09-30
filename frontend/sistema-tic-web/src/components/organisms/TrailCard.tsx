@@ -59,8 +59,8 @@ export function TrailCard({
         aria-checked={selectionMode ? selected : undefined}
         aria-label={
           selectionMode
-            ? `${selected ? "Remover" : "Selecionar"} trilha ${trail.title} #${trail.id}`
-            : `Abrir trilha ${trail.title} #${trail.id}`
+            ? `${selected ? "Remover" : "Selecionar"} trilha ${trail.title} #${trail.code}`
+            : `Abrir trilha ${trail.title} #${trail.code}`
         }
         onClick={activateCard}
         onKeyDown={handleKeyDown}
@@ -86,7 +86,7 @@ export function TrailCard({
             <h2 className="truncate text-xl font-normal leading-none text-blue-100">
               {trail.title}
             </h2>
-            <span className="shrink-0 text-sm text-black-60">#{trail.id}</span>
+            <span className="shrink-0 text-sm text-black-60">#{trail.code}</span>
           </div>
           <p className="mt-2 truncate text-sm leading-none text-black-80">
             {trail.career}

@@ -100,6 +100,7 @@ export function TrailSelectorModal({
 
       const searchableContent = [
         trail.title,
+        trail.code,
         trail.id,
         trail.career,
         trail.semester,
@@ -230,7 +231,7 @@ export function TrailSelectorModal({
                       >
                         <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5">
                           <span className="text-sm font-medium text-blue-100">
-                            #{trail.id}
+                            #{trail.code}
                           </span>
                           <span className="text-sm text-black-80">
                             {trail.title}
