@@ -55,6 +55,9 @@ public class UserController : ControllerBase
     [Authorize]
     public async Task<IActionResult> UploadUserPhoto(Guid id, IFormFile file)
     {
+        if (!IsOwnerOrPrivileged(id))
+            return Forbid();
+
         Guid uploadedByUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         await using var stream = file.OpenReadStream();
@@ -84,6 +87,12 @@ public class UserController : ControllerBase
 
         UserCredentials credentials = await this._userService.ChangeUserPasswordAsync(email, dto.OldPassword, dto.NewPassword, dto.ConfirmNewPassword);
         return Ok(credentials.UserId);
+    }
+
+    private bool IsOwnerOrPrivileged(Guid id)
+    {
+        Guid currentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return currentUserId == id || User.IsInRole("coordinator") || User.IsInRole("administrator");
     }
 
     [HttpPost("change-role")]
