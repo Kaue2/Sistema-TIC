@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { SearchInput } from "../components/molecules/SearchInput";
@@ -8,8 +8,10 @@ import { MemberListItem } from "../components/molecules/MemberListItem";
 import { MemberCard } from "../components/organisms/MemberRow";
 import { Empty } from "../components/molecules/Empty";
 import { EmptySearch } from "../components/molecules/EmptySearch";
+import { Button } from "../components/atoms/Button";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
 import { getMembers, getUserPhotoUrl } from "../services/user-services";
+import { getCurrentUserId } from "../services/auth";
 import { useUser } from "../contexts/userContext";
 
 export type Member = {
@@ -55,55 +57,79 @@ export function MembersPage() {
     return saved === "cards" ? "cards" : "list";
   });
   const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("members-view", view);
   }, [view]);
 
-  useEffect(() => {
-    getMembers().then((summaries) => {
-      setMembers(
-        summaries.map((m) => ({
-          id: m.id,
-          fullName: m.fullName,
-          role: ROLE_LABELS[m.roleCode] ?? m.roleCode,
-          institutionalEmail: m.institutionalEmail,
-          administrativeEmail: m.administrativeEmail ?? undefined,
-          location: m.workLocation ?? "",
-          type: m.roleCode,
-          journeys: m.availability.map((a) => ({
-            day: WEEKDAY_NAMES[a.weekday],
-            start: a.startsAt.slice(0, 5),
-            end: a.endsAt.slice(0, 5),
-          })),
-        }))
-      );
+  const loadMembers = useCallback(() => {
+    setLoading(true);
+    setError(false);
 
-      summaries.forEach((m) => {
-        // o usuário logado já tem a própria foto em cache no contexto (ver UserProvider),
-        // então reaproveita em vez de pedir de novo.
-        if (m.id === userData?.id) {
-          if (userData.avatarUrl) {
+    getMembers()
+      .then((summaries) => {
+        const currentUserId = getCurrentUserId();
+
+        setMembers(
+          summaries.map((m) => ({
+            id: m.id,
+            fullName: m.fullName,
+            role: ROLE_LABELS[m.roleCode] ?? m.roleCode,
+            institutionalEmail: m.institutionalEmail,
+            administrativeEmail: m.administrativeEmail ?? undefined,
+            location: m.workLocation ?? "",
+            type: m.roleCode,
+            journeys: m.availability.map((a) => ({
+              day: WEEKDAY_NAMES[a.weekday],
+              start: a.startsAt.slice(0, 5),
+              end: a.endsAt.slice(0, 5),
+            })),
+          }))
+        );
+
+        summaries.forEach((m) => {
+          // o usuário logado já tem a própria foto em cache no contexto (ver UserProvider),
+          // então reaproveita em vez de pedir de novo.
+          if (m.id === currentUserId) return;
+
+          getUserPhotoUrl(m.id).then((avatarUrl) => {
+            if (!avatarUrl) return;
             setMembers((current) =>
               current.map((member) =>
-                member.id === m.id ? { ...member, avatar: userData.avatarUrl ?? undefined } : member
+                member.id === m.id ? { ...member, avatar: avatarUrl } : member
               )
             );
-          }
-          return;
-        }
-
-        getUserPhotoUrl(m.id).then((avatarUrl) => {
-          if (!avatarUrl) return;
-          setMembers((current) =>
-            current.map((member) =>
-              member.id === m.id ? { ...member, avatar: avatarUrl } : member
-            )
-          );
+          });
         });
+      })
+      .catch(() => {
+        setError(true);
+      })
+      .finally(() => {
+        setLoading(false);
       });
-    });
   }, []);
+
+  useEffect(() => {
+    loadMembers();
+  }, [loadMembers]);
+
+  // foto do próprio usuário chega de forma assíncrona pelo UserProvider; quando ela
+  // fica disponível, aplica no membro correspondente sem refazer o fetch da lista.
+  useEffect(() => {
+    if (!userData?.avatarUrl) return;
+
+    const currentUserId = getCurrentUserId();
+    setMembers((current) =>
+      current.map((member) =>
+        member.id === currentUserId
+          ? { ...member, avatar: userData.avatarUrl ?? undefined }
+          : member
+      )
+    );
+  }, [userData?.avatarUrl]);
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -147,6 +173,7 @@ export function MembersPage() {
   const showEmpty = members.length === 0;
   const showEmptySearch = !showEmpty && filteredMembers.length === 0 && hasActiveFilters;
   const showMembers = !showEmpty && !showEmptySearch;
+  const showContent = !loading && !error;
 
   function handleClearAll() {
     setSearch("");
@@ -197,7 +224,23 @@ export function MembersPage() {
         </div>
 
         <div className="mt-8 flex w-full justify-center">
-          {showEmpty && (
+          {loading && (view === "list" ? <MembersListSkeleton /> : <MembersCardSkeleton />)}
+
+          {!loading && error && (
+            <div className="flex flex-col items-center gap-4 py-8 text-center">
+              <span className="material-symbols-outlined text-[56px] text-blue-100/50">
+                error_outline
+              </span>
+              <p className="max-w-90 text-sm text-blue-100">
+                Não foi possível carregar a equipe. Verifique sua conexão e tente novamente.
+              </p>
+              <Button variant="outline" icon="refresh" onClick={loadMembers}>
+                Tentar novamente
+              </Button>
+            </div>
+          )}
+
+          {showContent && showEmpty && (
             <Empty
               iconTinted
               actionLabel="Adicionar membro"
@@ -205,11 +248,11 @@ export function MembersPage() {
             />
           )}
 
-          {showEmptySearch && (
+          {showContent && showEmptySearch && (
             <EmptySearch onClear={handleClearAll} />
           )}
 
-          {showMembers && view === "list" && (
+          {showContent && showMembers && view === "list" && (
             <div className="flex w-full max-w-225 flex-col items-center gap-3">
               {filteredMembers.map((member) => (
                 <MemberListItem key={member.id} member={member} />
@@ -217,7 +260,7 @@ export function MembersPage() {
             </div>
           )}
 
-          {showMembers && view === "cards" && (
+          {showContent && showMembers && view === "cards" && (
             <div className="flex w-full max-w-240 flex-col items-center gap-3">
               {filteredMembers.map((member) => (
                 <MemberCard key={member.id} member={member} />
@@ -226,6 +269,54 @@ export function MembersPage() {
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function MembersListSkeleton() {
+  return (
+    <div className="flex w-full max-w-225 flex-col items-center gap-3" aria-hidden>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex w-full h-20 items-center gap-6 rounded-lg border border-blue-40 bg-card-background px-6"
+        >
+          <div className="size-12 animate-pulse rounded-full bg-blue-100/10" />
+          <div className="flex flex-1 flex-col gap-2">
+            <div className="h-4 w-48 animate-pulse rounded bg-blue-100/10" />
+            <div className="h-3 w-32 animate-pulse rounded bg-blue-100/10" />
+          </div>
+          <div className="h-3 w-40 animate-pulse rounded bg-blue-100/10" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MembersCardSkeleton() {
+  return (
+    <div className="flex w-full max-w-240 flex-col items-center gap-3" aria-hidden>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex w-full h-87.5 items-stretch gap-6 rounded-2xl border border-blue-40 bg-card-background p-6"
+        >
+          <div className="flex items-center">
+            <div className="size-20 animate-pulse rounded-full bg-blue-100/10" />
+          </div>
+          <div className="flex flex-1 flex-col justify-center gap-3">
+            <div className="h-7 w-56 animate-pulse rounded bg-blue-100/10" />
+            <div className="h-4 w-32 animate-pulse rounded bg-blue-100/10" />
+            <div className="mt-4 h-3 w-72 animate-pulse rounded bg-blue-100/10" />
+            <div className="h-3 w-64 animate-pulse rounded bg-blue-100/10" />
+          </div>
+          <div className="flex w-80 flex-col justify-center gap-3">
+            <div className="h-5 w-24 animate-pulse rounded bg-blue-100/10" />
+            <div className="h-3 w-56 animate-pulse rounded bg-blue-100/10" />
+            <div className="h-3 w-48 animate-pulse rounded bg-blue-100/10" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -86,10 +86,16 @@ export function ProfilePage() {
     setLoading(true);
     setError(false);
 
-    getUserProfile(id)
-      .then((profile) => {
+    // perfil e foto resolvem juntos (a foto no modo "user" vem da rede); sem isso há uma
+    // corrida: se a foto termina antes do perfil, o avatar era descartado (perfil ainda null).
+    const photoPromise =
+      mode === "user" ? getUserPhotoUrl(id) : Promise.resolve<string | null>(null);
+
+    Promise.all([getUserProfile(id), photoPromise])
+      .then(([profile, avatarUrl]) => {
         setUser({
           id: profile.id,
+          avatar: avatarUrl ?? undefined,
           fullName: profile.name,
           role: profile.roleName ?? "-",
           institutionalEmail: profile.email,
@@ -113,23 +119,17 @@ export function ProfilePage() {
       .finally(() => {
         setLoading(false);
       });
-  }, [id]);
+  }, [id, mode]);
 
   useEffect(() => {
     if (!id) return;
 
     loadProfile();
 
-    // pro próprio usuário logado a foto já vem cacheada pelo UserProvider (busca única no
-    // login/reload); só buscamos aqui quando é o perfil de outra pessoa.
-    if (mode === "user") {
-      getUserPhotoUrl(id).then((avatarUrl) => {
-        if (avatarUrl) {
-          setUser((current) => (current ? { ...current, avatar: avatarUrl } : current));
-        }
-      });
-    }
-  }, [id, mode, loadProfile]);
+    // pro próprio usuário logado a foto vem cacheada pelo UserProvider (busca única no
+    // login/reload) e é aplicada pelo efeito reativo abaixo; a foto de terceiros já veio no
+    // loadProfile.
+  }, [id, loadProfile]);
 
   useEffect(() => {
     // depende de user?.id (não só de userData.avatarUrl) porque o fetch do perfil e o fetch
