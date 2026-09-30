@@ -92,9 +92,30 @@ public class UserService
             profile?.WorkLocation,
             profile?.WeeklyWorkloadMinutes,
             profile?.LattesUrl,
+            profile?.CurriculumUrl,
             contacts.Select(c => new UserContactSummaryDTO(c.ContactType, c.ContactValue, c.Label, c.IsPrimary)),
             availability.Select(a => new UserAvailabilitySummaryDTO(a.Weekday, a.StartsAt, a.EndsAt))
         );
+    }
+
+    public async Task UpdateProfileLinksAsync(Guid userId, string? curriculumUrl, string? lattesUrl)
+    {
+        User? user = await this._userRepository.GetUserByIdAsync(userId);
+        if (user is null)
+            throw new Exception("não foi possível encontrar o usuário");
+
+        UserProfile? profile = await this._userProfileRepository.GetByUserIdAsync(userId);
+
+        await this._userProfileRepository.UpsertAsync(
+            userId,
+            preferredName: profile?.PreferredName,
+            photoFileId: profile?.PhotoFileId,
+            workLocation: profile?.WorkLocation,
+            weeklyWorkloadMinutes: profile?.WeeklyWorkloadMinutes,
+            biography: profile?.Biography,
+            lattesUrl: string.IsNullOrWhiteSpace(lattesUrl) ? null : lattesUrl,
+            curriculumUrl: string.IsNullOrWhiteSpace(curriculumUrl) ? null : curriculumUrl,
+            knowledgeAreaId: profile?.KnowledgeAreaId);
     }
 
     public async Task<Guid> CreateUser(CreateUserDTO dto)
@@ -138,6 +159,7 @@ public class UserService
             weeklyWorkloadMinutes: hours * 60,
             biography: null,
             lattesUrl: null,
+            curriculumUrl: null,
             knowledgeAreaId: null);
 
         return userId;

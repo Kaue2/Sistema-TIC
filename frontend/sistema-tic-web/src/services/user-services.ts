@@ -84,6 +84,7 @@ export interface UserProfileResponseDTO {
   workLocation: string | null;
   weeklyWorkloadMinutes: number | null;
   lattesUrl: string | null;
+  curriculumUrl: string | null;
   contacts: UserContactSummaryDTO[];
   availability: UserAvailabilitySummaryDTO[];
 }
@@ -91,6 +92,18 @@ export interface UserProfileResponseDTO {
 export async function getUserProfile(id: string): Promise<UserProfileResponseDTO> {
   const response = await api.get<UserProfileResponseDTO>(`user/${id}/profile`);
   return response.data;
+}
+
+export interface UpdateProfileLinksDTO {
+  curriculumUrl: string | null;
+  lattesUrl: string | null;
+}
+
+export async function updateProfileLinks(
+  id: string,
+  dto: UpdateProfileLinksDTO,
+): Promise<void> {
+  await api.put(`user/${id}/profile`, dto);
 }
 
 export interface MemberSummaryDTO {

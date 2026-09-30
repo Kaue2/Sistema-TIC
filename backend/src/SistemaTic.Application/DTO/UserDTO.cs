@@ -12,6 +12,7 @@ public record CreateUserDTO(
 );
 public record ChangeUserPasswordDTO(string OldPassword, string NewPassword, string ConfirmNewPassword);
 public record ChangeUserRoleDTO(string Email, string RoleCode);
+public record UpdateProfileLinksDTO(string? CurriculumUrl, string? LattesUrl);
 
 public record UserContactSummaryDTO(string ContactType, string ContactValue, string? Label, bool IsPrimary);
 public record UserAvailabilitySummaryDTO(short Weekday, TimeOnly StartsAt, TimeOnly EndsAt);
@@ -24,6 +25,7 @@ public record UserProfileResponseDTO(
     string? WorkLocation,
     int? WeeklyWorkloadMinutes,
     string? LattesUrl,
+    string? CurriculumUrl,
     IEnumerable<UserContactSummaryDTO> Contacts,
     IEnumerable<UserAvailabilitySummaryDTO> Availability
 );

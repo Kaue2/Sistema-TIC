@@ -26,6 +26,7 @@ public class UserProfileRepository : IUserProfileRepository
         DateTimeOffset createdAt = reader.IsDBNull(7) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(7);
         DateTimeOffset updatedAt = reader.IsDBNull(8) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(8);
         Guid? knowledgeAreaId = reader.IsDBNull(9) ? null : reader.GetGuid(9);
+        string? curriculumUrl = reader.IsDBNull(10) ? null : reader.GetString(10);
 
         return new UserProfile(
             userId,
@@ -35,6 +36,7 @@ public class UserProfileRepository : IUserProfileRepository
             weeklyWorkloadMinutes,
             biography,
             lattesUrl,
+            curriculumUrl,
             createdAt,
             updatedAt,
             knowledgeAreaId
@@ -82,12 +84,13 @@ public class UserProfileRepository : IUserProfileRepository
         int? weeklyWorkloadMinutes,
         string? biography,
         string? lattesUrl,
+        string? curriculumUrl,
         Guid? knowledgeAreaId)
     {
         await using var cmd = _dataSource.CreateCommand();
         cmd.CommandText = """
-            INSERT INTO user_profiles (user_id, preferred_name, photo_file_id, work_location, weekly_workload_minutes, biography, lattes_url, knowledge_area_id)
-            VALUES (@userId, @preferredName, @photoFileId, @workLocation, @weeklyWorkloadMinutes, @biography, @lattesUrl, @knowledgeAreaId)
+            INSERT INTO user_profiles (user_id, preferred_name, photo_file_id, work_location, weekly_workload_minutes, biography, lattes_url, curriculum_url, knowledge_area_id)
+            VALUES (@userId, @preferredName, @photoFileId, @workLocation, @weeklyWorkloadMinutes, @biography, @lattesUrl, @curriculumUrl, @knowledgeAreaId)
             ON CONFLICT (user_id) DO UPDATE SET
                 preferred_name = EXCLUDED.preferred_name,
                 photo_file_id = EXCLUDED.photo_file_id,
@@ -95,6 +98,7 @@ public class UserProfileRepository : IUserProfileRepository
                 weekly_workload_minutes = EXCLUDED.weekly_workload_minutes,
                 biography = EXCLUDED.biography,
                 lattes_url = EXCLUDED.lattes_url,
+                curriculum_url = EXCLUDED.curriculum_url,
                 knowledge_area_id = EXCLUDED.knowledge_area_id,
                 updated_at = clock_timestamp()
             RETURNING *;
@@ -107,6 +111,7 @@ public class UserProfileRepository : IUserProfileRepository
         cmd.Parameters.AddWithValue("weeklyWorkloadMinutes", (object?)weeklyWorkloadMinutes ?? DBNull.Value);
         cmd.Parameters.AddWithValue("biography", (object?)biography ?? DBNull.Value);
         cmd.Parameters.AddWithValue("lattesUrl", (object?)lattesUrl ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("curriculumUrl", (object?)curriculumUrl ?? DBNull.Value);
         cmd.Parameters.AddWithValue("knowledgeAreaId", (object?)knowledgeAreaId ?? DBNull.Value);
 
         await using var reader = await cmd.ExecuteReaderAsync();

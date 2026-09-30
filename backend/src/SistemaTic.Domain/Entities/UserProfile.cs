@@ -9,12 +9,14 @@ public class UserProfile
     public int? WeeklyWorkloadMinutes { get; set; }
     public string? Biography { get; set; }
     public string? LattesUrl { get; set; }
+    public string? CurriculumUrl { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public Guid? KnowledgeAreaId { get; set; }
 
     public UserProfile(Guid userId, string? preferredName, Guid? photoFileId, string? workLocation,
                         int? weeklyWorkloadMinutes, string? biography, string? lattesUrl,
+                        string? curriculumUrl,
                         DateTimeOffset createdAt, DateTimeOffset updatedAt, Guid? knowledgeAreaId)
     {
         this.UserId = userId;
@@ -24,6 +26,7 @@ public class UserProfile
         this.WeeklyWorkloadMinutes = weeklyWorkloadMinutes;
         this.Biography = biography;
         this.LattesUrl = lattesUrl;
+        this.CurriculumUrl = curriculumUrl;
         this.CreatedAt = createdAt;
         this.UpdatedAt = updatedAt;
         this.KnowledgeAreaId = knowledgeAreaId;

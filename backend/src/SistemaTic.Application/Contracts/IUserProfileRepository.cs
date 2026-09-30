@@ -14,6 +14,7 @@ public interface IUserProfileRepository
         int? weeklyWorkloadMinutes,
         string? biography,
         string? lattesUrl,
+        string? curriculumUrl,
         Guid? knowledgeAreaId);
     public Task UpdatePhotoFileIdAsync(Guid userId, Guid photoFileId);
 }

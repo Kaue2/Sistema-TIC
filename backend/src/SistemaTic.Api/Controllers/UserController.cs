@@ -51,6 +51,17 @@ public class UserController : ControllerBase
         return File(photo.Value.Content, photo.Value.MediaType, photo.Value.FileName);
     }
 
+    [HttpPut("{id:guid}/profile")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProfileLinks(Guid id, UpdateProfileLinksDTO dto)
+    {
+        if (!IsOwnerOrPrivileged(id))
+            return Forbid();
+
+        await this._userService.UpdateProfileLinksAsync(id, dto.CurriculumUrl, dto.LattesUrl);
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/photo")]
     [Authorize]
     public async Task<IActionResult> UploadUserPhoto(Guid id, IFormFile file)
