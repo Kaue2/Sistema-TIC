@@ -10,6 +10,7 @@ public interface IUserRepository
     public Task<User?> GetUserByEmailAsync(string email);
     public Task<User?> GetUserByIdAsync(Guid id);
     public Task<Roles?> GetUserRoleAsync(Guid userId);
+    public Task<IReadOnlyDictionary<Guid, Roles>> GetUserRolesAsync(IEnumerable<Guid> userIds);
     public Task<Guid> CreateUserAsync(string fullName, string emailEducacional, Guid roleId);
     public Task<User?> UpdateUserAsync(User user);
     public Task<User?> ChangeUserRoleAsync(Guid user, string roleCode);

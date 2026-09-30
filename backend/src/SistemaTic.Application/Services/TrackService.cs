@@ -44,15 +44,16 @@ public class TrackService
 
     public async Task<IEnumerable<TrackSummaryDTO>> GetAllTracksAsync()
     {
-        var tracks = await this._trackRepository.GetAllAsync();
-        var summaries = new List<TrackSummaryDTO>();
+        var tracks = (await this._trackRepository.GetAllAsync()).ToList();
+        var knowledgeAreas = (await this._knowledgeAreaRepository.GetByIdsAsync(tracks.Select(t => t.KnowledgeAreaId))).ToDictionary(a => a.Id);
+        var mentorsByTrack = await this._trackTeamMemberRepository.GetActiveMentorsByTrackIdsAsync(tracks.Select(t => t.Id), "mentor");
 
-        foreach (var track in tracks)
+        return tracks.Select(track =>
         {
-            KnowledgeArea? knowledgeArea = await this._knowledgeAreaRepository.GetByIdAsync(track.KnowledgeAreaId);
-            var mentors = await this._trackTeamMemberRepository.GetActiveMembersAsync(track.Id, "mentor");
+            knowledgeAreas.TryGetValue(track.KnowledgeAreaId, out KnowledgeArea? knowledgeArea);
+            var mentors = mentorsByTrack.GetValueOrDefault(track.Id) ?? new List<TrackMemberSummary>();
 
-            summaries.Add(new TrackSummaryDTO(
+            return new TrackSummaryDTO(
                 track.Id,
                 track.Code,
                 track.Title,
@@ -60,10 +61,8 @@ public class TrackService
                 track.LearningLevel,
                 track.Status,
                 knowledgeArea?.Name ?? string.Empty,
-                mentors.Select(m => new TrackMentorSummaryDTO(m.FullName, m.Email))));
-        }
-
-        return summaries;
+                mentors.Select(m => new TrackMentorSummaryDTO(m.FullName, m.Email)));
+        });
     }
 
     public async Task<IEnumerable<TrackDocumentSummaryDTO>> GetDocumentsByTrackIdAsync(Guid trackId)

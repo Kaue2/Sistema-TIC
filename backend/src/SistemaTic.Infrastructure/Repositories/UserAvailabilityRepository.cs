@@ -57,6 +57,30 @@ public class UserAvailabilityRepository : IUserAvailabilityRepository
         return items;
     }
 
+    public async Task<IReadOnlyDictionary<Guid, List<UserAvailability>>> GetByUserIdsAsync(IEnumerable<Guid> userIds)
+    {
+        Dictionary<Guid, List<UserAvailability>> byUser = new Dictionary<Guid, List<UserAvailability>>();
+        Guid[] ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0)
+            return byUser;
+
+        await using var cmd = _dataSource.CreateCommand("SELECT * FROM user_availability WHERE user_id = ANY(@userIds) ORDER BY user_id, weekday, starts_at");
+        cmd.Parameters.Add(new NpgsqlParameter("userIds", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = ids });
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            UserAvailability item = Map(reader);
+            if (!byUser.TryGetValue(item.UserId, out var list))
+            {
+                list = new List<UserAvailability>();
+                byUser[item.UserId] = list;
+            }
+            list.Add(item);
+        }
+        return byUser;
+    }
+
     public async Task<UserAvailability> CreateAsync(Guid userId, short weekday, TimeOnly startsAt, TimeOnly endsAt)
     {
         // não manda "timezone": a coluna já tem default 'America/Sao_Paulo' no banco

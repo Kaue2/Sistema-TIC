@@ -1,3 +1,4 @@
+using SistemaTic.Application.DTO;
 using SistemaTic.Domain.Entities;
 
 namespace SistemaTic.Application.Contracts;
@@ -15,4 +16,8 @@ public interface INotificationRepository
         string? actionUrl,
         Guid? createdByUserId,
         DateTimeOffset? expiresAt);
+
+    public Task<IReadOnlyList<NotificationProjection>> GetByRecipientAsync(Guid userId);
+    public Task<bool> MarkReadAsync(Guid userId, Guid notificationId);
+    public Task<int> MarkAllReadAsync(Guid userId);
 }

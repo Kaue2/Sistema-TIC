@@ -38,9 +38,22 @@ if (app.Environment.IsDevelopment())
 
     await using var scope = app.Services.CreateAsyncScope();
     var dataSource = scope.ServiceProvider.GetRequiredService<NpgsqlDataSource>();
-    string devSeedSql = await File.ReadAllTextAsync(FindDevSeedFile("002_dev_user.sql"));
-    await using var devSeedCmd = dataSource.CreateCommand(devSeedSql);
-    await devSeedCmd.ExecuteNonQueryAsync();
+
+    await using (var schemaGuardCmd = dataSource.CreateCommand(
+        "SELECT to_regclass('public.users') IS NOT NULL AND to_regclass('public.roles') IS NOT NULL;"))
+    {
+        bool schemaReady = (bool)(await schemaGuardCmd.ExecuteScalarAsync())!;
+        if (!schemaReady)
+        {
+            app.Logger.LogWarning("Banco ainda não migrado; dev seed 002_dev_user.sql pulado.");
+        }
+        else
+        {
+            string devSeedSql = await File.ReadAllTextAsync(FindDevSeedFile("002_dev_user.sql"));
+            await using var devSeedCmd = dataSource.CreateCommand(devSeedSql);
+            await devSeedCmd.ExecuteNonQueryAsync();
+        }
+    }
 }
 
 app.UseCors("AngularDev");

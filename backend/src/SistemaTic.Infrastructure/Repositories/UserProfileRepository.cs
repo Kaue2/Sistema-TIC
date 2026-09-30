@@ -1,4 +1,5 @@
 using Npgsql;
+using NpgsqlTypes;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Application.DTO;
 using SistemaTic.Domain.Entities;
@@ -52,6 +53,25 @@ public class UserProfileRepository : IUserProfileRepository
         }
 
         return null;
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, UserProfile>> GetByUserIdsAsync(IEnumerable<Guid> userIds)
+    {
+        Dictionary<Guid, UserProfile> byUser = new Dictionary<Guid, UserProfile>();
+        Guid[] ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0)
+            return byUser;
+
+        await using var cmd = _dataSource.CreateCommand("SELECT * FROM user_profiles WHERE user_id = ANY(@userIds)");
+        cmd.Parameters.Add(new NpgsqlParameter("userIds", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = ids });
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            UserProfile profile = Map(reader);
+            byUser[profile.UserId] = profile;
+        }
+        return byUser;
     }
 
     public async Task<UserProfile> UpsertAsync(

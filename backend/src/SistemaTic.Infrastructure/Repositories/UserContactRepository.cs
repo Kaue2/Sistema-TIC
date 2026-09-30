@@ -1,4 +1,5 @@
 using Npgsql;
+using NpgsqlTypes;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Application.DTO;
 using SistemaTic.Domain.Entities;
@@ -39,6 +40,30 @@ public class UserContactRepository : IUserContactRepository
             contacts.Add(Map(reader));
         }
         return contacts;
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, List<UserContact>>> GetByUserIdsAsync(IEnumerable<Guid> userIds)
+    {
+        Dictionary<Guid, List<UserContact>> byUser = new Dictionary<Guid, List<UserContact>>();
+        Guid[] ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0)
+            return byUser;
+
+        await using var cmd = _dataSource.CreateCommand("SELECT * FROM user_contacts WHERE user_id = ANY(@userIds) ORDER BY user_id, contact_type, created_at");
+        cmd.Parameters.Add(new NpgsqlParameter("userIds", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = ids });
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            UserContact contact = Map(reader);
+            if (!byUser.TryGetValue(contact.UserId, out var list))
+            {
+                list = new List<UserContact>();
+                byUser[contact.UserId] = list;
+            }
+            list.Add(contact);
+        }
+        return byUser;
     }
 
     public async Task<UserContact> CreateAsync(Guid userId, string contactType, string contactValue, string label, bool isPrimary)
