@@ -15,7 +15,8 @@ import { AttachmentService } from "../services/document/AttachmentService";
 import { CreateTrackModal } from "../components/molecules/CreateTrackModal";
 import { mockTrails } from "../data/mockTrails";
 import { getTracks, type TrackSummaryDTO } from "../services/track-services";
-import type { Trail, TrailModality, TrailStage } from "../types/trail";
+import type { Trail, TrailModality } from "../types/trail";
+import { isUuid, trackSummaryToTrail } from "../utils/trail";
 
 const MODALITY_OPTIONS = [
   { label: "Todos", value: "all", icon: "star" },
@@ -23,55 +24,8 @@ const MODALITY_OPTIONS = [
   { label: "Assíncrono", value: "Assíncrono", icon: "computer" },
 ];
 
-const MODALITY_LABELS: Record<string, TrailModality> = {
-  online: "Assíncrono",
-  hybrid: "Híbrido",
-};
-
-const STATUS_TO_STAGE: Record<string, TrailStage> = {
-  draft: "Pré Trilha",
-  planning: "Pré Trilha",
-  production: "Pré Execução",
-  pre_track: "Pré Execução",
-  running: "Execução Trilha",
-  post_track: "Pós Trilha",
-  completed: "Pós Trilha",
-  cancelled: "Pós Trilha",
-};
-
-// semestre ainda não existe no back (tracks não tem essa coluna); fica com um valor fixo só
-// pra manter o layout do card até o time decidir o que fazer com isso.
-const NOT_AVAILABLE = "Não informado";
-
-function trackToTrail(track: TrackSummaryDTO): Trail {
-  const mentors =
-    track.mentors.length > 0
-      ? track.mentors.map((mentor) => ({
-          id: mentor.email,
-          fullName: mentor.fullName,
-          role: "mentor",
-          email: mentor.email,
-        }))
-      : [{ id: "placeholder", fullName: NOT_AVAILABLE, role: "", email: "" }];
-
-  return {
-    id: String(track.code),
-    backendId: track.id,
-    title: track.title,
-    icon: "route",
-    career: track.knowledgeAreaName,
-    mentors,
-    semester: NOT_AVAILABLE,
-    modality: MODALITY_LABELS[track.modality] ?? "Assíncrono",
-    level: track.learningLevel ?? "",
-    stage: STATUS_TO_STAGE[track.status] ?? "Pré Trilha",
-    description: "",
-    progress: [],
-  };
-}
-
 function trailSelectionKey(trail: Trail) {
-  return trail.backendId ?? `mock:${trail.id}`;
+  return trail.id;
 }
 
 export function CentralTrilhasPage() {
@@ -113,7 +67,7 @@ export function CentralTrilhasPage() {
   }, [loadTracks]);
 
   const trails = useMemo(
-    () => (useMockTrails ? mockTrails : tracks.map(trackToTrail)),
+    () => (useMockTrails ? mockTrails : tracks.map(trackSummaryToTrail)),
     [tracks, useMockTrails],
   );
 
@@ -188,6 +142,7 @@ export function CentralTrilhasPage() {
 
       const searchableContent = [
         trail.title,
+        trail.code,
         trail.id,
         trail.career,
         trail.semester,
@@ -249,8 +204,8 @@ export function CentralTrilhasPage() {
       throw new Error("Selecione ao menos uma trilha para gerar o relat\u00f3rio.");
     }
 
-    const trailsWithoutBackend = selectedTrails.filter((trail) => !trail.backendId);
-    if (trailsWithoutBackend.length > 0) {
+    const demonstrationTrails = selectedTrails.filter((trail) => !isUuid(trail.id));
+    if (demonstrationTrails.length > 0) {
       throw new Error(
         "As trilhas de demonstra\u00e7\u00e3o n\u00e3o possuem perguntas, respostas e anexos persistidos no servidor. Inicie a API e selecione trilhas cadastradas para exportar."
       );
@@ -258,7 +213,7 @@ export function CentralTrilhasPage() {
 
     const documents = await Promise.all(
       selectedTrails.map((trail) =>
-        AttachmentService.getSoftexDocumentForTrail(trail.backendId!)
+        AttachmentService.getSoftexDocumentForTrail(trail.id)
       )
     );
     const exportFile = await AttachmentService.exportSoftexReports(
@@ -419,7 +374,7 @@ export function CentralTrilhasPage() {
 
       <SoftexReportDialog
         open={reportDialogOpen}
-        trailTitles={selectedTrails.map((trail) => `${trail.title} #${trail.id}`)}
+        trailTitles={selectedTrails.map((trail) => `${trail.title} #${trail.code}`)}
         onClose={() => setReportDialogOpen(false)}
         onExport={exportSoftexReport}
       />
