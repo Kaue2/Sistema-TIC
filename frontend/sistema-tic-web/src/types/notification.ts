@@ -30,3 +30,8 @@ export type SystemNotification = {
   isRead: boolean;
   target: NotificationTarget;
 };
+
+export type NotificationListResponse = {
+  notifications: SystemNotification[];
+  unreadCount: number;
+};
