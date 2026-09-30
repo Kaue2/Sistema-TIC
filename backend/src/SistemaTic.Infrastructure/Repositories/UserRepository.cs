@@ -1,4 +1,5 @@
 ﻿using Npgsql;
+using NpgsqlTypes;
 using SistemaTic.Application;
 using SistemaTic.Application.DTO;
 using SistemaTic.Application.Contracts;
@@ -135,6 +136,47 @@ public class UserRepository : IUserRepository
         }
 
         return null;
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, Roles>> GetUserRolesAsync(IEnumerable<Guid> userIds)
+    {
+        Dictionary<Guid, Roles> byUser = new Dictionary<Guid, Roles>();
+        Guid[] ids = userIds.Distinct().ToArray();
+        if (ids.Length == 0)
+            return byUser;
+
+        await using var cmd = _dataSource.CreateCommand();
+        cmd.CommandText = """
+            SELECT users.id,
+                   roles.id,
+                   roles.code,
+                   roles.name,
+                   roles.hierarchy_level,
+                   roles.description,
+                   roles.is_active,
+                   roles.created_at
+            FROM users
+            INNER JOIN roles ON users.role_id = roles.id
+            WHERE users.id = ANY(@userIds)
+            """;
+
+        cmd.Parameters.Add(new NpgsqlParameter("userIds", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = ids });
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            Guid userId = reader.IsDBNull(0) ? Guid.Empty : reader.GetGuid(0);
+            Guid id = reader.IsDBNull(1) ? Guid.Empty : reader.GetGuid(1);
+            string code = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+            string name = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+            short hierarchyLevel = reader.IsDBNull(4) ? (short)0 : reader.GetInt16(4);
+            string? description = reader.IsDBNull(5) ? null : reader.GetString(5);
+            bool isActive = reader.IsDBNull(6) ? false : reader.GetBoolean(6);
+            DateTimeOffset createdAt = reader.IsDBNull(7) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(7);
+
+            byUser[userId] = new Roles(id, code, name, hierarchyLevel, description, isActive, createdAt);
+        }
+        return byUser;
     }
 
     public async Task<Guid> CreateUserAsync(string fullName, string emailEducacional, Guid roleId)

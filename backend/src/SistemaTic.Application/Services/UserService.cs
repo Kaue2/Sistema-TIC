@@ -45,29 +45,32 @@ public class UserService
 
     public async Task<IEnumerable<MemberSummaryDTO>> GetMembersAsync()
     {
-        var users = await this._userRepository.GetAllUsersAsync();
-        var members = new List<MemberSummaryDTO>();
+        var users = (await this._userRepository.GetAllUsersAsync()).ToList();
+        Guid[] userIds = users.Select(u => u.Id).ToArray();
 
-        foreach (var user in users)
+        var roles = await this._userRepository.GetUserRolesAsync(userIds);
+        var profiles = await this._userProfileRepository.GetByUserIdsAsync(userIds);
+        var contacts = await this._userContactRepository.GetByUserIdsAsync(userIds);
+        var availability = await this._userAvailabilityRepository.GetByUserIdsAsync(userIds);
+
+        return users.Select(user =>
         {
-            Roles? role = await this._userRepository.GetUserRoleAsync(user.Id);
-            UserProfile? profile = await this._userProfileRepository.GetByUserIdAsync(user.Id);
-            var contacts = await this._userContactRepository.GetByUserIdAsync(user.Id);
-            var availability = await this._userAvailabilityRepository.GetByUserIdAsync(user.Id);
-            string? administrativeEmail = contacts.FirstOrDefault(c => c.IsPrimary)?.ContactValue;
+            Roles? role = roles.GetValueOrDefault(user.Id);
+            UserProfile? profile = profiles.GetValueOrDefault(user.Id);
+            var userContacts = contacts.GetValueOrDefault(user.Id) ?? new List<UserContact>();
+            var userAvailability = availability.GetValueOrDefault(user.Id) ?? new List<UserAvailability>();
+            string? administrativeEmail = userContacts.FirstOrDefault(c => c.IsPrimary)?.ContactValue;
 
-            members.Add(new MemberSummaryDTO(
+            return new MemberSummaryDTO(
                 user.Id,
                 user.Name,
                 role?.Code ?? string.Empty,
                 user.Email,
                 administrativeEmail,
                 profile?.WorkLocation,
-                availability.Select(a => new UserAvailabilitySummaryDTO(a.Weekday, a.StartsAt, a.EndsAt))
-            ));
-        }
-
-        return members;
+                userAvailability.Select(a => new UserAvailabilitySummaryDTO(a.Weekday, a.StartsAt, a.EndsAt))
+            );
+        });
     }
 
     public async Task<UserProfileResponseDTO> GetUserProfileAsync(Guid id)

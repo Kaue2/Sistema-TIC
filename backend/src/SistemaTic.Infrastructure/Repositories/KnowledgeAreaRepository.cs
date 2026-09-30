@@ -1,4 +1,5 @@
 using Npgsql;
+using NpgsqlTypes;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Domain.Entities;
 
@@ -50,5 +51,31 @@ public class KnowledgeAreaRepository : IKnowledgeAreaRepository
         DateTimeOffset updatedAt = reader.IsDBNull(6) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(6);
 
         return new KnowledgeArea(areaId, code, name, description, isActive, createdAt, updatedAt);
+    }
+
+    public async Task<IEnumerable<KnowledgeArea>> GetByIdsAsync(IEnumerable<Guid> ids)
+    {
+        List<KnowledgeArea> areas = new List<KnowledgeArea>();
+        Guid[] idArray = ids.Distinct().ToArray();
+        if (idArray.Length == 0)
+            return areas;
+
+        await using var cmd = _dataSource.CreateCommand("SELECT * FROM knowledge_areas WHERE id = ANY(@ids)");
+        cmd.Parameters.Add(new NpgsqlParameter("ids", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = idArray });
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            Guid areaId = reader.IsDBNull(0) ? Guid.Empty : reader.GetGuid(0);
+            string code = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+            string name = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+            string? description = reader.IsDBNull(3) ? null : reader.GetString(3);
+            bool isActive = reader.IsDBNull(4) ? false : reader.GetBoolean(4);
+            DateTimeOffset createdAt = reader.IsDBNull(5) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(5);
+            DateTimeOffset updatedAt = reader.IsDBNull(6) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(6);
+
+            areas.Add(new KnowledgeArea(areaId, code, name, description, isActive, createdAt, updatedAt));
+        }
+        return areas;
     }
 }

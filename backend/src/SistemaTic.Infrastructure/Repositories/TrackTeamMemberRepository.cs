@@ -1,4 +1,5 @@
 using Npgsql;
+using NpgsqlTypes;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Domain.Entities;
 
@@ -65,6 +66,40 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
             members.Add(new TrackMemberSummary(reader.GetString(0), reader.GetString(1)));
         }
         return members;
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, List<TrackMemberSummary>>> GetActiveMentorsByTrackIdsAsync(IEnumerable<Guid> trackIds, string responsibility)
+    {
+        Dictionary<Guid, List<TrackMemberSummary>> byTrack = new Dictionary<Guid, List<TrackMemberSummary>>();
+        Guid[] ids = trackIds.Distinct().ToArray();
+        if (ids.Length == 0)
+            return byTrack;
+
+        await using var cmd = _dataSource.CreateCommand();
+        cmd.CommandText = """
+            SELECT ttm.track_id, u.full_name, u.email
+              FROM track_team_members ttm
+              JOIN users u ON u.id = ttm.user_id
+             WHERE ttm.track_id = ANY(@trackIds)
+               AND ttm.responsibility = @responsibility
+               AND ttm.ends_on IS NULL
+             ORDER BY ttm.track_id, u.full_name;
+        """;
+        cmd.Parameters.Add(new NpgsqlParameter("trackIds", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = ids });
+        cmd.Parameters.AddWithValue("responsibility", responsibility);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            Guid trackId = reader.GetGuid(0);
+            if (!byTrack.TryGetValue(trackId, out var list))
+            {
+                list = new List<TrackMemberSummary>();
+                byTrack[trackId] = list;
+            }
+            list.Add(new TrackMemberSummary(reader.GetString(1), reader.GetString(2)));
+        }
+        return byTrack;
     }
 
     public async Task<IEnumerable<Guid>> GetActiveTrackIdsByUserIdAsync(Guid userId)

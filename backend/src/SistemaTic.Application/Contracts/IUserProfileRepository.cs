@@ -5,6 +5,7 @@ namespace SistemaTic.Application.Contracts;
 public interface IUserProfileRepository
 {
     public Task<UserProfile?> GetByUserIdAsync(Guid userId);
+    public Task<IReadOnlyDictionary<Guid, UserProfile>> GetByUserIdsAsync(IEnumerable<Guid> userIds);
     public Task<UserProfile> UpsertAsync(
         Guid userId,
         string? preferredName,
