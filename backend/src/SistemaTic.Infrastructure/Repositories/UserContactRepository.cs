@@ -106,4 +106,64 @@ public class UserContactRepository : IUserContactRepository
         await transaction.CommitAsync();
         return created;
     }
+    public async Task<UserContact> UpsertPrimaryAsync(Guid userId, string contactType, string contactValue, string label)
+    {
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+
+        await using (var clearPrimaryCmd = connection.CreateCommand())
+        {
+            clearPrimaryCmd.Transaction = transaction;
+            clearPrimaryCmd.CommandText = """
+                UPDATE user_contacts
+                   SET is_primary = false, updated_at = clock_timestamp()
+                 WHERE user_id = @userId
+                   AND contact_type = @contactType
+                   AND is_primary;
+            """;
+            clearPrimaryCmd.Parameters.AddWithValue("userId", userId);
+            clearPrimaryCmd.Parameters.AddWithValue("contactType", contactType);
+            await clearPrimaryCmd.ExecuteNonQueryAsync();
+        }
+
+        await using var upsertCmd = connection.CreateCommand();
+        upsertCmd.Transaction = transaction;
+        upsertCmd.CommandText = """
+            INSERT INTO user_contacts (user_id, contact_type, contact_value, label, is_primary)
+            VALUES (@userId, @contactType, @contactValue, @label, true)
+            ON CONFLICT (user_id, contact_type, contact_value) DO UPDATE SET
+                label = EXCLUDED.label,
+                is_primary = true,
+                updated_at = clock_timestamp()
+            RETURNING *;
+        """;
+        upsertCmd.Parameters.AddWithValue("userId", userId);
+        upsertCmd.Parameters.AddWithValue("contactType", contactType);
+        upsertCmd.Parameters.AddWithValue("contactValue", contactValue);
+        upsertCmd.Parameters.AddWithValue("label", label);
+
+        await using var reader = await upsertCmd.ExecuteReaderAsync();
+        await reader.ReadAsync();
+        UserContact contact = Map(reader);
+        await reader.CloseAsync();
+
+        await transaction.CommitAsync();
+        return contact;
+    }
+
+    public async Task ClearPrimaryAsync(Guid userId, string contactType)
+    {
+        await using var cmd = _dataSource.CreateCommand();
+        cmd.CommandText = """
+            UPDATE user_contacts
+               SET is_primary = false, updated_at = clock_timestamp()
+             WHERE user_id = @userId
+               AND contact_type = @contactType
+               AND is_primary;
+        """;
+        cmd.Parameters.AddWithValue("userId", userId);
+        cmd.Parameters.AddWithValue("contactType", contactType);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
 }

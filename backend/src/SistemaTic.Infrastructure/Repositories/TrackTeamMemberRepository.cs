@@ -117,6 +117,36 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
         return trackIds;
     }
 
+    public async Task<IEnumerable<TrackTeamMember>> GetActiveByUserIdAsync(Guid userId)
+    {
+        List<TrackTeamMember> members = new List<TrackTeamMember>();
+        await using var cmd = _dataSource.CreateCommand(
+            "SELECT * FROM track_team_members WHERE user_id = @userId AND ends_on IS NULL ORDER BY track_id, responsibility");
+        cmd.Parameters.AddWithValue("userId", userId);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            members.Add(Map(reader));
+        }
+
+        return members;
+    }
+
+    public async Task<bool> EndAsync(Guid id)
+    {
+        await using var cmd = _dataSource.CreateCommand();
+        cmd.CommandText = """
+            UPDATE track_team_members
+               SET ends_on = GREATEST(starts_on, CURRENT_DATE),
+                   updated_at = clock_timestamp()
+             WHERE id = @id
+               AND ends_on IS NULL;
+        """;
+        cmd.Parameters.AddWithValue("id", id);
+        return await cmd.ExecuteNonQueryAsync() > 0;
+    }
+
     public async Task<TrackTeamMember> CreateAsync(
         Guid trackId,
         Guid userId,

@@ -33,6 +33,13 @@ public class UserController : ControllerBase
         return await this._userService.GetMembersAsync();
     }
 
+    [HttpGet("{id:guid}/edit")]
+    [Authorize(Roles = "coordinator,administrator")]
+    public async Task<IActionResult> GetMemberForEdit(Guid id)
+    {
+        return Ok(await this._userService.GetMemberForEditAsync(id));
+    }
+
     [HttpGet("{id:guid}/profile")]
     [Authorize]
     public async Task<IActionResult> GetUserProfile(Guid id)
@@ -83,6 +90,15 @@ public class UserController : ControllerBase
     {
         Guid id = await this._userService.CreateUser(dto);
         return Ok(id);
+    }
+
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = "coordinator,administrator")]
+    public async Task<IActionResult> UpdateMember(Guid id, UpdateMemberDTO dto)
+    {
+        Guid updatedByUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await this._userService.UpdateMemberAsync(id, dto, updatedByUserId);
+        return NoContent();
     }
 
     [HttpPost("change-password")]

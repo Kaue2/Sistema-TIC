@@ -14,6 +14,8 @@ public class UserService
     private readonly IUserProfileRepository _userProfileRepository;
     private readonly IFileAssetRepository _fileAssetRepository;
     private readonly IUserPhotoStorage _userPhotoStorage;
+    private readonly ITrackTeamMemberRepository _trackTeamMemberRepository;
+    private readonly ITrackRepository _trackRepository;
 
     private static readonly string[] AllowedPhotoMediaTypes = { "image/jpeg", "image/png", "image/webp" };
     private const long MaxPhotoSizeBytes = 5 * 1024 * 1024;
@@ -26,7 +28,9 @@ public class UserService
         IUserContactRepository userContactRepository,
         IUserProfileRepository userProfileRepository,
         IFileAssetRepository fileAssetRepository,
-        IUserPhotoStorage userPhotoStorage)
+        IUserPhotoStorage userPhotoStorage,
+        ITrackTeamMemberRepository trackTeamMemberRepository,
+        ITrackRepository trackRepository)
     {
         this._userRepository = userRepository;
         this._userCredentialsRepository = userCredentialsRepository;
@@ -36,6 +40,8 @@ public class UserService
         this._userProfileRepository = userProfileRepository;
         this._fileAssetRepository = fileAssetRepository;
         this._userPhotoStorage = userPhotoStorage;
+        this._trackTeamMemberRepository = trackTeamMemberRepository;
+        this._trackRepository = trackRepository;
     }
 
     public async Task<IEnumerable<User>> GetAllUsersAsync()
@@ -71,6 +77,34 @@ public class UserService
                 userAvailability.Select(a => new UserAvailabilitySummaryDTO(a.Weekday, a.StartsAt, a.EndsAt))
             );
         });
+    }
+
+    public async Task<MemberEditDTO> GetMemberForEditAsync(Guid id)
+    {
+        User? user = await this._userRepository.GetUserByIdAsync(id);
+        if (user is null)
+            throw new Exception("não foi possível encontrar o usuário");
+
+        Roles? role = await this._userRepository.GetUserRoleAsync(id);
+        UserProfile? profile = await this._userProfileRepository.GetByUserIdAsync(id);
+        var contacts = await this._userContactRepository.GetByUserIdAsync(id);
+        var availability = await this._userAvailabilityRepository.GetByUserIdAsync(id);
+        var trackIds = await this._trackTeamMemberRepository.GetActiveTrackIdsByUserIdAsync(id);
+        string? administrativeEmail = contacts
+            .FirstOrDefault(c => c.ContactType == "email" && c.IsPrimary)
+            ?.ContactValue;
+
+        return new MemberEditDTO(
+            user.Id,
+            user.Name,
+            role?.Code ?? string.Empty,
+            user.Email,
+            administrativeEmail,
+            profile?.WorkLocation,
+            profile?.WeeklyWorkloadMinutes,
+            availability.Select(a => new UserAvailabilitySummaryDTO(a.Weekday, a.StartsAt, a.EndsAt)),
+            trackIds
+        );
     }
 
     public async Task<UserProfileResponseDTO> GetUserProfileAsync(Guid id)
@@ -163,6 +197,129 @@ public class UserService
             knowledgeAreaId: null);
 
         return userId;
+    }
+
+    public async Task UpdateMemberAsync(Guid userId, UpdateMemberDTO dto, Guid updatedByUserId)
+    {
+        var parsedSchedule = new List<(short Weekday, TimeOnly StartsAt, TimeOnly EndsAt)>();
+        foreach (var schedule in dto.Schedule)
+        {
+            if (string.IsNullOrWhiteSpace(schedule.Start) || string.IsNullOrWhiteSpace(schedule.End))
+                continue;
+
+            if (!UserAvailability.WeekdayMap.TryGetValue(schedule.Day, out short weekday))
+                throw new Exception($"Dia da semana inválido: {schedule.Day}");
+
+            if (!TimeOnly.TryParse(schedule.Start, out TimeOnly startsAt) ||
+                !TimeOnly.TryParse(schedule.End, out TimeOnly endsAt) || startsAt >= endsAt)
+            {
+                throw new Exception($"Horário inválido para {schedule.Day}");
+            }
+
+            parsedSchedule.Add((weekday, startsAt, endsAt));
+        }
+
+        if (parsedSchedule.Count == 0)
+            throw new Exception("É necessário informar ao menos um dia de disponibilidade do usuário");
+
+        int weeklyWorkloadMinutes = parsedSchedule
+            .Sum(item => (int)(item.EndsAt - item.StartsAt).TotalMinutes);
+
+        Roles? role = await this._roleRepository.GetByCodeAsync(dto.RoleCode);
+        if (role is null)
+            throw new Exception("Role informada não encontrada");
+
+        User? user = await this._userRepository.GetUserByIdAsync(userId);
+        if (user is null)
+            throw new Exception("não foi possível encontrar o usuário");
+
+        User? userWithSameEmail = await this._userRepository.GetUserByEmailAsync(dto.EmailEducacional);
+        if (userWithSameEmail is not null && userWithSameEmail.Id != userId)
+            throw new Exception("já existe um usuário com este e-mail educacional");
+
+        Guid[] desiredTrackIdsToValidate = dto.TrackIds.Distinct().ToArray();
+        foreach (Guid trackId in desiredTrackIdsToValidate)
+        {
+            Track? track = await this._trackRepository.GetByIdAsync(trackId);
+            if (track is null)
+                throw new Exception($"trilha não encontrada: {trackId}");
+        }
+
+        user.Name = dto.Name;
+        user.Email = dto.EmailEducacional;
+
+        User? updatedUser = await this._userRepository.UpdateUserAsync(user);
+        if (updatedUser is null)
+            throw new Exception("falha ao atualizar usuário");
+
+        User? roleUpdatedUser = await this._userRepository.ChangeUserRoleAsync(userId, dto.RoleCode);
+        if (roleUpdatedUser is null)
+            throw new Exception("falha ao atualizar função do usuário");
+
+        if (string.IsNullOrWhiteSpace(dto.EmailAdministrativo))
+        {
+            await this._userContactRepository.ClearPrimaryAsync(userId, "email");
+        }
+        else
+        {
+            await this._userContactRepository.UpsertPrimaryAsync(
+                userId,
+                "email",
+                dto.EmailAdministrativo,
+                "Email Administrativo");
+        }
+
+        UserProfile? profile = await this._userProfileRepository.GetByUserIdAsync(userId);
+        string? workLocation = string.IsNullOrWhiteSpace(dto.Location) ? null : dto.Location;
+
+        await this._userProfileRepository.UpsertAsync(
+            userId,
+            preferredName: profile?.PreferredName,
+            photoFileId: profile?.PhotoFileId,
+            workLocation: workLocation,
+            weeklyWorkloadMinutes: weeklyWorkloadMinutes,
+            biography: profile?.Biography,
+            lattesUrl: profile?.LattesUrl,
+            curriculumUrl: profile?.CurriculumUrl,
+            knowledgeAreaId: profile?.KnowledgeAreaId);
+
+        var currentAvailability = await this._userAvailabilityRepository.GetByUserIdAsync(userId);
+        foreach (UserAvailability availability in currentAvailability)
+        {
+            await this._userAvailabilityRepository.DeleteAsync(availability.Id);
+        }
+
+        foreach (var schedule in parsedSchedule)
+        {
+            await this._userAvailabilityRepository.CreateAsync(
+                userId, schedule.Weekday, schedule.StartsAt, schedule.EndsAt);
+        }
+
+        HashSet<Guid> desiredTrackIds = desiredTrackIdsToValidate.ToHashSet();
+        var activeMemberships = (await this._trackTeamMemberRepository.GetActiveByUserIdAsync(userId)).ToList();
+        HashSet<Guid> keptTrackIds = new HashSet<Guid>();
+
+        foreach (TrackTeamMember membership in activeMemberships)
+        {
+            if (desiredTrackIds.Contains(membership.TrackId) && membership.Responsibility == dto.RoleCode)
+            {
+                keptTrackIds.Add(membership.TrackId);
+                continue;
+            }
+
+            await this._trackTeamMemberRepository.EndAsync(membership.Id);
+        }
+
+        foreach (Guid trackId in desiredTrackIds.Except(keptTrackIds))
+        {
+            await this._trackTeamMemberRepository.CreateAsync(
+                trackId,
+                userId,
+                dto.RoleCode,
+                isLead: false,
+                startsOn: null,
+                assignedByUserId: updatedByUserId);
+        }
     }
 
     public async Task UploadUserPhotoAsync(Guid userId, Stream content, string fileName, string? contentType, long length, Guid uploadedByUserId)

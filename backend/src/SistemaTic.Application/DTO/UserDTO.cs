@@ -10,6 +10,16 @@ public record CreateUserDTO(
     string Location,
     List<MemberScheduleItemDTO> Schedule
 );
+public record UpdateMemberDTO(
+    string Name,
+    string EmailEducacional,
+    string EmailAdministrativo,
+    string RoleCode,
+    string TotalHours,
+    string Location,
+    List<MemberScheduleItemDTO> Schedule,
+    List<Guid> TrackIds
+);
 public record ChangeUserPasswordDTO(string OldPassword, string NewPassword, string ConfirmNewPassword);
 public record ChangeUserRoleDTO(string Email, string RoleCode);
 public record UpdateProfileLinksDTO(string? CurriculumUrl, string? LattesUrl);
@@ -38,4 +48,16 @@ public record MemberSummaryDTO(
     string? AdministrativeEmail,
     string? WorkLocation,
     IEnumerable<UserAvailabilitySummaryDTO> Availability
+);
+
+public record MemberEditDTO(
+    Guid Id,
+    string FullName,
+    string RoleCode,
+    string InstitutionalEmail,
+    string? AdministrativeEmail,
+    string? WorkLocation,
+    int? WeeklyWorkloadMinutes,
+    IEnumerable<UserAvailabilitySummaryDTO> Availability,
+    IEnumerable<Guid> TrackIds
 );

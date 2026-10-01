@@ -76,6 +76,32 @@ export interface UserAvailabilitySummaryDTO {
   endsAt: string;
 }
 
+
+export interface UpdateMemberDTO extends CreateUserDTO {
+  trackIds: string[];
+}
+
+export interface MemberEditDTO {
+  id: string;
+  fullName: string;
+  roleCode: string;
+  institutionalEmail: string;
+  administrativeEmail: string | null;
+  workLocation: string | null;
+  weeklyWorkloadMinutes: number | null;
+  availability: UserAvailabilitySummaryDTO[];
+  trackIds: string[];
+}
+
+export async function getMemberForEdit(id: string): Promise<MemberEditDTO> {
+  const response = await api.get<MemberEditDTO>(`user/${id}/edit`);
+  return response.data;
+}
+
+export async function updateMember(id: string, dto: UpdateMemberDTO): Promise<void> {
+  await api.put(`user/${id}`, dto);
+}
+
 export interface UserProfileResponseDTO {
   id: string;
   name: string;
