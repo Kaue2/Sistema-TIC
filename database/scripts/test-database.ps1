@@ -49,8 +49,14 @@ try {
         -U sistema_tic_test `
         -d sistema_tic_test `
         -c "SELECT (SELECT count(*) FROM schema_migrations) || ':' || (SELECT count(*) FROM data_seeds);"
-    if ($LASTEXITCODE -ne 0 -or ($counts | Select-Object -Last 1).Trim() -ne '10:7') {
-        throw "Unexpected migration/seed counts: $counts"
+
+    $databaseRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+    $expectedCounts = "{0}:{1}" -f `
+        (Get-ChildItem -LiteralPath (Join-Path $databaseRoot 'migrations') -Filter '*.sql' -File).Count, `
+        (Get-ChildItem -LiteralPath (Join-Path $databaseRoot 'seeds') -Filter '*.sql' -File).Count
+
+    if ($LASTEXITCODE -ne 0 -or ($counts | Select-Object -Last 1).Trim() -ne $expectedCounts) {
+        throw "Unexpected migration/seed counts: $counts (expected $expectedCounts)"
     }
 
     Write-Host 'All database tests passed.'

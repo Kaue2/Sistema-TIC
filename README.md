@@ -79,11 +79,13 @@ Estrutura implementada:
 
 - `database/migrations`: scripts SQL versionados.
 - `database/seeds`: catálogos, workflow e modelos documentais iniciais.
-- `database/scripts/apply-migrations.ps1`: executor com transação, checksum SHA-256 e controle em `schema_migrations`/`data_seeds`.
-- `database/scripts/test-database.ps1`: teste completo em PostgreSQL 16 isolado e descartável.
+- `database/scripts/apply-migrations.ps1` / `apply-migrations.sh`: executor com transação, checksum SHA-256 e controle em `schema_migrations`/`data_seeds`.
+- `database/scripts/test-database.ps1` / `test-database.sh`: teste completo em PostgreSQL 16 isolado e descartável.
 - `database/docs/initial-database-model.md`: relatório da modelagem implementada e comparação com o diagrama original.
 
 Para iniciar somente o PostgreSQL e aplicar o banco:
+
+Windows (PowerShell):
 
 ```powershell
 Copy-Item .env.example .env
@@ -91,10 +93,22 @@ docker compose up -d postgres
 .\database\scripts\apply-migrations.ps1
 ```
 
+macOS/Linux (bash, sem necessidade de pwsh):
+
+```bash
+cp .env.example .env
+docker compose up -d postgres
+./database/scripts/apply-migrations.sh
+```
+
 Para validar as migrations em um banco limpo sem alterar o volume local de desenvolvimento:
 
 ```powershell
 .\database\scripts\test-database.ps1
+```
+
+```bash
+./database/scripts/test-database.sh
 ```
 
 O executor não reaplica versões registradas e interrompe a execução se o conteúdo de uma versão aplicada tiver outro checksum. Uma mudança posterior deve sempre entrar em uma nova migration.
