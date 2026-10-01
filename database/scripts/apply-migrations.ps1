@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$ComposeFile = (Join-Path $PSScriptRoot '..\..\docker-compose.yml'),
+    [string]$ComposeFile,
     [string]$Service = 'postgres',
     [string]$ProjectName = 'sistema-tic',
     [switch]$SkipSeeds,
@@ -9,8 +9,21 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$scriptDirectory = $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($scriptDirectory)) {
+    $scriptPath = $MyInvocation.MyCommand.Path
+    if ([string]::IsNullOrWhiteSpace($scriptPath)) {
+        throw 'Unable to determine the migration script directory.'
+    }
+    $scriptDirectory = Split-Path -Parent $scriptPath
+}
+
+if ([string]::IsNullOrWhiteSpace($ComposeFile)) {
+    $ComposeFile = Join-Path $scriptDirectory '..\..\docker-compose.yml'
+}
+
 $resolvedComposeFile = (Resolve-Path -LiteralPath $ComposeFile).Path
-$databaseRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$databaseRoot = (Resolve-Path -LiteralPath (Join-Path $scriptDirectory '..')).Path
 $composeArguments = @('compose', '-f', $resolvedComposeFile, '-p', $ProjectName)
 
 function Invoke-Compose {
