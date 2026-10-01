@@ -1,12 +1,18 @@
 import axios from "axios";
 
-const configuredBaseUrl =
-  import.meta.env.VITE_API_URL ?? "http://localhost:5246/api/";
+const devFallback = "http://localhost:5246/api/";
+const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
+
+if (import.meta.env.PROD && !configuredBaseUrl) {
+  throw new Error("VITE_API_URL é obrigatória no build de produção.");
+}
 
 export const api = axios.create({
-  baseURL: configuredBaseUrl.endsWith("/")
-    ? configuredBaseUrl
-    : `${configuredBaseUrl}/`,
+  baseURL: configuredBaseUrl
+    ? configuredBaseUrl.endsWith("/")
+      ? configuredBaseUrl
+      : `${configuredBaseUrl}/`
+    : devFallback,
 });
 
 api.interceptors.request.use(
