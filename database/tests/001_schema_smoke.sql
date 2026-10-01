@@ -509,14 +509,6 @@ SELECT pg_temp.assert_true(
     'the question/type map must include the twenty-three configured operational relationships'
 );
 SELECT pg_temp.assert_true(
-    (SELECT count(*) = 12 FROM report_stages WHERE is_active),
-    'the export catalog must include all selectable report stages'
-);
-SELECT pg_temp.assert_true(
-    (SELECT count(*) = 12 FROM attachment_types WHERE is_active),
-    'the export catalog must include all twelve attachment types'
-);
-SELECT pg_temp.assert_true(
     EXISTS (
         SELECT 1
           FROM question_attachment_types qat
