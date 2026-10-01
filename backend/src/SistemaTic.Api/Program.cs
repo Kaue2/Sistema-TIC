@@ -49,9 +49,16 @@ if (app.Environment.IsDevelopment())
         }
         else
         {
-            string devSeedSql = await File.ReadAllTextAsync(FindDevSeedFile("002_dev_user.sql"));
+        string devSeedSql = await File.ReadAllTextAsync(FindDevSeedFile("002_dev_user.sql"));
+        try
+        {
             await using var devSeedCmd = dataSource.CreateCommand(devSeedSql);
             await devSeedCmd.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning(ex, "Dev seed 002_dev_user.sql não aplicado: {Message}", ex.Message);
+        }
         }
     }
 }
