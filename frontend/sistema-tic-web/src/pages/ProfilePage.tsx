@@ -80,6 +80,13 @@ export function ProfilePage() {
 
   const isAdmin = userData?.roleName === "coordinator" || userData?.roleName === "administrator";
 
+  // cópia "viva" da foto em cache (UserProvider): aplicada dentro do loadProfile para não ser
+  // apagada quando o fetch do perfil roda de novo.
+  const avatarRef = useRef(userData?.avatarUrl);
+  useEffect(() => {
+    avatarRef.current = userData?.avatarUrl;
+  }, [userData?.avatarUrl]);
+
   const loadProfile = useCallback(() => {
     if (!id) return;
 
@@ -95,7 +102,7 @@ export function ProfilePage() {
       .then(([profile, avatarUrl]) => {
         setUser({
           id: profile.id,
-          avatar: avatarUrl ?? undefined,
+          avatar: mode === "user" ? (avatarUrl ?? undefined) : (avatarRef.current ?? undefined),
           fullName: profile.name,
           role: profile.roleName ?? "-",
           institutionalEmail: profile.email,

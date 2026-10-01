@@ -60,6 +60,13 @@ export function MembersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
+  // cópia "viva" da foto do próprio usuário (cache do UserProvider). Aplicada dentro do
+  // loadMembers para o avatar não ser apagado quando o fetch da lista roda de novo
+  const avatarRef = useRef(userData?.avatarUrl);
+  useEffect(() => {
+    avatarRef.current = userData?.avatarUrl;
+  }, [userData?.avatarUrl]);
+
   useEffect(() => {
     localStorage.setItem("members-view", view);
   }, [view]);
@@ -75,6 +82,7 @@ export function MembersPage() {
         setMembers(
           summaries.map((m) => ({
             id: m.id,
+            avatar: m.id === currentUserId ? (avatarRef.current ?? undefined) : undefined,
             fullName: m.fullName,
             role: ROLE_LABELS[m.roleCode] ?? m.roleCode,
             institutionalEmail: m.institutionalEmail,
