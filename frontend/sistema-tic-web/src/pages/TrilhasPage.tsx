@@ -3,13 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "../components/atoms/Button";
 import { ContextMenu } from "../components/molecules/ContextMenu";
 import type { ContextMenuAnchor } from "../components/molecules/ContextMenu";
-import { TrailCalendar } from "../components/molecules/TrailCalendar";
-import { TrailMilestoneDetails } from "../components/molecules/TrailMilestoneDetails";
 import { TrailPersonCard } from "../components/molecules/TrailPersonCard";
 import { TrailProgressRing } from "../components/molecules/TrailProgressRing";
 import { TrailSection } from "../components/molecules/TrailSection";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { SoftexReportDialog } from "../components/organisms/SoftexReportDialog";
+import { TrailSchedule } from "../components/organisms/TrailSchedule";
 import { Toast, type ToastType } from "../components/organisms/Toast";
 import { getTrailById } from "../data/mockTrails";
 import { AttachmentService } from "../services/document/AttachmentService";
@@ -280,31 +279,8 @@ export function TrilhasPage() {
             title="Cronograma"
             className="xl:h-[541px]"
             contentClassName="!p-0"
-            action={
-              <Button
-                variant="outline"
-                icon="edit"
-                className="!h-[35px] !w-[101px] !justify-center !rounded-[7.5px] !px-3 !text-xs"
-              >
-                Editar
-              </Button>
-            }
           >
-            <div className="grid h-full xl:grid-cols-[472px_minmax(0,1fr)]">
-              <TrailCalendar />
-
-              <div className="px-6 py-12 xl:px-8 xl:pt-[88px]">
-                <TrailMilestoneDetails
-                  day="10"
-                  dateLabel="de Agosto de 2026"
-                  generalStage="Pré Trilha"
-                  specificStage="Produzir a trilha conforme o documento Acomp. de Entregáveis"
-                  deadline="00/00/0000"
-                  status="Pendente"
-                  responsible={trail.mentors[0]?.fullName ?? "Não definido"}
-                />
-              </div>
-            </div>
+            <TrailSchedule trailId={id} />
           </TrailSection>
         </div>
       </main>

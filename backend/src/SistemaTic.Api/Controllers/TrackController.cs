@@ -44,6 +44,17 @@ public class TrackController : ControllerBase
         return Ok(track);
     }
 
+    [HttpGet("{id:guid}/tasks")]
+    [Authorize]
+    public async Task<IActionResult> GetTasks(Guid id)
+    {
+        var tasks = await this._trackService.GetTasksByTrackIdAsync(id);
+        if (tasks is null)
+            return NotFound();
+
+        return Ok(tasks);
+    }
+
     [HttpGet("{id:guid}/documents/softex")]
     [Authorize]
     public async Task<IActionResult> GetSoftexDocument(Guid id)

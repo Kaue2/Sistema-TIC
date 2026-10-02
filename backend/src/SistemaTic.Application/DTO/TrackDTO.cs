@@ -37,6 +37,18 @@ public record TrackSummaryDTO(
     IEnumerable<TrackMentorSummaryDTO> Mentors
 );
 
+public record TrackTaskDTO(
+    Guid Id,
+    string Phase,
+    string? Code,
+    string Title,
+    string? Description,
+    string Status,
+    DateTimeOffset? DueAt,
+    int DisplayOrder,
+    bool IsRequired
+);
+
 public record TrackDocumentSummaryDTO(
     Guid Id,
     string DocumentType,
