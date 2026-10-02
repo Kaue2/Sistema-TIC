@@ -1,6 +1,7 @@
 using System.Text.Json;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Application.DTO;
+using SistemaTic.Application.Exceptions;
 using SistemaTic.Domain.Entities;
 
 namespace SistemaTic.Application.Services;
@@ -92,7 +93,7 @@ public class TrackService
     {
         Track? track = await this._trackRepository.GetByIdAsync(trackId);
         if (track is null)
-            throw new Exception("Trilha não encontrada");
+            throw new NotFoundException("Trilha não encontrada");
 
         return await BuildDocumentSummariesAsync(track);
     }

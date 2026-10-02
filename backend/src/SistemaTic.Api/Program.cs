@@ -5,6 +5,7 @@ using SistemaTic.Application;
 using SistemaTic.Api;
 using SistemaTic.Api.Services;
 using SistemaTic.Api.Serialization;
+using SistemaTic.Api.ExceptionHandling;
 
 Env.Load(FindEnvFile());
 
@@ -17,6 +18,8 @@ builder.Services
         options.JsonSerializerOptions.Converters.Add(
             new TimeOnlyJsonConverter());
     });
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -69,6 +72,8 @@ if (app.Environment.IsDevelopment())
         }
     }
 }
+
+app.UseExceptionHandler();
 
 app.UseCors("AngularDev");
 

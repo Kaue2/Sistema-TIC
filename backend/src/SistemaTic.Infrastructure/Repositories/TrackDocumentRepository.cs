@@ -1,6 +1,7 @@
 using Npgsql;
 using NpgsqlTypes;
 using SistemaTic.Application.Contracts;
+using SistemaTic.Application.Exceptions;
 using SistemaTic.Domain.Entities;
 
 namespace SistemaTic.Infrastructure.Repositories;
@@ -101,12 +102,12 @@ public class TrackDocumentRepository : ITrackDocumentRepository
             selectCmd.Parameters.AddWithValue("id", trackDocumentId);
             await using var reader = await selectCmd.ExecuteReaderAsync();
             if (!await reader.ReadAsync())
-                throw new Exception("Documento não encontrado");
+                throw new NotFoundException("Documento não encontrado");
             current = Map(reader);
         }
 
         if (current.Status is "approved" or "rejected")
-            throw new Exception("Documentos aprovados ou reprovados não podem ser editados");
+            throw new ConflictException("Documentos aprovados ou reprovados não podem ser editados");
 
         // 2. Reaproveita a revisão em rascunho já aberta ou cria uma nova (numeração sequencial por documento).
         Guid? draftRevisionId;
@@ -285,12 +286,12 @@ public class TrackDocumentRepository : ITrackDocumentRepository
             selectCmd.Parameters.AddWithValue("id", trackDocumentId);
             await using var reader = await selectCmd.ExecuteReaderAsync();
             if (!await reader.ReadAsync())
-                throw new Exception("Documento não encontrado");
+                throw new NotFoundException("Documento não encontrado");
             current = Map(reader);
         }
 
         if (current.Status is not ("draft" or "changes_requested"))
-            throw new Exception("Somente documentos em rascunho ou com alterações solicitadas podem ser enviados para revisão");
+            throw new ConflictException("Somente documentos em rascunho ou com alterações solicitadas podem ser enviados para revisão");
 
         await using (var submitCmd = new NpgsqlCommand(
             "SELECT submit_document_revision(@id, @submittedByUserId, NULL);", connection, transaction))
@@ -304,12 +305,12 @@ public class TrackDocumentRepository : ITrackDocumentRepository
             catch (PostgresException ex) when (
                 ex.MessageText.Contains("There is no draft revision to submit", StringComparison.Ordinal))
             {
-                throw new Exception("Não há revisão em rascunho para enviar para revisão");
+                throw new ConflictException("Não há revisão em rascunho para enviar para revisão");
             }
             catch (PostgresException ex) when (
                 ex.MessageText.Contains("An empty revision cannot be submitted", StringComparison.Ordinal))
             {
-                throw new Exception("O documento não possui alterações para enviar para revisão");
+                throw new ConflictException("O documento não possui alterações para enviar para revisão");
             }
         }
 
