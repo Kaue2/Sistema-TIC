@@ -134,11 +134,12 @@ export function Login() {
       </div>
 
       <footer className="absolute inset-x-0 bottom-4 flex flex-col items-center gap-1 text-center text-xs text-black-40">
-        <p>© {new Date().getFullYear()} TIC em Trilhas — Todos os direitos reservados.</p>
         <p>
-          v{APP_VERSION} · Powered by Senac SP
+          © {new Date().getFullYear()} TIC em Trilhas — Todos os direitos
+          reservados.
         </p>
-</footer>
+        <p>v{APP_VERSION} · Powered by Senac SP</p>
+      </footer>
     </div>
   );
 }

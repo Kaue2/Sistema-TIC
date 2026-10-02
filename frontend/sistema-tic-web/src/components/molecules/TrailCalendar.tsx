@@ -1,4 +1,5 @@
 const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
+
 const MARKED_DAYS = new Set([1, 2, 3, 4, 6, 7, 8, 9, 10, 12, 13, 14, 15]);
 
 const CALENDAR_DAYS = Array.from({ length: 42 }, (_, index) => {
@@ -19,7 +20,10 @@ export function TrailCalendar() {
               aria-label="Mês anterior"
               className="flex size-10 items-center justify-center rounded-full bg-card-background text-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: 20 }}
+              >
                 chevron_left
               </span>
             </button>
@@ -28,7 +32,10 @@ export function TrailCalendar() {
               aria-label="Próximo mês"
               className="flex size-10 items-center justify-center rounded-full bg-card-background text-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: 20 }}
+              >
                 chevron_right
               </span>
             </button>
@@ -37,7 +44,10 @@ export function TrailCalendar() {
 
         <div className="mt-9 grid grid-cols-7 gap-2 px-2 text-center text-xs text-black-60">
           {WEEKDAYS.map((weekday, index) => (
-            <span key={`${weekday}-${index}`} className="flex h-4 items-center justify-center">
+            <span
+              key={`${weekday}-${index}`}
+              className="flex h-4 items-center justify-center"
+            >
               {weekday}
             </span>
           ))}

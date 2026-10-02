@@ -22,7 +22,7 @@ public class JwtTokenGenerator : ITokenGenerator
 		{
 			new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
 			new Claim(JwtRegisteredClaimNames.Email, email),
-			new Claim(ClaimTypes.Role, role),
+			new Claim("role", role),
 		};
 
 		var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secret));
