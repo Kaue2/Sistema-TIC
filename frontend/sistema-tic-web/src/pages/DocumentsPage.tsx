@@ -11,23 +11,25 @@ import { Toast } from "../components/organisms/Toast";
 import { Skeleton } from "../components/atoms/Skeleton";
 import type { ToastType } from "../components/organisms/Toast";
 import type { Document, DocumentType, TeachingMode } from "../types/document";
-import { SEMESTER_OPTIONS, CAREER_OPTIONS, TRAIL_OPTIONS } from "../data/mockDocuments";
+import { isAxiosError } from "axios";
+import { CAREER_OPTIONS, TRAIL_OPTIONS } from "../data/mockDocuments";
 import {
   getAllTrackDocuments,
+  transitionTrackDocument,
+  type DocumentTransitionAction,
   type TrackDocumentSummaryDTO,
 } from "../services/document-services";
 
-// number/semester/teachingMode ainda não existem no backend (só track_documents.status,
-// document_templates.name, tracks.title/knowledge_area) — ficam em branco em vez de inventados,
-// até decidirmos se/como modelar isso. Ver memória "document forms backend".
+// number é o código da trilha e semester vem de tracks.semester. teachingMode ainda não existe no
+// backend e fica em branco em vez de inventado, até decidirmos se/como modelar isso.
 function toDocument(summary: TrackDocumentSummaryDTO): Document {
   return {
     id: summary.id,
-    number: "",
+    number: `#${summary.trackCode}`,
     title: summary.documentType,
     type: summary.documentType as DocumentType,
     trail: summary.trackTitle,
-    semester: "",
+    semester: summary.semester,
     career: summary.knowledgeAreaName,
     teachingMode: "" as unknown as TeachingMode,
     status: summary.status as Document["status"],
@@ -113,6 +115,16 @@ export function DocumentsPage() {
     setTeachingMode(null);
   }
 
+  const semesterOptions = useMemo(
+    () =>
+      [...new Set(documents.map((doc) => doc.semester))]
+        .filter(Boolean)
+        .sort()
+        .reverse()
+        .map((semester) => ({ label: semester, value: semester })),
+    [documents]
+  );
+
   const filteredDocuments = useMemo(() => {
     const term = debouncedSearch.trim().toLowerCase();
     return documents.filter((doc) => {
@@ -182,18 +194,37 @@ export function DocumentsPage() {
     setToast({ message: "Documento duplicado.", type: "success" });
   }
 
+  // A API devolve { message } em 403/409 (sem permissão, status não permite); repassa ao usuário.
+  async function transition(
+    doc: Document,
+    action: DocumentTransitionAction,
+    successMessage: string,
+    failureMessage: string
+  ) {
+    try {
+      await transitionTrackDocument(doc.id, action);
+      await loadDocuments();
+      setToast({ message: successMessage, type: "success" });
+    } catch (error) {
+      const message = isAxiosError(error) ? error.response?.data?.message : null;
+      setToast({
+        message: typeof message === "string" && message ? message : failureMessage,
+        type: "error",
+      });
+    }
+  }
+
   function handleArchive(doc: Document) {
-    setDocuments((prev) =>
-      prev.map((d) => (d.id === doc.id ? { ...d, status: "Arquivado" } : d))
-    );
-    setToast({ message: "Documento arquivado.", type: "success" });
+    return transition(doc, "archive", "Documento arquivado.", "Não foi possível arquivar o documento.");
   }
 
   function handleRestore(doc: Document) {
-    setDocuments((prev) =>
-      prev.map((d) => (d.id === doc.id ? { ...d, status: "Rascunho" } : d))
+    return transition(
+      doc,
+      "restore",
+      "Documento restaurado para rascunho.",
+      "Não foi possível restaurar o documento."
     );
-    setToast({ message: "Documento restaurado para rascunho.", type: "success" });
   }
 
   function handleEdit(doc: Document) {
@@ -249,7 +280,7 @@ export function DocumentsPage() {
 
           <div className="mt-6 flex w-full justify-center">
             <DocumentFilters
-              semesters={SEMESTER_OPTIONS}
+              semesters={semesterOptions}
               selectedSemesters={selectedSemesters}
               onSemestersChange={setSelectedSemesters}
               careers={CAREER_OPTIONS}

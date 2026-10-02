@@ -42,6 +42,7 @@ public class TrackRepository : ITrackRepository
         DateTimeOffset updatedAt = reader.IsDBNull(25) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(25);
         DateTimeOffset? cancelledAt = reader.IsDBNull(26) ? null : reader.GetFieldValue<DateTimeOffset>(26);
         int code = reader.IsDBNull(27) ? 0 : reader.GetInt32(27);
+        string semester = reader.IsDBNull(28) ? string.Empty : reader.GetString(28);
 
         return new Track(id, code, ideaId, sourceTrackId, knowledgeAreaId, categoryId, title,
                           shortDescription, modality, learningLevel, status, plannedProductionStartsOn,
@@ -49,7 +50,7 @@ public class TrackRepository : ITrackRepository
                           registrationStartsAt, registrationEndsAt, onlineWorkloadMinutes,
                           inPersonWorkloadMinutes, totalWorkloadMinutes, plannedCapacity, targetAudience,
                           prerequisites, attendanceRequirementPercent, createdByUserId, createdAt,
-                          updatedAt, cancelledAt);
+                          updatedAt, cancelledAt, semester);
     }
 
     public async Task<Track?> GetByIdAsync(Guid id)
@@ -84,6 +85,7 @@ public class TrackRepository : ITrackRepository
         Guid knowledgeAreaId,
         Guid? categoryId,
         string title,
+        string semester,
         string? shortDescription,
         string modality,
         string? learningLevel,
@@ -112,14 +114,14 @@ public class TrackRepository : ITrackRepository
         cmd.Transaction = transaction;
         cmd.CommandText = """
             INSERT INTO tracks (
-                idea_id, source_track_id, knowledge_area_id, category_id, title, short_description,
+                idea_id, source_track_id, knowledge_area_id, category_id, title, semester, short_description,
                 modality, learning_level, planned_production_starts_on, planned_production_ends_on,
                 planned_track_starts_on, planned_track_ends_on, registration_starts_at, registration_ends_at,
                 online_workload_minutes, in_person_workload_minutes, planned_capacity, target_audience,
                 prerequisites, attendance_requirement_percent, created_by_user_id
             )
             VALUES (
-                @ideaId, @sourceTrackId, @knowledgeAreaId, @categoryId, @title, @shortDescription,
+                @ideaId, @sourceTrackId, @knowledgeAreaId, @categoryId, @title, @semester, @shortDescription,
                 @modality, @learningLevel, @plannedProductionStartsOn, @plannedProductionEndsOn,
                 @plannedTrackStartsOn, @plannedTrackEndsOn, @registrationStartsAt, @registrationEndsAt,
                 @onlineWorkloadMinutes, @inPersonWorkloadMinutes, @plannedCapacity, @targetAudience,
@@ -133,6 +135,7 @@ public class TrackRepository : ITrackRepository
         cmd.Parameters.AddWithValue("knowledgeAreaId", knowledgeAreaId);
         cmd.Parameters.AddWithValue("categoryId", (object?)categoryId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("title", title);
+        cmd.Parameters.AddWithValue("semester", semester);
         cmd.Parameters.AddWithValue("shortDescription", (object?)shortDescription ?? DBNull.Value);
         cmd.Parameters.AddWithValue("modality", modality);
         cmd.Parameters.AddWithValue("learningLevel", (object?)learningLevel ?? DBNull.Value);

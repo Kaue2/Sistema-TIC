@@ -39,8 +39,7 @@ const STATUS_TO_STAGE: Record<string, TrailStage> = {
   cancelled: "Pós Trilha",
 };
 
-// semestre ainda não existe no back (tracks não tem essa coluna); fica com um valor fixo só
-// pra manter o layout do card até o time decidir o que fazer com isso.
+// placeholder exibido quando a trilha não tem mentor vinculado.
 const NOT_AVAILABLE = "Não informado";
 
 function trackToTrail(track: TrackSummaryDTO): Trail {
@@ -61,7 +60,7 @@ function trackToTrail(track: TrackSummaryDTO): Trail {
     icon: "route",
     career: track.knowledgeAreaName,
     mentors,
-    semester: NOT_AVAILABLE,
+    semester: track.semester,
     modality: MODALITY_LABELS[track.modality] ?? "Assíncrono",
     level: track.learningLevel ?? "",
     stage: STATUS_TO_STAGE[track.status] ?? "Pré Trilha",

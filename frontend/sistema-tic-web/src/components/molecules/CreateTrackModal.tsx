@@ -31,6 +31,25 @@ const LEARNING_LEVEL_OPTIONS = [
   { label: "Avançado", value: "advanced" },
 ];
 
+// Semestres no formato AAAA/S: do ano seguinte ao anterior, do mais recente ao mais antigo.
+function currentSemester(): string {
+  const now = new Date();
+  return `${now.getFullYear()}/${now.getMonth() < 6 ? 1 : 2}`;
+}
+
+function buildSemesterOptions() {
+  const year = new Date().getFullYear();
+  const options = [];
+  for (let y = year + 1; y >= year - 1; y--) {
+    for (const term of [2, 1]) {
+      options.push({ label: `${y}/${term}`, value: `${y}/${term}` });
+    }
+  }
+  return options;
+}
+
+const SEMESTER_OPTIONS = buildSemesterOptions();
+
 type CreateTrackModalProps = {
   open: boolean;
   onClose: () => void;
@@ -44,6 +63,7 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
   const [title, setTitle] = useState("");
   const [knowledgeAreaId, setKnowledgeAreaId] = useState("");
   const [modality, setModality] = useState("online");
+  const [semester, setSemester] = useState(currentSemester);
   const [learningLevel, setLearningLevel] = useState("");
   const [workloadMinutes, setWorkloadMinutes] = useState("1440");
   const [inPersonWorkloadMinutes, setInPersonWorkloadMinutes] = useState("1440");
@@ -60,6 +80,7 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
     setTitle("");
     setKnowledgeAreaId("");
     setModality("online");
+    setSemester(currentSemester());
     setLearningLevel("");
     setWorkloadMinutes("1440");
     setInPersonWorkloadMinutes("1440");
@@ -117,6 +138,7 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
         knowledgeAreaId,
         categoryId: null,
         title,
+        semester,
         shortDescription: null,
         modality,
         learningLevel: learningLevel || null,
@@ -232,6 +254,19 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
                     setKnowledgeAreaId(selected[0] ?? "");
                     setKnowledgeAreaError(false);
                   }}
+                  size="md"
+                />
+              </FormField>
+
+              <FormField id="track-semester" label="Semestre">
+                <MultiSelectDropdown
+                  id="track-semester"
+                  label="Semestre"
+                  icon="calendar_month"
+                  multiple={false}
+                  options={SEMESTER_OPTIONS}
+                  selected={[semester]}
+                  onChange={(selected) => setSemester(selected[0] ?? currentSemester())}
                   size="md"
                 />
               </FormField>

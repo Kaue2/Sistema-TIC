@@ -3,7 +3,9 @@ import { api } from "./api";
 export interface TrackDocumentSummaryDTO {
   id: string;
   documentType: string;
+  trackCode: number;
   trackTitle: string;
+  semester: string;
   knowledgeAreaName: string;
   status: string;
 }

@@ -30,6 +30,7 @@ public class Track
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? CancelledAt { get; set; }
+    public string Semester { get; set; }
 
     public Track(Guid id, int code, Guid? ideaId, Guid? sourceTrackId, Guid knowledgeAreaId,
                  Guid? categoryId, string title, string? shortDescription, string modality,
@@ -40,7 +41,7 @@ public class Track
                  int inPersonWorkloadMinutes, int totalWorkloadMinutes, int? plannedCapacity,
                  string? targetAudience, string? prerequisites, decimal? attendanceRequirementPercent,
                  Guid createdByUserId, DateTimeOffset createdAt, DateTimeOffset updatedAt,
-                 DateTimeOffset? cancelledAt)
+                 DateTimeOffset? cancelledAt, string semester)
     {
         this.Id = id;
         this.Code = code;
@@ -70,5 +71,6 @@ public class Track
         this.CreatedAt = createdAt;
         this.UpdatedAt = updatedAt;
         this.CancelledAt = cancelledAt;
+        this.Semester = semester;
     }
 }

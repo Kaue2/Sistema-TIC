@@ -7,6 +7,7 @@ public record CreateTrackDTO(
     Guid KnowledgeAreaId,
     Guid? CategoryId,
     string Title,
+    string Semester,
     string? ShortDescription,
     string Modality,
     string? LearningLevel,
@@ -30,6 +31,7 @@ public record TrackSummaryDTO(
     Guid Id,
     int Code,
     string Title,
+    string Semester,
     string Modality,
     string? LearningLevel,
     string Status,
@@ -40,7 +42,9 @@ public record TrackSummaryDTO(
 public record TrackDocumentSummaryDTO(
     Guid Id,
     string DocumentType,
+    int TrackCode,
     string TrackTitle,
+    string Semester,
     string KnowledgeAreaName,
     string Status
 );

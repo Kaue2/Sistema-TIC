@@ -124,7 +124,7 @@ $$;
 
 INSERT INTO tracks (
     id, knowledge_area_id, category_id, title, modality, status,
-    online_workload_minutes, in_person_workload_minutes, created_by_user_id
+    online_workload_minutes, in_person_workload_minutes, created_by_user_id, semester
 ) VALUES (
     '20000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-000000000203',
@@ -134,7 +134,8 @@ INSERT INTO tracks (
     'planning',
     600,
     0,
-    '10000000-0000-4000-8000-000000000003'
+    '10000000-0000-4000-8000-000000000003',
+    '2026/1'
 ), (
     '20000000-0000-4000-8000-000000000002',
     '00000000-0000-4000-8000-000000000203',
@@ -144,8 +145,20 @@ INSERT INTO tracks (
     'planning',
     480,
     120,
-    '10000000-0000-4000-8000-000000000003'
+    '10000000-0000-4000-8000-000000000003',
+    '2026/1'
 );
+
+DO $$
+BEGIN
+    BEGIN
+        UPDATE tracks SET semester = '2026/3' WHERE id = '20000000-0000-4000-8000-000000000001';
+        RAISE EXCEPTION 'An invalid semester was accepted';
+    EXCEPTION WHEN check_violation THEN
+        NULL;
+    END;
+END;
+$$;
 
 -- A criação automática de documentos pertence ao TrackService. Como este teste exercita
 -- o PostgreSQL diretamente, reproduzimos aqui a seleção dos templates publicados.
@@ -409,7 +422,7 @@ $$;
 
 INSERT INTO tracks (
     id, knowledge_area_id, category_id, title, modality, status,
-    online_workload_minutes, in_person_workload_minutes, created_by_user_id
+    online_workload_minutes, in_person_workload_minutes, created_by_user_id, semester
 ) VALUES (
     '20000000-0000-4000-8000-000000000003',
     '00000000-0000-4000-8000-000000000203',
@@ -419,7 +432,8 @@ INSERT INTO tracks (
     'planning',
     300,
     0,
-    '10000000-0000-4000-8000-000000000003'
+    '10000000-0000-4000-8000-000000000003',
+    '2026/1'
 );
 
 INSERT INTO track_documents (

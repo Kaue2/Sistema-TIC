@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Application.DTO;
 using SistemaTic.Domain.Entities;
@@ -7,6 +8,8 @@ namespace SistemaTic.Application.Services;
 
 public class TrackService
 {
+    private static readonly Regex SemesterFormat = new(@"\A[0-9]{4}/[12]\z");
+
     private readonly ITrackRepository _trackRepository;
     private readonly ITrackDocumentRepository _trackDocumentRepository;
     private readonly IDocumentTemplateRepository _documentTemplateRepository;
@@ -56,6 +59,7 @@ public class TrackService
                 track.Id,
                 track.Code,
                 track.Title,
+                track.Semester,
                 track.Modality,
                 track.LearningLevel,
                 track.Status,
@@ -107,7 +111,9 @@ public class TrackService
             summaries.Add(new TrackDocumentSummaryDTO(
                 document.Id,
                 MapDocumentType(template),
+                track.Code,
                 track.Title,
+                track.Semester,
                 knowledgeArea?.Name ?? string.Empty,
                 MapDocumentStatus(document.Status)));
         }
@@ -255,9 +261,17 @@ public class TrackService
         }
     }
 
+    // Espelha tracks_semester_format (013_track_semester.sql): AAAA/S, com S = 1 ou 2.
+    private static void ValidateSemester(string? semester)
+    {
+        if (semester is null || !SemesterFormat.IsMatch(semester))
+            throw new ArgumentException("Semestre inválido: use o formato AAAA/S (ex.: 2026/1).");
+    }
+
     public async Task<Track> CreateTrackAsync(CreateTrackDTO dto, Guid createdByUserId)
     {
         ValidateModalityWorkload(dto);
+        ValidateSemester(dto.Semester);
 
         var templates = (await this._documentTemplateRepository.GetActivePublishedAsync()).ToList();
 
@@ -268,6 +282,7 @@ public class TrackService
             dto.KnowledgeAreaId,
             dto.CategoryId,
             dto.Title,
+            dto.Semester,
             dto.ShortDescription,
             dto.Modality,
             dto.LearningLevel,

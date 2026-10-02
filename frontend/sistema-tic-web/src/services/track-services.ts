@@ -5,6 +5,7 @@ export interface CreateTrackDTO {
   knowledgeAreaId: string;
   categoryId: string | null;
   title: string;
+  semester: string;
   shortDescription: string | null;
   modality: string;
   learningLevel: string | null;
@@ -30,6 +31,7 @@ export interface TrackResponseDTO {
   knowledgeAreaId: string;
   categoryId: string | null;
   title: string;
+  semester: string;
   shortDescription: string | null;
   modality: string;
   learningLevel: string | null;
@@ -72,6 +74,7 @@ export interface TrackSummaryDTO {
   id: string;
   code: number;
   title: string;
+  semester: string;
   modality: string;
   learningLevel: string | null;
   status: string;

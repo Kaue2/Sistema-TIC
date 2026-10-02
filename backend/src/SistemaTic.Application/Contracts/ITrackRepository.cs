@@ -12,6 +12,7 @@ public interface ITrackRepository
         Guid knowledgeAreaId,
         Guid? categoryId,
         string title,
+        string semester,
         string? shortDescription,
         string modality,
         string? learningLevel,

@@ -83,7 +83,7 @@ const TRAIL_STATUS_TO_STAGE: Record<string, TrailStage> = {
   cancelled: "Pós Trilha",
 };
 
-// "semestre" ainda não existe na tabela tracks no backend.
+// placeholder exibido quando a trilha não tem mentor vinculado.
 const TRAIL_SEMESTER_NOT_AVAILABLE = "Não informado";
 
 // Igual em espírito ao trackToTrail de CentralTrilhasPage.tsx, mas usa o id real (Guid) da
@@ -106,7 +106,7 @@ function trackToTrail(track: TrackSummaryDTO): Trail {
     icon: "route",
     career: track.knowledgeAreaName,
     mentors,
-    semester: TRAIL_SEMESTER_NOT_AVAILABLE,
+    semester: track.semester,
     modality: TRAIL_MODALITY_LABELS[track.modality] ?? "Assíncrono",
     level: track.learningLevel ?? "",
     stage: TRAIL_STATUS_TO_STAGE[track.status] ?? "Pré Trilha",
