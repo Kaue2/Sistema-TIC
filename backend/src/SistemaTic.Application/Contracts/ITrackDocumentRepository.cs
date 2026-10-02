@@ -14,4 +14,10 @@ public interface ITrackDocumentRepository
     public Task<TrackDocument> SubmitForReviewAsync(
         Guid trackDocumentId,
         Guid updatedByUserId);
+    public Task<TrackDocument> TransitionStatusAsync(
+        Guid trackDocumentId,
+        string[] fromStatuses,
+        string toStatus,
+        Guid updatedByUserId,
+        string? reviewComments = null);
 }

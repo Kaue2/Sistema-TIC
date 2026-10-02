@@ -4,12 +4,13 @@ using SistemaTic.Infrastructure;
 using SistemaTic.Application;
 using SistemaTic.Api;
 using SistemaTic.Api.Services;
+using SistemaTic.Api.Filters;
 
 Env.Load(FindEnvFile());
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => options.Filters.Add<ForbiddenExceptionFilter>());
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

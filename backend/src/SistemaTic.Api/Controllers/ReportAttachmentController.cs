@@ -55,6 +55,10 @@ public class ReportAttachmentController : ControllerBase
         {
             return BadRequest(new { message = exception.Message });
         }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
+        }
         catch (InvalidOperationException exception)
         {
             return Conflict(new { message = exception.Message });
@@ -81,6 +85,10 @@ public class ReportAttachmentController : ControllerBase
         catch (ArgumentException exception)
         {
             return BadRequest(new { message = exception.Message });
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return NotFound(new { message = exception.Message });
         }
         catch (InvalidOperationException exception)
         {

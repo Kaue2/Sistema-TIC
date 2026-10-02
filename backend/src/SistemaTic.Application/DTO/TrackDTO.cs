@@ -49,8 +49,11 @@ public record TrackDocumentContentDTO(
     Guid Id,
     string DocumentType,
     string Status,
-    JsonElement Content
+    JsonElement Content,
+    string? DevolveObservation
 );
+
+public record DevolveTrackDocumentDTO(string? Observation);
 
 public record DocumentosTrilhaDTO(
     TrackDocumentSummaryDTO? EscopoPropostaDaTrilha,

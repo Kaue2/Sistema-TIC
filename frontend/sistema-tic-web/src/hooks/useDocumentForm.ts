@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { DocumentStatusValue, DocumentType } from "../types/document";
 import { DocumentService, type StoredDocument } from "../services/document/DocumentService";
+import type { DocumentTransitionAction } from "../services/document-services";
 
 type UseDocumentFormOptions<
   C extends object,
@@ -103,16 +104,17 @@ export function useDocumentForm<C extends object, E>(
   }
 
   async function transition(
-    target: DocumentStatusValue,
+    action: DocumentTransitionAction,
     devolveObservation?: string
   ): Promise<StoredDocument<C> | null> {
     if (!savedDoc || isBusy) return null;
     setIsBusy(true);
     try {
-      const updated = await DocumentService.transitionStatus<C>(
+      const updated = await DocumentService.transition<C>(
         savedDoc.id,
-        target,
-        devolveObservation
+        action,
+        devolveObservation,
+        savedDoc.type ?? type
       );
       if (updated) setSavedDoc(updated);
       return updated;
@@ -122,11 +124,11 @@ export function useDocumentForm<C extends object, E>(
   }
 
   const devolve = (devolveObservation?: string) =>
-    transition("Rascunho", devolveObservation);
-  const close = () => transition("Concluído");
-  const reopen = () => transition("Em Revisão");
-  const archive = () => transition("Arquivado");
-  const restore = () => transition("Rascunho");
+    transition("devolve", devolveObservation);
+  const close = () => transition("close");
+  const reopen = () => transition("reopen");
+  const archive = () => transition("archive");
+  const restore = () => transition("restore");
 
   async function remove(): Promise<boolean> {
     if (!savedDoc || isBusy) return false;

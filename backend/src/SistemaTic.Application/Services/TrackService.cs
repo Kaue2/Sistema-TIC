@@ -130,6 +130,11 @@ public class TrackService
         if (document is null)
             return null;
 
+        await EnsureTrackMemberAsync(document, updatedByUserId);
+        if (document.Status is "approved" or "rejected" or "archived")
+            throw new InvalidOperationException(
+                $"O documento está {DescribeStatus(document.Status)} e não pode ser editado.");
+
         TrackDocument updated = await this._trackDocumentRepository.ReplaceContentAsync(documentId, content, updatedByUserId);
         return await ToContentDTOAsync(updated);
     }
@@ -140,8 +145,56 @@ public class TrackService
         if (document is null)
             return null;
 
+        await EnsureTrackMemberAsync(document, updatedByUserId);
+        if (document.Status is not ("draft" or "changes_requested"))
+            throw new InvalidOperationException(
+                $"O documento está {DescribeStatus(document.Status)}; só é possível enviar para revisão documentos em rascunho.");
+
         TrackDocument updated = await this._trackDocumentRepository.SubmitForReviewAsync(documentId, updatedByUserId);
         return await ToContentDTOAsync(updated);
+    }
+
+    // Ações de revisão/ciclo de vida do documento: status de origem aceitos e status de destino.
+    // Espelha o que o front libera em cada tela (devolver/concluir na revisão, reabrir só de
+    // Concluído, arquivar de qualquer status ainda não finalizado, restaurar só de Arquivado).
+    private static readonly Dictionary<string, (string[] From, string To)> DocumentTransitions = new()
+    {
+        ["devolve"] = (["submitted"], "changes_requested"),
+        ["close"] = (["submitted"], "approved"),
+        ["reopen"] = (["approved"], "submitted"),
+        ["archive"] = (["draft", "submitted", "changes_requested"], "archived"),
+        ["restore"] = (["archived"], "draft"),
+    };
+
+    public async Task<TrackDocumentContentDTO?> TransitionTrackDocumentAsync(
+        Guid documentId, string action, Guid updatedByUserId, string? reviewComments = null)
+    {
+        if (!DocumentTransitions.TryGetValue(action, out var transition))
+            throw new ArgumentException($"Ação de documento desconhecida: {action}");
+
+        TrackDocument? document = await this._trackDocumentRepository.GetByIdAsync(documentId);
+        if (document is null)
+            return null;
+
+        if (action is "archive" or "restore")
+            await EnsureTrackMemberAsync(document, updatedByUserId);
+
+        string? comments = string.IsNullOrWhiteSpace(reviewComments) ? null : reviewComments.Trim();
+        TrackDocument updated = await this._trackDocumentRepository.TransitionStatusAsync(
+            documentId, transition.From, transition.To, updatedByUserId, comments);
+        return await ToContentDTOAsync(updated);
+    }
+
+    // Só quem está ativo na equipe da trilha do documento pode modificá-lo.
+    private async Task EnsureTrackMemberAsync(TrackDocument document, Guid userId)
+    {
+        if (!await this._trackTeamMemberRepository.IsActiveMemberAsync(document.TrackId, userId))
+            throw new UnauthorizedAccessException("Somente membros da trilha podem modificar este documento.");
+    }
+
+    private static string DescribeStatus(string status)
+    {
+        return status == "rejected" ? "Reprovado" : MapDocumentStatus(status);
     }
 
     private async Task<TrackDocumentContentDTO> ToContentDTOAsync(TrackDocument document)
@@ -153,7 +206,8 @@ public class TrackService
             document.Id,
             MapDocumentType(template),
             MapDocumentStatus(document.Status),
-            parsedContent.RootElement.Clone());
+            parsedContent.RootElement.Clone(),
+            document.ReviewComments);
     }
 
     private static string MapDocumentStatus(string status)
@@ -164,8 +218,9 @@ public class TrackService
         {
             "draft" => "Rascunho",
             "submitted" => "Em Revisão",
-            "changes_requested" => "Em Revisão",
+            "changes_requested" => "Rascunho",
             "approved" => "Concluído",
+            "archived" => "Arquivado",
             _ => status,
         };
     }

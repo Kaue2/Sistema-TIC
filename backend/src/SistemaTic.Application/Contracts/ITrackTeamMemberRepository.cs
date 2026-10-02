@@ -9,6 +9,7 @@ public interface ITrackTeamMemberRepository
     public Task<IEnumerable<TrackTeamMember>> GetByTrackIdAsync(Guid trackId);
     public Task<IEnumerable<TrackMemberSummary>> GetActiveMembersAsync(Guid trackId, string responsibility);
     public Task<IEnumerable<Guid>> GetActiveTrackIdsByUserIdAsync(Guid userId);
+    public Task<bool> IsActiveMemberAsync(Guid trackId, Guid userId);
     public Task<TrackTeamMember> CreateAsync(
         Guid trackId,
         Guid userId,

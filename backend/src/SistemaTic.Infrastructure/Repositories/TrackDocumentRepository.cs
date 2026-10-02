@@ -30,11 +30,12 @@ public class TrackDocumentRepository : ITrackDocumentRepository
         DateTimeOffset? approvedAt = reader.IsDBNull(12) ? null : reader.GetFieldValue<DateTimeOffset>(12);
         DateTimeOffset createdAt = reader.IsDBNull(13) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(13);
         DateTimeOffset updatedAt = reader.IsDBNull(14) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(14);
+        string? reviewComments = reader.IsDBNull(15) ? null : reader.GetString(15);
 
         return new TrackDocument(id, trackId, documentTemplateId, templateVersionId, currentContent,
                                   currentRevisionNumber, status, sharepointUrl, sharepointItemId,
                                   createdByUserId, updatedByUserId, submittedAt, approvedAt, createdAt,
-                                  updatedAt);
+                                  updatedAt, reviewComments);
     }
 
     public async Task<IEnumerable<TrackDocument>> GetByTrackIdAsync(Guid trackId)
@@ -105,8 +106,8 @@ public class TrackDocumentRepository : ITrackDocumentRepository
             current = Map(reader);
         }
 
-        if (current.Status is "approved" or "rejected")
-            throw new Exception("Documentos aprovados ou reprovados não podem ser editados");
+        if (current.Status is "approved" or "rejected" or "archived")
+            throw new InvalidOperationException("Documentos concluídos, reprovados ou arquivados não podem ser editados");
 
         // 2. Reaproveita a revisão em rascunho já aberta ou cria uma nova (numeração sequencial por documento).
         Guid? draftRevisionId;
@@ -270,7 +271,8 @@ public class TrackDocumentRepository : ITrackDocumentRepository
             UPDATE track_documents
                SET status = 'submitted',
                    updated_by_user_id = @updatedByUserId,
-                   submitted_at = clock_timestamp()
+                   submitted_at = clock_timestamp(),
+                   review_comments = NULL
              WHERE id = @id
                AND status IN ('draft', 'changes_requested')
             RETURNING *;
@@ -284,8 +286,53 @@ public class TrackDocumentRepository : ITrackDocumentRepository
 
         TrackDocument? current = await GetByIdAsync(trackDocumentId);
         if (current is null)
-            throw new Exception("Documento não encontrado");
+            throw new KeyNotFoundException("Documento não encontrado");
 
-        throw new Exception("Somente documentos em rascunho ou com alterações solicitadas podem ser enviados para revisão");
+        throw new InvalidOperationException("Somente documentos em rascunho ou com alterações solicitadas podem ser enviados para revisão");
+    }
+
+    public async Task<TrackDocument> TransitionStatusAsync(
+        Guid trackDocumentId,
+        string[] fromStatuses,
+        string toStatus,
+        Guid updatedByUserId,
+        string? reviewComments = null)
+    {
+        // review_comments só muda ao devolver (grava a observação) ou reenviar (limpa);
+        // as demais transições preservam o que já estava salvo.
+        await using var cmd = _dataSource.CreateCommand("""
+            UPDATE track_documents
+               SET status = @toStatus,
+                   updated_by_user_id = @updatedByUserId,
+                   submitted_at = CASE WHEN @toStatus = 'submitted' THEN clock_timestamp() ELSE submitted_at END,
+                   approved_at = CASE WHEN @toStatus = 'approved' THEN clock_timestamp() ELSE NULL END,
+                   review_comments = CASE @toStatus
+                                         WHEN 'changes_requested' THEN @reviewComments
+                                         WHEN 'submitted' THEN NULL
+                                         ELSE review_comments
+                                     END
+             WHERE id = @id
+               AND status = ANY(@fromStatuses)
+            RETURNING *;
+        """);
+        cmd.Parameters.AddWithValue("id", trackDocumentId);
+        cmd.Parameters.AddWithValue("toStatus", toStatus);
+        cmd.Parameters.AddWithValue("fromStatuses", fromStatuses);
+        cmd.Parameters.AddWithValue("updatedByUserId", updatedByUserId);
+        cmd.Parameters.Add(new NpgsqlParameter("reviewComments", NpgsqlDbType.Text)
+        {
+            Value = (object?)reviewComments ?? DBNull.Value
+        });
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
+            return Map(reader);
+
+        TrackDocument? current = await GetByIdAsync(trackDocumentId);
+        if (current is null)
+            throw new KeyNotFoundException("Documento não encontrado");
+
+        throw new InvalidOperationException(
+            $"Transição inválida: o documento está com status '{current.Status}'.");
     }
 }

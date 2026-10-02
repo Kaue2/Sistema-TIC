@@ -11,13 +11,28 @@ public class ReportAttachmentService
 
     private readonly IReportAttachmentRepository _repository;
     private readonly IFileStorage _fileStorage;
+    private readonly ITrackDocumentRepository _trackDocumentRepository;
+    private readonly ITrackTeamMemberRepository _trackTeamMemberRepository;
 
     public ReportAttachmentService(
         IReportAttachmentRepository repository,
-        IFileStorage fileStorage)
+        IFileStorage fileStorage,
+        ITrackDocumentRepository trackDocumentRepository,
+        ITrackTeamMemberRepository trackTeamMemberRepository)
     {
         _repository = repository;
         _fileStorage = fileStorage;
+        _trackDocumentRepository = trackDocumentRepository;
+        _trackTeamMemberRepository = trackTeamMemberRepository;
+    }
+
+    // Anexos e respostas alteram o documento Softex: só quem é membro ativo da trilha pode modificá-lo.
+    private async Task EnsureTrackMemberAsync(Guid documentId, Guid userId)
+    {
+        var document = await _trackDocumentRepository.GetByIdAsync(documentId)
+            ?? throw new KeyNotFoundException("Documento não encontrado.");
+        if (!await _trackTeamMemberRepository.IsActiveMemberAsync(document.TrackId, userId))
+            throw new UnauthorizedAccessException("Somente membros da trilha podem modificar este documento.");
     }
 
     public Task<AttachmentStageDTO?> GetStageAsync(
@@ -34,6 +49,7 @@ public class ReportAttachmentService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureTrackMemberAsync(documentId, userId);
         if (string.IsNullOrWhiteSpace(request.StageCode))
             throw new ArgumentException("Informe a etapa do relatório.");
         if (string.IsNullOrWhiteSpace(request.AttachmentTypeCode))
@@ -65,6 +81,7 @@ public class ReportAttachmentService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureTrackMemberAsync(documentId, userId);
         if (string.IsNullOrWhiteSpace(questionCode))
             throw new ArgumentException("Informe o código da pergunta.");
         if (string.IsNullOrWhiteSpace(request.Answer))
@@ -107,6 +124,7 @@ public class ReportAttachmentService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureTrackMemberAsync(documentId, userId);
         if (files.Count == 0)
             throw new ArgumentException("Selecione ao menos uma imagem.");
 
@@ -182,6 +200,7 @@ public class ReportAttachmentService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureTrackMemberAsync(documentId, userId);
         var storageKey = await _repository.DeleteImageAsync(documentId, imageId, userId, cancellationToken)
             ?? throw new KeyNotFoundException("Imagem não encontrada.");
         await _fileStorage.DeleteAsync(storageKey, cancellationToken);
@@ -193,6 +212,7 @@ public class ReportAttachmentService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        await EnsureTrackMemberAsync(documentId, userId);
         var storageKeys = await _repository.DeleteAnnexAsync(documentId, annexId, userId, cancellationToken);
         if (storageKeys is null)
             throw new KeyNotFoundException("Anexo não encontrado.");

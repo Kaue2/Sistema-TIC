@@ -82,6 +82,16 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
         return trackIds;
     }
 
+    public async Task<bool> IsActiveMemberAsync(Guid trackId, Guid userId)
+    {
+        await using var cmd = _dataSource.CreateCommand(
+            "SELECT EXISTS (SELECT 1 FROM track_team_members WHERE track_id = @trackId AND user_id = @userId AND ends_on IS NULL)");
+        cmd.Parameters.AddWithValue("trackId", trackId);
+        cmd.Parameters.AddWithValue("userId", userId);
+
+        return (bool)(await cmd.ExecuteScalarAsync())!;
+    }
+
     public async Task<TrackTeamMember> CreateAsync(
         Guid trackId,
         Guid userId,

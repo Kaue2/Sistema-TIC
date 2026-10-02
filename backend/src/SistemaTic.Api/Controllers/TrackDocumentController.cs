@@ -36,13 +36,20 @@ public class TrackDocumentController : ControllerBase
     {
         Guid updatedByUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        TrackDocumentContentDTO? updated = await this._trackService.SaveTrackDocumentContentAsync(
-            id, content.GetRawText(), updatedByUserId);
+        try
+        {
+            TrackDocumentContentDTO? updated = await this._trackService.SaveTrackDocumentContentAsync(
+                id, content.GetRawText(), updatedByUserId);
 
-        if (updated is null)
-            return NotFound();
+            if (updated is null)
+                return NotFound();
 
-        return Ok(updated);
+            return Ok(updated);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
     }
 
     [HttpPut("{id:guid}/submit")]
@@ -51,11 +58,59 @@ public class TrackDocumentController : ControllerBase
     {
         Guid updatedByUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        TrackDocumentContentDTO? updated = await this._trackService.SubmitTrackDocumentForReviewAsync(id, updatedByUserId);
+        try
+        {
+            TrackDocumentContentDTO? updated = await this._trackService.SubmitTrackDocumentForReviewAsync(id, updatedByUserId);
 
-        if (updated is null)
-            return NotFound();
+            if (updated is null)
+                return NotFound();
 
-        return Ok(updated);
+            return Ok(updated);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
+    }
+
+    [HttpPut("{id:guid}/devolve")]
+    [Authorize(Roles = "coordinator,administrator")]
+    public Task<IActionResult> Devolve(Guid id, [FromBody] DevolveTrackDocumentDTO? dto)
+        => Transition(id, "devolve", dto?.Observation);
+
+    [HttpPut("{id:guid}/close")]
+    [Authorize(Roles = "coordinator,administrator")]
+    public Task<IActionResult> Close(Guid id) => Transition(id, "close");
+
+    [HttpPut("{id:guid}/reopen")]
+    [Authorize(Roles = "coordinator,administrator")]
+    public Task<IActionResult> Reopen(Guid id) => Transition(id, "reopen");
+
+    [HttpPut("{id:guid}/archive")]
+    [Authorize]
+    public Task<IActionResult> Archive(Guid id) => Transition(id, "archive");
+
+    [HttpPut("{id:guid}/restore")]
+    [Authorize]
+    public Task<IActionResult> Restore(Guid id) => Transition(id, "restore");
+
+    private async Task<IActionResult> Transition(Guid id, string action, string? reviewComments = null)
+    {
+        Guid updatedByUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        try
+        {
+            TrackDocumentContentDTO? updated = await this._trackService.TransitionTrackDocumentAsync(
+                id, action, updatedByUserId, reviewComments);
+
+            if (updated is null)
+                return NotFound();
+
+            return Ok(updated);
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Conflict(new { message = exception.Message });
+        }
     }
 }

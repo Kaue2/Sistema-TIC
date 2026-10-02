@@ -17,12 +17,13 @@ public class TrackDocument
     public DateTimeOffset? ApprovedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+    public string? ReviewComments { get; set; }
 
     public TrackDocument(Guid id, Guid trackId, Guid documentTemplateId, Guid templateVersionId,
                           string currentContent, int currentRevisionNumber, string status,
                           string? sharepointUrl, string? sharepointItemId, Guid createdByUserId,
                           Guid updatedByUserId, DateTimeOffset? submittedAt, DateTimeOffset? approvedAt,
-                          DateTimeOffset createdAt, DateTimeOffset updatedAt)
+                          DateTimeOffset createdAt, DateTimeOffset updatedAt, string? reviewComments)
     {
         this.Id = id;
         this.TrackId = trackId;
@@ -39,5 +40,6 @@ public class TrackDocument
         this.ApprovedAt = approvedAt;
         this.CreatedAt = createdAt;
         this.UpdatedAt = updatedAt;
+        this.ReviewComments = reviewComments;
     }
 }

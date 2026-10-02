@@ -24,6 +24,7 @@ export interface TrackDocumentContentDTO {
   documentType: string;
   status: string;
   content: Record<string, unknown>;
+  devolveObservation?: string | null;
 }
 
 export async function getTrackDocumentContent(id: string): Promise<TrackDocumentContentDTO> {
@@ -41,5 +42,19 @@ export async function saveTrackDocumentContent(
 
 export async function submitTrackDocumentForReview(id: string): Promise<TrackDocumentContentDTO> {
   const response = await api.put<TrackDocumentContentDTO>(`track-documents/${id}/submit`);
+  return response.data;
+}
+
+export type DocumentTransitionAction = "devolve" | "close" | "reopen" | "archive" | "restore";
+
+export async function transitionTrackDocument(
+  id: string,
+  action: DocumentTransitionAction,
+  observation?: string,
+): Promise<TrackDocumentContentDTO> {
+  const response = await api.put<TrackDocumentContentDTO>(
+    `track-documents/${id}/${action}`,
+    action === "devolve" ? { observation } : undefined,
+  );
   return response.data;
 }
