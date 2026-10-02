@@ -1,4 +1,5 @@
 ﻿using Npgsql;
+using NpgsqlTypes;
 using SistemaTic.Application;
 using SistemaTic.Application.DTO;
 using SistemaTic.Application.Contracts;
@@ -137,31 +138,102 @@ public class UserRepository : IUserRepository
         return null;
     }
 
-    public async Task<Guid> CreateUserAsync(string fullName, string emailEducacional, Guid roleId)
+    public async Task<Guid> CreateUserAsync(
+        string fullName,
+        string emailEducacional,
+        Guid roleId,
+        string temporaryPassword,
+        string administrativeEmail,
+        IReadOnlyCollection<UserAvailabilitySummaryDTO> availability,
+        string? workLocation,
+        int weeklyWorkloadMinutes)
     {
+        // senha chega em texto puro e sai como hash; usuário nasce com senha temporária,
+        // então é obrigado a trocar no primeiro acesso (bate com o CHECK do banco).
+        // O hash (lento de propósito) é calculado antes de abrir a transação.
+        string passwordHash = BCrypt.Net.BCrypt.HashPassword(temporaryPassword);
+
+        // usuário, credenciais, contato, disponibilidade e perfil nascem juntos:
+        // se qualquer insert falhar, nada fica gravado.
         await using var connection = await this._dataSource.OpenConnectionAsync();
         await using var transaction = await connection.BeginTransactionAsync();
 
         try
         {
-            await using var cmdUser = connection.CreateCommand();
-            cmdUser.Transaction = transaction;
-            cmdUser.CommandText = """
-            INSERT INTO users (full_name, email, role_id, status)
-            VALUES (@fullName, @email, @roleId, 'active')
-            RETURNING id;
-            """;
+            Guid userId;
+            await using (var cmdUser = connection.CreateCommand())
+            {
+                cmdUser.Transaction = transaction;
+                cmdUser.CommandText = """
+                INSERT INTO users (full_name, email, role_id, status)
+                VALUES (@fullName, @email, @roleId, 'active')
+                RETURNING id;
+                """;
 
-            cmdUser.Parameters.AddWithValue("fullName", fullName);
-            cmdUser.Parameters.AddWithValue("email", emailEducacional);
-            cmdUser.Parameters.AddWithValue("roleId", roleId);
+                cmdUser.Parameters.AddWithValue("fullName", fullName);
+                cmdUser.Parameters.AddWithValue("email", emailEducacional);
+                cmdUser.Parameters.AddWithValue("roleId", roleId);
 
-            var result = await cmdUser.ExecuteScalarAsync();
+                var result = await cmdUser.ExecuteScalarAsync();
 
-            if (result is null)
-                throw new InvalidOperationException("Falha ao gerar o ID do usuário no banco de dados.");
+                if (result is null)
+                    throw new InvalidOperationException("Falha ao gerar o ID do usuário no banco de dados.");
 
-            Guid userId = (Guid)result;
+                userId = (Guid)result;
+            }
+
+            await using (var cmdCredentials = connection.CreateCommand())
+            {
+                cmdCredentials.Transaction = transaction;
+                cmdCredentials.CommandText = """
+                INSERT INTO user_credentials (user_id, password_hash, is_temporary, must_change_password)
+                VALUES (@userId, @passwordHash, true, true);
+                """;
+                cmdCredentials.Parameters.AddWithValue("userId", userId);
+                cmdCredentials.Parameters.AddWithValue("passwordHash", passwordHash);
+                await cmdCredentials.ExecuteNonQueryAsync();
+            }
+
+            await using (var cmdContact = connection.CreateCommand())
+            {
+                cmdContact.Transaction = transaction;
+                cmdContact.CommandText = """
+                INSERT INTO user_contacts (user_id, contact_type, contact_value, label, is_primary)
+                VALUES (@userId, 'email', @contactValue, 'Email Administrativo', true);
+                """;
+                cmdContact.Parameters.AddWithValue("userId", userId);
+                cmdContact.Parameters.AddWithValue("contactValue", administrativeEmail);
+                await cmdContact.ExecuteNonQueryAsync();
+            }
+
+            foreach (var slot in availability)
+            {
+                // não manda "timezone": a coluna já tem default 'America/Sao_Paulo' no banco
+                await using var cmdAvailability = connection.CreateCommand();
+                cmdAvailability.Transaction = transaction;
+                cmdAvailability.CommandText = """
+                INSERT INTO user_availability (user_id, weekday, starts_at, ends_at)
+                VALUES (@userId, @weekday, @startsAt, @endsAt);
+                """;
+                cmdAvailability.Parameters.AddWithValue("userId", userId);
+                cmdAvailability.Parameters.AddWithValue("weekday", slot.Weekday);
+                cmdAvailability.Parameters.Add(new NpgsqlParameter("startsAt", NpgsqlDbType.Time) { Value = slot.StartsAt });
+                cmdAvailability.Parameters.Add(new NpgsqlParameter("endsAt", NpgsqlDbType.Time) { Value = slot.EndsAt });
+                await cmdAvailability.ExecuteNonQueryAsync();
+            }
+
+            await using (var cmdProfile = connection.CreateCommand())
+            {
+                cmdProfile.Transaction = transaction;
+                cmdProfile.CommandText = """
+                INSERT INTO user_profiles (user_id, work_location, weekly_workload_minutes)
+                VALUES (@userId, @workLocation, @weeklyWorkloadMinutes);
+                """;
+                cmdProfile.Parameters.AddWithValue("userId", userId);
+                cmdProfile.Parameters.AddWithValue("workLocation", (object?)workLocation ?? DBNull.Value);
+                cmdProfile.Parameters.AddWithValue("weeklyWorkloadMinutes", weeklyWorkloadMinutes);
+                await cmdProfile.ExecuteNonQueryAsync();
+            }
 
             await transaction.CommitAsync();
 
