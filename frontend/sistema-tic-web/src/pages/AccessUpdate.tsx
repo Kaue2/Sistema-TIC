@@ -11,7 +11,7 @@ export function AccessUpdate() {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
-  const [errors] = useState<string[]>([]);
+  const [errors, setErrors] = useState<string[]>([]);
 
   const navigate = useNavigate();
   const { userData } = useUser();
@@ -20,6 +20,13 @@ export function AccessUpdate() {
     e,
   ) => {
     e.preventDefault();
+
+    if (newPassword !== confirmNewPassword) {
+      setErrors(["A nova senha e a confirmação não são iguais."]);
+      return;
+    }
+
+    setErrors([]);
 
     const dto: ChangeUserPasswordDTO = {
       oldPassword: oldPassword,
@@ -34,7 +41,9 @@ export function AccessUpdate() {
         navigate(`/profile/${userData?.id}`);
     } catch (error) {
       console.log(error);
-      window.alert("Erro ao efetuar login");
+      window.alert(
+        "Não foi possível alterar a senha. Confira os dados e tente novamente.",
+      );
     }
   };
 
@@ -53,7 +62,7 @@ export function AccessUpdate() {
 
         <form className="space-y-8" onSubmit={sendChangePasswordRequest}>
           <Input
-            id="password"
+            id="old-password"
             type={showOldPassword ? "text" : "password"}
             label="Senha Antiga"
             value={oldPassword}
@@ -75,7 +84,7 @@ export function AccessUpdate() {
           />
 
           <Input
-            id="password"
+            id="new-password"
             type={showNewPassword ? "text" : "password"}
             label="Senha Nova"
             value={newPassword}
@@ -97,7 +106,7 @@ export function AccessUpdate() {
           />
 
           <Input
-            id="password"
+            id="confirm-new-password"
             type={showConfirmNewPassword ? "text" : "password"}
             label="Confirmar Senha Nova"
             value={confirmNewPassword}
