@@ -75,8 +75,15 @@ public class TrackController : ControllerBase
     {
         Guid createdByUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        Track track = await this._trackService.CreateTrackAsync(dto, createdByUserId);
-        return Ok(track);
+        try
+        {
+            Track track = await this._trackService.CreateTrackAsync(dto, createdByUserId);
+            return Ok(track);
+        }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
     }
 
     [HttpPost("create-track-team-member")]

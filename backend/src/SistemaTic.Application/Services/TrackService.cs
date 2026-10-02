@@ -232,8 +232,33 @@ public class TrackService
         };
     }
 
+    // Espelha tracks_modality_workload (003_tracks.sql). No banco essa regra é ignorada em status 'draft',
+    // que é o status de toda trilha recém-criada, então a criação precisa validar por conta própria.
+    private static void ValidateModalityWorkload(CreateTrackDTO dto)
+    {
+        switch (dto.Modality)
+        {
+            case "online":
+                if (dto.OnlineWorkloadMinutes <= 0)
+                    throw new ArgumentException("Trilhas online precisam de carga horária online maior que zero.");
+                if (dto.InPersonWorkloadMinutes != 0)
+                    throw new ArgumentException("Trilhas online não podem ter carga horária presencial.");
+                break;
+            case "hybrid":
+                if (dto.OnlineWorkloadMinutes <= 0)
+                    throw new ArgumentException("Trilhas híbridas precisam de carga horária online maior que zero.");
+                if (dto.InPersonWorkloadMinutes <= 0)
+                    throw new ArgumentException("Trilhas híbridas precisam de carga horária presencial maior que zero.");
+                break;
+            default:
+                throw new ArgumentException("Regime inválido: use 'online' ou 'hybrid'.");
+        }
+    }
+
     public async Task<Track> CreateTrackAsync(CreateTrackDTO dto, Guid createdByUserId)
     {
+        ValidateModalityWorkload(dto);
+
         var templates = (await this._documentTemplateRepository.GetActivePublishedAsync()).ToList();
 
         // trilha, coordenador e todos os documentos (Escopo, Plano de Ensino, Softex...) são gravados atomicamente
