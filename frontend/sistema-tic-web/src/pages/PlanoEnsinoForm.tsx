@@ -172,7 +172,8 @@ export function PlanoEnsinoForm({
         onEdit={
           mode === "view" &&
           status !== "Arquivado" &&
-          status !== "Concluído"
+          status !== "Concluído" &&
+          status !== "Retornado"
             ? () => navigate(`/documents/${doc!.id}/edit?type=${encodeURIComponent(doc!.type)}`)
             : undefined
         }
@@ -180,7 +181,7 @@ export function PlanoEnsinoForm({
           mode === "view" && status === "Concluído" ? actions.handleReopen : undefined
         }
         onArchive={
-          mode !== "create" && status !== "Arquivado" && status !== "Concluído"
+          mode !== "create" && status !== "Arquivado" && status !== "Concluído" && status !== "Retornado"
             ? actions.handleArchive
             : undefined
         }

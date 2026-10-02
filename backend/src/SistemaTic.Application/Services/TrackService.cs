@@ -133,7 +133,7 @@ public class TrackService
         await EnsureTrackMemberAsync(document, updatedByUserId);
         if (document.Status is "approved" or "rejected" or "archived")
             throw new InvalidOperationException(
-                $"O documento está {DescribeStatus(document.Status)} e não pode ser editado.");
+                $"O documento está {MapDocumentStatus(document.Status)} e não pode ser editado.");
 
         TrackDocument updated = await this._trackDocumentRepository.ReplaceContentAsync(documentId, content, updatedByUserId);
         return await ToContentDTOAsync(updated);
@@ -148,7 +148,7 @@ public class TrackService
         await EnsureTrackMemberAsync(document, updatedByUserId);
         if (document.Status is not ("draft" or "changes_requested"))
             throw new InvalidOperationException(
-                $"O documento está {DescribeStatus(document.Status)}; só é possível enviar para revisão documentos em rascunho.");
+                $"O documento está {MapDocumentStatus(document.Status)}; só é possível enviar para revisão documentos em rascunho.");
 
         TrackDocument updated = await this._trackDocumentRepository.SubmitForReviewAsync(documentId, updatedByUserId);
         return await ToContentDTOAsync(updated);
@@ -192,11 +192,6 @@ public class TrackService
             throw new UnauthorizedAccessException("Somente membros da trilha podem modificar este documento.");
     }
 
-    private static string DescribeStatus(string status)
-    {
-        return status == "rejected" ? "Reprovado" : MapDocumentStatus(status);
-    }
-
     private async Task<TrackDocumentContentDTO> ToContentDTOAsync(TrackDocument document)
     {
         DocumentTemplateSummary? template = await this._documentTemplateRepository.GetByIdAsync(document.DocumentTemplateId);
@@ -212,8 +207,8 @@ public class TrackService
 
     private static string MapDocumentStatus(string status)
     {
-        // "rejected" ainda não tem um status equivalente no front (Rascunho/Em Revisão/Concluído/Arquivado);
-        // por ora devolvemos o código crudo até decidirmos a migration que trata isso.
+        // Status do banco -> rótulo do front. Um status novo no banco sem entrada aqui segue cru
+        // (o front mostra um visual neutro para valores que não conhece).
         return status switch
         {
             "draft" => "Rascunho",
@@ -221,6 +216,7 @@ public class TrackService
             "changes_requested" => "Rascunho",
             "approved" => "Concluído",
             "archived" => "Arquivado",
+            "rejected" => "Retornado",
             _ => status,
         };
     }

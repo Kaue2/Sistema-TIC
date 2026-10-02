@@ -7,7 +7,8 @@ export type DocumentStatusValue =
   | "Concluído"
   | "Em Revisão"
   | "Rascunho"
-  | "Arquivado";
+  | "Arquivado"
+  | "Retornado";
 
 export type TeachingMode = "Híbrido" | "Assíncrono";
 
@@ -37,6 +38,7 @@ export const DOCUMENT_STATUS_CONFIG: Record<
   "Em Revisão": { dotClass: "bg-yellow-100", labelClass: "text-black-80" },
   "Rascunho": { dotClass: "bg-red-100", labelClass: "text-black-80" },
   "Arquivado": { dotClass: "bg-black-40", labelClass: "text-black-80" },
+  "Retornado": { dotClass: "bg-orange-100", labelClass: "text-black-80" },
 };
 
 export type DocumentMode = "create" | "edit" | "view" | "review";
