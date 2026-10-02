@@ -1,8 +1,12 @@
-import { useState, type SubmitEventHandler } from "react";
+import { useCallback, useEffect, useState, type SubmitEventHandler } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "../components/atoms/Input";
+import { Toast, type ToastType } from "../components/organisms/Toast";
 import { changeUserPassword, type ChangeUserPasswordDTO } from "../services/user-services";
 import { useUser } from "../contexts/userContext";
+
+// tempo que o aviso de sucesso fica na tela antes de seguir para o perfil
+const REDIRECT_DELAY_MS = 2000;
 
 export function AccessUpdate() {
   const [oldPassword, setOldPassword] = useState("");
@@ -16,10 +20,28 @@ export function AccessUpdate() {
   const navigate = useNavigate();
   const { userData } = useUser();
 
+  // id muda a cada aviso para o Toast reiniciar o próprio temporizador
+  const [toast, setToast] = useState<{ id: number; message: string; type: ToastType } | null>(null);
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
+
+  // senha alterada: segue para o perfil depois de REDIRECT_DELAY_MS...
+  useEffect(() => {
+    if (!redirectPath) return;
+    const timer = setTimeout(() => navigate(redirectPath), REDIRECT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [redirectPath, navigate]);
+
+  // ...ou na hora, se o usuário fechar o aviso antes
+  const closeToast = useCallback(() => {
+    if (redirectPath) navigate(redirectPath);
+    setToast(null);
+  }, [redirectPath, navigate]);
+
   const sendChangePasswordRequest: SubmitEventHandler<HTMLFormElement> = async (
     e,
   ) => {
     e.preventDefault();
+    if (redirectPath) return; // senha já alterada, só aguardando o redirecionamento
 
     const dto: ChangeUserPasswordDTO = {
       oldPassword: oldPassword,
@@ -29,12 +51,15 @@ export function AccessUpdate() {
 
     try {
       await changeUserPassword(dto);
-      window.alert("Senha alterada com sucesso!");
-      if (userData?.id)
-        navigate(`/profile/${userData?.id}`);
+      setToast({ id: Date.now(), message: "Senha alterada com sucesso!", type: "success" });
+      if (userData?.id) setRedirectPath(`/profile/${userData.id}`);
     } catch (error) {
       console.log(error);
-      window.alert("Erro ao efetuar login");
+      setToast({
+        id: Date.now(),
+        message: "Não foi possível alterar a senha. Confira os dados e tente novamente.",
+        type: "error",
+      });
     }
   };
 
@@ -149,6 +174,10 @@ export function AccessUpdate() {
           </div>
         </form>
       </div>
+
+      {toast && (
+        <Toast key={toast.id} message={toast.message} type={toast.type} onClose={closeToast} />
+      )}
     </div>
   );
 }

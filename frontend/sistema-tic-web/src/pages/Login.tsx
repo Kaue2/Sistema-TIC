@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type SubmitEventHandler } from "react";
 import { Input } from "../components/atoms/Input";
-import { Toast } from "../components/organisms/Toast";
+import { Toast, type ToastType } from "../components/organisms/Toast";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { type CustomJwtDecode } from "../services/api";
@@ -14,26 +14,48 @@ import { useUser } from "../contexts/userContext";
 
 const APP_VERSION = "1.0.0";
 
+// tempo que o aviso de login bem-sucedido fica na tela antes de seguir
+const REDIRECT_DELAY_MS = 2000;
+
 export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors] = useState<string[]>([]);
 
-  // chegou aqui porque a sessão expirou (ver redirectToLogin): avisa uma única vez
-  const [sessionExpiredToast, setSessionExpiredToast] = useState(wasSessionExpired);
+  // Se chegou aqui porque a sessão expirou (ver redirectToLogin), já abre avisando, uma única vez.
+  // O id muda a cada aviso para o Toast reiniciar o próprio temporizador.
+  const [toast, setToast] = useState<{ id: number; message: string; type: ToastType } | null>(() =>
+    wasSessionExpired()
+      ? { id: Date.now(), message: "Sua sessão expirou. Entre novamente.", type: "error" }
+      : null,
+  );
   useEffect(() => {
     clearSessionExpired();
   }, []);
-  const closeSessionExpiredToast = useCallback(() => setSessionExpiredToast(false), []);
 
   const navigate = useNavigate();
   const { setUserData } = useUser();
+
+  // login feito: segue para a próxima tela depois de REDIRECT_DELAY_MS...
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
+  useEffect(() => {
+    if (!redirectPath) return;
+    const timer = setTimeout(() => navigate(redirectPath), REDIRECT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [redirectPath, navigate]);
+
+  // ...ou na hora, se o usuário fechar o aviso antes
+  const closeToast = useCallback(() => {
+    if (redirectPath) navigate(redirectPath);
+    setToast(null);
+  }, [redirectPath, navigate]);
 
   const sendAuthenticateRequest: SubmitEventHandler<HTMLFormElement> = async (
     e,
   ) => {
     e.preventDefault();
+    if (redirectPath) return; // login já feito, só aguardando o redirecionamento
 
     const dto: AuthenticateUserDTO = {
       email: email,
@@ -51,14 +73,15 @@ export function Login() {
         roleName: decoded.role,
       });
 
-      if (response.mustChangePassword == true) {
-        navigate("/access-update");
-      } else {
-        navigate(`/profile/${decoded.sub}`);
-      }
+      setToast({ id: Date.now(), message: "Login realizado com sucesso!", type: "success" });
+      setRedirectPath(response.mustChangePassword == true ? "/access-update" : `/profile/${decoded.sub}`);
     } catch (error) {
       console.log(error);
-      window.alert("Erro ao efetuar login");
+      setToast({
+        id: Date.now(),
+        message: "Não foi possível entrar. Confira seu e-mail e sua senha.",
+        type: "error",
+      });
     }
   };
 
@@ -150,12 +173,8 @@ export function Login() {
         <p>v{APP_VERSION} · Powered by Senac SP</p>
       </footer>
 
-      {sessionExpiredToast && (
-        <Toast
-          message="Sua sessão expirou. Entre novamente."
-          type="error"
-          onClose={closeSessionExpiredToast}
-        />
+      {toast && (
+        <Toast key={toast.id} message={toast.message} type={toast.type} onClose={closeToast} />
       )}
     </div>
   );
