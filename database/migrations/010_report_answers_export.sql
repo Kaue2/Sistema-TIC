@@ -11,9 +11,6 @@ CREATE TABLE report_answers (
     UNIQUE (track_document_id, report_question_id)
 );
 
-CREATE INDEX report_answers_document_idx
-    ON report_answers (track_document_id, report_question_id);
-
 CREATE OR REPLACE FUNCTION validate_report_answer_document()
 RETURNS trigger
 LANGUAGE plpgsql
