@@ -288,30 +288,4 @@ public class TrackDocumentRepository : ITrackDocumentRepository
 
         throw new Exception("Somente documentos em rascunho ou com alterações solicitadas podem ser enviados para revisão");
     }
-
-    public async Task<TrackDocument> CreateAsync(
-        Guid trackId,
-        Guid documentTemplateId,
-        Guid templateVersionId,
-        Guid createdByUserId,
-        Guid updatedByUserId)
-    {
-        // current_content/current_revision_number/status ficam de fora: o banco já tem default pra eles
-        await using var cmd = _dataSource.CreateCommand();
-        cmd.CommandText = """
-            INSERT INTO track_documents (track_id, document_template_id, template_version_id, created_by_user_id, updated_by_user_id)
-            VALUES (@trackId, @documentTemplateId, @templateVersionId, @createdByUserId, @updatedByUserId)
-            RETURNING *;
-        """;
-
-        cmd.Parameters.AddWithValue("trackId", trackId);
-        cmd.Parameters.AddWithValue("documentTemplateId", documentTemplateId);
-        cmd.Parameters.AddWithValue("templateVersionId", templateVersionId);
-        cmd.Parameters.AddWithValue("createdByUserId", createdByUserId);
-        cmd.Parameters.AddWithValue("updatedByUserId", updatedByUserId);
-
-        await using var reader = await cmd.ExecuteReaderAsync();
-        await reader.ReadAsync();
-        return Map(reader);
-    }
 }

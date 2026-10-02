@@ -27,5 +27,6 @@ public interface ITrackRepository
         string? targetAudience,
         string? prerequisites,
         decimal? attendanceRequirementPercent,
-        Guid createdByUserId);
+        Guid createdByUserId,
+        IReadOnlyCollection<PublishedDocumentTemplate> documentTemplates);
 }

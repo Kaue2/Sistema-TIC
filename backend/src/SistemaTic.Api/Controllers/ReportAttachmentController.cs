@@ -12,6 +12,9 @@ namespace SistemaTic.Api.Controllers;
 [Route("api/documents/{documentId:guid}/attachments")]
 public class ReportAttachmentController : ControllerBase
 {
+    private const string ExportNotImplementedMessage =
+        "A exportação do relatório Softex em DOCX ainda não foi implementada.";
+
     private readonly ReportAttachmentService _service;
     private readonly SoftexDocxExportService _docxExportService;
 
@@ -109,9 +112,9 @@ public class ReportAttachmentController : ControllerBase
         {
             return NotFound(new { message = exception.Message });
         }
-        catch (FileNotFoundException exception)
+        catch (FileNotFoundException)
         {
-            return Problem(statusCode: StatusCodes.Status500InternalServerError, detail: exception.Message);
+            return StatusCode(StatusCodes.Status501NotImplemented, new { message = ExportNotImplementedMessage });
         }
     }
 
@@ -137,9 +140,9 @@ public class ReportAttachmentController : ControllerBase
         {
             return NotFound(new { message = exception.Message });
         }
-        catch (FileNotFoundException exception)
+        catch (FileNotFoundException)
         {
-            return Problem(statusCode: StatusCodes.Status500InternalServerError, detail: exception.Message);
+            return StatusCode(StatusCodes.Status501NotImplemented, new { message = ExportNotImplementedMessage });
         }
     }
 
@@ -164,9 +167,9 @@ public class ReportAttachmentController : ControllerBase
         {
             return NotFound(new { message = exception.Message });
         }
-        catch (FileNotFoundException exception)
+        catch (FileNotFoundException)
         {
-            return Problem(statusCode: StatusCodes.Status500InternalServerError, detail: exception.Message);
+            return StatusCode(StatusCodes.Status501NotImplemented, new { message = ExportNotImplementedMessage });
         }
     }
 

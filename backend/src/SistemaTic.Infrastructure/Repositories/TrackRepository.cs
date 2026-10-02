@@ -99,10 +99,17 @@ public class TrackRepository : ITrackRepository
         string? targetAudience,
         string? prerequisites,
         decimal? attendanceRequirementPercent,
-        Guid createdByUserId)
+        Guid createdByUserId,
+        IReadOnlyCollection<PublishedDocumentTemplate> documentTemplates)
     {
+        // Trilha, coordenador responsável e documentos nascem na mesma transação:
+        // se qualquer insert falhar, nada fica gravado.
+        await using var connection = await this._dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
+
         // code não entra no insert: é gerado automaticamente pelo banco (GENERATED ALWAYS AS IDENTITY)
-        await using var cmd = _dataSource.CreateCommand();
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
         cmd.CommandText = """
             INSERT INTO tracks (
                 idea_id, source_track_id, knowledge_area_id, category_id, title, short_description,
@@ -143,8 +150,42 @@ public class TrackRepository : ITrackRepository
         cmd.Parameters.AddWithValue("attendanceRequirementPercent", (object?)attendanceRequirementPercent ?? DBNull.Value);
         cmd.Parameters.AddWithValue("createdByUserId", createdByUserId);
 
-        await using var reader = await cmd.ExecuteReaderAsync();
-        await reader.ReadAsync();
-        return Map(reader);
+        Track track;
+        await using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            await reader.ReadAsync();
+            track = Map(reader);
+        }
+
+        await using (var memberCmd = connection.CreateCommand())
+        {
+            memberCmd.Transaction = transaction;
+            memberCmd.CommandText = """
+                INSERT INTO track_team_members (track_id, user_id, responsibility, is_lead, assigned_by_user_id)
+                VALUES (@trackId, @userId, 'coordinator', true, @userId);
+            """;
+            memberCmd.Parameters.AddWithValue("trackId", track.Id);
+            memberCmd.Parameters.AddWithValue("userId", createdByUserId);
+            await memberCmd.ExecuteNonQueryAsync();
+        }
+
+        foreach (var template in documentTemplates)
+        {
+            // current_content/current_revision_number/status ficam de fora: o banco já tem default pra eles
+            await using var documentCmd = connection.CreateCommand();
+            documentCmd.Transaction = transaction;
+            documentCmd.CommandText = """
+                INSERT INTO track_documents (track_id, document_template_id, template_version_id, created_by_user_id, updated_by_user_id)
+                VALUES (@trackId, @documentTemplateId, @templateVersionId, @userId, @userId);
+            """;
+            documentCmd.Parameters.AddWithValue("trackId", track.Id);
+            documentCmd.Parameters.AddWithValue("documentTemplateId", template.DocumentTemplateId);
+            documentCmd.Parameters.AddWithValue("templateVersionId", template.TemplateVersionId);
+            documentCmd.Parameters.AddWithValue("userId", createdByUserId);
+            await documentCmd.ExecuteNonQueryAsync();
+        }
+
+        await transaction.CommitAsync();
+        return track;
     }
 }

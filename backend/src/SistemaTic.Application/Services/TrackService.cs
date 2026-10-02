@@ -183,7 +183,10 @@ public class TrackService
 
     public async Task<Track> CreateTrackAsync(CreateTrackDTO dto, Guid createdByUserId)
     {
-        Track track = await this._trackRepository.CreateAsync(
+        var templates = (await this._documentTemplateRepository.GetActivePublishedAsync()).ToList();
+
+        // trilha, coordenador e todos os documentos (Escopo, Plano de Ensino, Softex...) são gravados atomicamente
+        return await this._trackRepository.CreateAsync(
             null,
             dto.SourceTrackId,
             dto.KnowledgeAreaId,
@@ -204,28 +207,8 @@ public class TrackService
             dto.TargetAudience,
             dto.Prerequisites,
             dto.AttendanceRequirementPercent,
-            createdByUserId);
-
-        await this._trackTeamMemberRepository.CreateAsync(
-            track.Id,
             createdByUserId,
-            "coordinator",
-            isLead: true,
-            startsOn: null,
-            assignedByUserId: createdByUserId);
-
-        var templates = await this._documentTemplateRepository.GetActivePublishedAsync();
-        foreach (var template in templates)
-        {
-            await this._trackDocumentRepository.CreateAsync(
-                track.Id,
-                template.DocumentTemplateId,
-                template.TemplateVersionId,
-                createdByUserId,
-                createdByUserId);
-        }
-
-        return track;
+            templates);
     }
 
     public async Task<TrackTeamMember> CreateTrackTeamMemberAsync(CreateTrackTeamMemberDTO dto, Guid assignedByUserId)
