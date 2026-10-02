@@ -182,7 +182,10 @@ export function SoftexForm({ mode, document, type, onToast }: SoftexFormProps) {
           mode === "view" &&
           status !== "Arquivado" &&
           status !== "Concluído"
-            ? () => navigate(`/documents/${doc!.id}/edit`)
+            ? () =>
+                navigate(
+                  `/documents/${doc!.id}/edit?type=${encodeURIComponent(doc!.type)}`,
+                )
             : undefined
         }
         onReopen={
