@@ -11,6 +11,7 @@ import { CentralTrilhasPage } from "./pages/CentralTrilhasPage";
 import { TrilhasPage } from "./pages/TrilhasPage";
 import { NotificationsPage } from "./pages/NotificationsPage";
 import { AttachmentUploadPage } from "./pages/AttachmentUploadPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { RequireAuth } from "./components/atoms/RequireAuth";
 
 export const router = createBrowserRouter([
@@ -78,5 +79,9 @@ export const router = createBrowserRouter([
         element: <AttachmentUploadPage />,
       },
     ],
+  },
+  {
+    path: "*",
+    element: <NotFoundPage />,
   },
 ]);
