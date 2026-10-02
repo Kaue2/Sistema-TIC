@@ -22,6 +22,8 @@ public static class Configuration
 					ValidateIssuer = false,
 					ValidateAudience = false,
 					ValidateLifetime = true,
+					// quem emite e quem valida é o mesmo servidor: sem a tolerância padrão de 5 min, o token expira no horário do exp
+					ClockSkew = TimeSpan.Zero,
 
                     RoleClaimType = ClaimTypes.Role,
                 };	

@@ -7,7 +7,7 @@ import { ProfileContent } from "../components/organisms/ProfileContent";
 import { Toast } from "../components/organisms/Toast";
 import type { ToastType } from "../components/organisms/Toast";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
-import { getUserProfile, getUserPhotoUrl, uploadUserPhoto } from "../services/user-services";
+import { getUserProfile, getUserPhotoUrl, logoutUser, uploadUserPhoto } from "../services/user-services";
 import { getCurrentUserId } from "../services/auth";
 import { useUser } from "../contexts/userContext";
 
@@ -147,7 +147,7 @@ export function ProfilePage() {
           mode={mode}
           onPersonalize={() => console.log("Personalizar")}
           onChangePassword={() => console.log("Alterar senha")}
-          onLogout={() => console.log("Sair")}
+          onLogout={logoutUser}
         />
       </main>
 

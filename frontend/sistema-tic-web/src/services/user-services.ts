@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { clearSession, getRefreshToken, redirectToLogin, saveSession } from "./auth";
 
 export interface AuthenticateUserDTO {
   email: string;
@@ -7,6 +8,7 @@ export interface AuthenticateUserDTO {
 
 export interface AuthResponseDTO {
   token: string;
+  refreshToken: string;
   email: string;
   name: string;
   roleName: string;
@@ -31,9 +33,22 @@ export async function authenticateUser(
 ): Promise<AuthResponseDTO> {
   const response = await api.post<AuthResponseDTO>("auth/login", dto);
 
-  localStorage.setItem("token", response.data.token);
+  saveSession(response.data.token, response.data.refreshToken);
 
   return response.data;
+}
+
+// Revoga o refresh token no servidor (melhor esforço: sair tem que funcionar mesmo sem rede)
+// e encerra a sessão neste navegador.
+export async function logoutUser(): Promise<void> {
+  const refreshToken = getRefreshToken();
+  try {
+    if (refreshToken) await api.post("auth/logout", { refreshToken });
+  } catch {
+    // sem rede ou servidor fora: o token local é descartado de qualquer forma
+  }
+  clearSession();
+  redirectToLogin();
 }
 
 export async function changeUserPassword(

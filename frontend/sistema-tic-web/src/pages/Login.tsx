@@ -1,8 +1,10 @@
-import { useState, type SubmitEventHandler } from "react";
+import { useCallback, useEffect, useState, type SubmitEventHandler } from "react";
 import { Input } from "../components/atoms/Input";
+import { Toast } from "../components/organisms/Toast";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { type CustomJwtDecode } from "../services/api";
+import { clearSessionExpired, wasSessionExpired } from "../services/auth";
 import {
   type AuthenticateUserDTO,
   authenticateUser,
@@ -17,6 +19,13 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors] = useState<string[]>([]);
+
+  // chegou aqui porque a sessão expirou (ver redirectToLogin): avisa uma única vez
+  const [sessionExpiredToast, setSessionExpiredToast] = useState(wasSessionExpired);
+  useEffect(() => {
+    clearSessionExpired();
+  }, []);
+  const closeSessionExpiredToast = useCallback(() => setSessionExpiredToast(false), []);
 
   const navigate = useNavigate();
   const { setUserData } = useUser();
@@ -140,6 +149,14 @@ export function Login() {
         </p>
         <p>v{APP_VERSION} · Powered by Senac SP</p>
       </footer>
+
+      {sessionExpiredToast && (
+        <Toast
+          message="Sua sessão expirou. Entre novamente."
+          type="error"
+          onClose={closeSessionExpiredToast}
+        />
+      )}
     </div>
   );
 }
