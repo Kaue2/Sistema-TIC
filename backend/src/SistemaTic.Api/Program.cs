@@ -18,19 +18,15 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
 builder.Services.AddScoped<SoftexDocxExportService>();
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AngularDev", policy=>
-    {
-        policy.AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();  
-    });  
-});
+var corsOrigins = Configuration.GetAllowedCorsOrigins(builder.Configuration, builder.Environment);
+builder.Services.AddFrontendCors(corsOrigins);
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
 
 var app = builder.Build();
+
+if (corsOrigins.Length == 0)
+    app.Logger.LogWarning("CORS_ALLOWED_ORIGINS não configurado: nenhuma origem externa será aceita pelo CORS.");
 
 if (app.Environment.IsDevelopment())
 {
@@ -44,7 +40,7 @@ if (app.Environment.IsDevelopment())
     await devSeedCmd.ExecuteNonQueryAsync();
 }
 
-app.UseCors("AngularDev");
+app.UseCors(Configuration.FrontendCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
