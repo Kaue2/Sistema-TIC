@@ -2,7 +2,7 @@
 
 Este repositorio esta sendo organizado como um monorepo para centralizar banco de dados, backend, frontend, infraestrutura local e documentacao do projeto.
 
-O projeto segue uma abordagem incremental: o banco, o backend e o frontend evoluem juntos, uma funcionalidade por vez, conforme as lacunas aparecem nos testes manuais. O banco PostgreSQL possui 14 migrations e 7 seeds, o backend expõe a API REST e o frontend consome a API para autenticação, membros, trilhas, documentos e relatório Softex. Algumas telas do frontend ainda usam dados simulados; o detalhamento está em `frontend/sistema-tic-web/README.md`.
+O projeto segue uma abordagem incremental: o banco, o backend e o frontend evoluem juntos, uma funcionalidade por vez, conforme as lacunas aparecem nos testes manuais. O banco PostgreSQL possui 15 migrations e 7 seeds, o backend expõe a API REST e o frontend consome a API para autenticação, membros, trilhas, documentos e relatório Softex. Algumas telas do frontend ainda usam dados simulados; o detalhamento está em `frontend/sistema-tic-web/README.md`.
 
 ## Objetivo Da Estrutura
 

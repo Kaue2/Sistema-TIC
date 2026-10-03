@@ -11,9 +11,11 @@ namespace SistemaTic.Infrastructure;
 public class UserRepository : IUserRepository
 {
     private readonly NpgsqlDataSource _dataSource;
-    public UserRepository(NpgsqlDataSource dataSource)
+    private readonly ICurrentUser _currentUser;
+    public UserRepository(NpgsqlDataSource dataSource, ICurrentUser currentUser)
     {
         this._dataSource = dataSource;
+        this._currentUser = currentUser;
     }
 
     public async Task<IEnumerable<User>> GetAllUsersAsync()
@@ -156,7 +158,7 @@ public class UserRepository : IUserRepository
         // usuário, credenciais, contato, disponibilidade e perfil nascem juntos:
         // se qualquer insert falhar, nada fica gravado.
         await using var connection = await this._dataSource.OpenConnectionAsync();
-        await using var transaction = await connection.BeginTransactionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(this._currentUser.Id);
 
         try
         {
@@ -263,10 +265,14 @@ public class UserRepository : IUserRepository
 
         Guid roleId = (Guid)roleResult;
 
-        var cmdUser = this._dataSource.CreateCommand();
+        await using var connection = await this._dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(this._currentUser.Id);
+
+        await using var cmdUser = connection.CreateCommand();
+        cmdUser.Transaction = transaction;
         cmdUser.CommandText = """
             UPDATE users
-        SET 
+        SET
             role_id = @roleId
         WHERE id = @userId
         RETURNING id, 
@@ -283,7 +289,7 @@ public class UserRepository : IUserRepository
         cmdUser.Parameters.AddWithValue("roleId", roleId);
         cmdUser.Parameters.AddWithValue("userId", userId);
 
-        var reader = await cmdUser.ExecuteReaderAsync();
+        await using var reader = await cmdUser.ExecuteReaderAsync();
 
         if (await reader.ReadAsync())
         {
@@ -308,6 +314,9 @@ public class UserRepository : IUserRepository
                 updatedAt,
                 disabledAt
             );
+
+            await reader.CloseAsync();
+            await transaction.CommitAsync();
 
             return updatedUser;
         }

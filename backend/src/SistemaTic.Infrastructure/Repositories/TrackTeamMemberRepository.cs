@@ -7,9 +7,11 @@ namespace SistemaTic.Infrastructure.Repositories;
 public class TrackTeamMemberRepository : ITrackTeamMemberRepository
 {
     private readonly NpgsqlDataSource _dataSource;
-    public TrackTeamMemberRepository(NpgsqlDataSource dataSource)
+    private readonly ICurrentUser _currentUser;
+    public TrackTeamMemberRepository(NpgsqlDataSource dataSource, ICurrentUser currentUser)
     {
         this._dataSource = dataSource;
+        this._currentUser = currentUser;
     }
 
     private static TrackTeamMember Map(NpgsqlDataReader reader)
@@ -101,7 +103,11 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
         Guid assignedByUserId)
     {
         // startsOn nulo deixa o banco usar o default (CURRENT_DATE)
-        await using var cmd = _dataSource.CreateCommand();
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(_currentUser.Id);
+
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
         cmd.CommandText = """
             INSERT INTO track_team_members (track_id, user_id, responsibility, is_lead, starts_on, assigned_by_user_id)
             VALUES (@trackId, @userId, @responsibility, @isLead, COALESCE(@startsOn, CURRENT_DATE), @assignedByUserId)
@@ -117,6 +123,10 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
 
         await using var reader = await cmd.ExecuteReaderAsync();
         await reader.ReadAsync();
-        return Map(reader);
+        var member = Map(reader);
+        await reader.CloseAsync();
+        await transaction.CommitAsync();
+
+        return member;
     }
 }

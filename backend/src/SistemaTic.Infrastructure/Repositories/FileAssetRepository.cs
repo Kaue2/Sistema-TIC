@@ -7,9 +7,11 @@ namespace SistemaTic.Infrastructure.Repositories;
 public class FileAssetRepository : IFileAssetRepository
 {
     private readonly NpgsqlDataSource _dataSource;
-    public FileAssetRepository(NpgsqlDataSource dataSource)
+    private readonly ICurrentUser _currentUser;
+    public FileAssetRepository(NpgsqlDataSource dataSource, ICurrentUser currentUser)
     {
         this._dataSource = dataSource;
+        this._currentUser = currentUser;
     }
 
     private static FileAsset Map(NpgsqlDataReader reader)
@@ -52,7 +54,11 @@ public class FileAssetRepository : IFileAssetRepository
         long? sizeBytes,
         Guid? uploadedByUserId)
     {
-        await using var cmd = _dataSource.CreateCommand();
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(_currentUser.Id);
+
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
         cmd.CommandText = """
             INSERT INTO file_assets (provider, storage_key, original_file_name, media_type, size_bytes, uploaded_by_user_id)
             VALUES (@provider, @storageKey, @originalFileName, @mediaType, @sizeBytes, @uploadedByUserId)
@@ -68,8 +74,11 @@ public class FileAssetRepository : IFileAssetRepository
 
         await using var reader = await cmd.ExecuteReaderAsync();
         await reader.ReadAsync();
+        var asset = Map(reader);
+        await reader.CloseAsync();
+        await transaction.CommitAsync();
 
-        return Map(reader);
+        return asset;
     }
 
     public async Task<FileAsset> UpdateAsync(
@@ -79,7 +88,11 @@ public class FileAssetRepository : IFileAssetRepository
         string? mediaType,
         long? sizeBytes)
     {
-        await using var cmd = _dataSource.CreateCommand();
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(_currentUser.Id);
+
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
         cmd.CommandText = """
             UPDATE file_assets SET
                 storage_key = @storageKey,
@@ -98,7 +111,10 @@ public class FileAssetRepository : IFileAssetRepository
 
         await using var reader = await cmd.ExecuteReaderAsync();
         await reader.ReadAsync();
+        var asset = Map(reader);
+        await reader.CloseAsync();
+        await transaction.CommitAsync();
 
-        return Map(reader);
+        return asset;
     }
 }

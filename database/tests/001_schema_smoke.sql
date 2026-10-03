@@ -78,6 +78,85 @@ VALUES (
     '10000000-0000-4000-8000-000000000001'
 );
 
+-- A auditoria deve registrar o ator informado em app.current_user_id.
+SELECT pg_temp.assert_true(
+    EXISTS (
+        SELECT 1
+          FROM audit_events
+         WHERE entity_type = 'users'
+           AND entity_id = '10000000-0000-4000-8000-000000000005'
+           AND action = 'insert'
+           AND actor_user_id = '10000000-0000-4000-8000-000000000001'
+    ),
+    'the audit event must record the actor informed in app.current_user_id'
+);
+
+-- user_profiles não tem coluna "id" (a chave é user_id): a auditoria deve identificar o perfil
+-- alterado e o ator mesmo assim.
+INSERT INTO user_profiles (user_id, work_location)
+VALUES ('10000000-0000-4000-8000-000000000005', 'E166');
+UPDATE user_profiles SET work_location = 'E167'
+ WHERE user_id = '10000000-0000-4000-8000-000000000005';
+SELECT pg_temp.assert_true(
+    EXISTS (
+        SELECT 1
+          FROM audit_events
+         WHERE entity_type = 'user_profiles'
+           AND entity_id = '10000000-0000-4000-8000-000000000005'
+           AND action = 'update'
+           AND actor_user_id = '10000000-0000-4000-8000-000000000001'
+           AND changes ? 'work_location'
+    ),
+    'a profile edit must be audited with the profile id and the actor'
+);
+
+-- Troca de papel: coordenador e administrador podem; mentor não. Criar usuário: só coordenador.
+DO $$
+DECLARE
+    target uuid := '10000000-0000-4000-8000-000000000005';
+    mentor_role uuid := '00000000-0000-4000-8000-000000000003';
+    monitor_role uuid := '00000000-0000-4000-8000-000000000004';
+    was_rejected boolean;
+BEGIN
+    PERFORM set_config('app.current_user_id', '10000000-0000-4000-8000-000000000002', true);
+    UPDATE users SET role_id = mentor_role WHERE id = target;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE id = target AND role_id = mentor_role) THEN
+        RAISE EXCEPTION 'An administrator could not change a role';
+    END IF;
+
+    PERFORM set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', true);
+    UPDATE users SET role_id = monitor_role WHERE id = target;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE id = target AND role_id = monitor_role) THEN
+        RAISE EXCEPTION 'A coordinator could not change a role';
+    END IF;
+
+    PERFORM set_config('app.current_user_id', '10000000-0000-4000-8000-000000000003', true);
+    was_rejected := false;
+    BEGIN
+        UPDATE users SET role_id = mentor_role WHERE id = target;
+    EXCEPTION WHEN raise_exception THEN
+        was_rejected := true;
+    END;
+    IF NOT was_rejected THEN
+        RAISE EXCEPTION 'A mentor was allowed to change a role';
+    END IF;
+
+    PERFORM set_config('app.current_user_id', '10000000-0000-4000-8000-000000000002', true);
+    was_rejected := false;
+    BEGIN
+        INSERT INTO users (role_id, email, full_name, status)
+        VALUES (monitor_role, 'admin-created@test.local', 'Admin Created', 'active');
+    EXCEPTION WHEN raise_exception THEN
+        was_rejected := true;
+    END;
+    IF NOT was_rejected THEN
+        RAISE EXCEPTION 'An administrator was allowed to create a user';
+    END IF;
+
+    PERFORM set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', true);
+END;
+$$;
+
 INSERT INTO user_job_positions (
     user_id, job_position_id, starts_on, created_by_user_id
 ) VALUES (

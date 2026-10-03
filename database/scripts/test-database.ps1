@@ -49,7 +49,7 @@ try {
         -U sistema_tic_test `
         -d sistema_tic_test `
         -c "SELECT (SELECT count(*) FROM schema_migrations) || ':' || (SELECT count(*) FROM data_seeds);"
-    if ($LASTEXITCODE -ne 0 -or ($counts | Select-Object -Last 1).Trim() -ne '14:7') {
+    if ($LASTEXITCODE -ne 0 -or ($counts | Select-Object -Last 1).Trim() -ne '15:7') {
         throw "Unexpected migration/seed counts: $counts"
     }
 

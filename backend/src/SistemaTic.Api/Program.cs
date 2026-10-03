@@ -2,6 +2,7 @@ using DotNetEnv;
 using Npgsql;
 using SistemaTic.Infrastructure;
 using SistemaTic.Application;
+using SistemaTic.Application.Contracts;
 using SistemaTic.Api;
 using SistemaTic.Api.Services;
 using SistemaTic.Api.Filters;
@@ -14,6 +15,8 @@ builder.Services.AddControllers(options => options.Filters.Add<ForbiddenExceptio
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
 builder.Services.AddScoped<SoftexDocxExportService>();

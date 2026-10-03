@@ -8,7 +8,7 @@ O banco usa PostgreSQL sem ORM, com migrations SQL incrementais. Tabelas e colun
 
 Esta modelagem substituiu os scripts exploratórios de `docker/postgres/init`, que usavam `SERIAL`, possuíam apenas o papel administrativo e inseriam um usuário fictício.
 
-O incremento inicial foi implementado nas migrations 001 a 004 e nos seeds 001 e 002; as seções 4 a 7 descrevem o banco nesse estado. O banco continuou evoluindo depois disso: atualmente há 14 migrations e 7 seeds, e as mudanças posteriores estão resumidas na seção 11. O executor calcula SHA-256, registra cada versão e impede que um arquivo já aplicado seja alterado silenciosamente. A validação automatizada foi executada em PostgreSQL 16 vazio e também confirmou que uma segunda execução não reaplica migrations nem seeds.
+O incremento inicial foi implementado nas migrations 001 a 004 e nos seeds 001 e 002; as seções 4 a 7 descrevem o banco nesse estado. O banco continuou evoluindo depois disso: atualmente há 15 migrations e 7 seeds, e as mudanças posteriores estão resumidas na seção 11. O executor calcula SHA-256, registra cada versão e impede que um arquivo já aplicado seja alterado silenciosamente. A validação automatizada foi executada em PostgreSQL 16 vazio e também confirmou que uma segunda execução não reaplica migrations nem seeds.
 
 ## 2. Principais mudanças em relação ao diagrama original
 
@@ -93,7 +93,7 @@ O relacionamento direto entre `TIPO_PENDENCIA` e `ALUNO` exibido ao final do dia
 | `track_categories` | Grupos usados nos filtros de Trilhas | `id`, `code`, `name`, `description`, `is_active` |
 | `audit_events` | Histórico transversal de alterações | `id`, `actor_user_id`, `entity_type`, `entity_id`, `action`, `changes`, `correlation_id`, `occurred_at` |
 
-Os papéis iniciais são `coordinator`, `administrator`, `mentor` e `monitor`. O Coordenador é o único papel autorizado a criar usuários e alterar papéis quando `app.current_user_id` identifica o ator da operação; a migration já aplica essa proteção no banco, e o backend deverá reforçá-la posteriormente.
+Os papéis iniciais são `coordinator`, `administrator`, `mentor` e `monitor`. O Coordenador é o único papel autorizado a criar usuários e alterar papéis quando `app.current_user_id` identifica o ator da operação; a migration já aplica essa proteção no banco, e o backend deverá reforçá-la posteriormente. Esta regra foi ajustada na migration 015: criar usuário continua restrito ao coordenador, mas alterar papéis também é permitido ao administrador (seção 11).
 
 ## 5. Migration 002 — Usuários e colaboradores
 
@@ -558,7 +558,7 @@ Esses módulos serão adicionados por migrations futuras, usando `tracks`, `trac
 
 ## 9. Ordem de implementação e validação
 
-1. As migrations (001 a 004 no incremento inicial; hoje 001 a 014) são aplicadas na ordem numérica pelo script `database/scripts/apply-migrations.ps1`.
+1. As migrations (001 a 004 no incremento inicial; hoje 001 a 015) são aplicadas na ordem numérica pelo script `database/scripts/apply-migrations.ps1`.
 2. Os seeds do incremento inicial (001 e 002) cadastram papéis, cargos, áreas, categoria, 26 tarefas do workflow padrão e as versões iniciais dos dois modelos documentais. Os seeds 003 a 007 foram adicionados depois (seção 11).
 3. O `psql` do container oficial aplica cada arquivo em uma transação e registra seu SHA-256.
 4. O script `database/scripts/test-database.ps1` sobe uma instância isolada, executa os testes de regras e repete o executor para validar idempotência.
@@ -588,6 +588,7 @@ As migrations e seeds abaixo foram adicionados depois das migrations 001 a 004. 
 | Migration 012 | `refresh_tokens`: refresh tokens de uso único com rotação; apenas o hash SHA-256 é armazenado |
 | Migration 013 | `tracks.semester` (formato `AAAA/S`, obrigatório); Trilhas existentes recebem o semestre da data de início planejada ou da criação |
 | Migration 014 | O trigger do limite de imagens por anexo passa a travar o anexo pai antes de contar, eliminando a condição de corrida entre inserções concorrentes |
+| Migration 015 | O guard de papéis passa a permitir que coordenador e administrador alterem papéis (criar usuário segue restrito ao coordenador), alinhando o banco à API, já que o backend agora informa o ator em `app.current_user_id` nos caminhos de usuário e trilha. A auditoria (`audit_row_change`) também passa a identificar por `user_id` as linhas de tabelas sem coluna `id` (`user_profiles`), que antes ficavam com `entity_id` vazio |
 | Seed 003 | Renomeia o modelo `proposal_scope` para "Escopo e Proposta" |
 | Seeds 004 a 007 | Catálogo de tipos de anexo, etapas e perguntas do relatório Softex, e catálogo de exportação das respostas |
 

@@ -7,9 +7,11 @@ namespace SistemaTic.Infrastructure.Repositories;
 public class TrackRepository : ITrackRepository
 {
     private readonly NpgsqlDataSource _dataSource;
-    public TrackRepository(NpgsqlDataSource dataSource)
+    private readonly ICurrentUser _currentUser;
+    public TrackRepository(NpgsqlDataSource dataSource, ICurrentUser currentUser)
     {
         this._dataSource = dataSource;
+        this._currentUser = currentUser;
     }
 
     private static Track Map(NpgsqlDataReader reader)
@@ -107,7 +109,7 @@ public class TrackRepository : ITrackRepository
         // Trilha, coordenador responsável e documentos nascem na mesma transação:
         // se qualquer insert falhar, nada fica gravado.
         await using var connection = await this._dataSource.OpenConnectionAsync();
-        await using var transaction = await connection.BeginTransactionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(this._currentUser.Id);
 
         // code não entra no insert: é gerado automaticamente pelo banco (GENERATED ALWAYS AS IDENTITY)
         await using var cmd = connection.CreateCommand();
