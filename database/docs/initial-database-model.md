@@ -8,7 +8,7 @@ O banco usa PostgreSQL sem ORM, com migrations SQL incrementais. Tabelas e colun
 
 Esta modelagem substituiu os scripts exploratórios de `docker/postgres/init`, que usavam `SERIAL`, possuíam apenas o papel administrativo e inseriam um usuário fictício.
 
-O incremento foi implementado em quatro migrations e dois seeds. O executor calcula SHA-256, registra cada versão e impede que um arquivo já aplicado seja alterado silenciosamente. A validação automatizada foi executada em PostgreSQL 16 vazio e também confirmou que uma segunda execução não reaplica migrations nem seeds.
+O incremento inicial foi implementado nas migrations 001 a 004 e nos seeds 001 e 002; as seções 4 a 7 descrevem o banco nesse estado. O banco continuou evoluindo depois disso: atualmente há 14 migrations e 7 seeds, e as mudanças posteriores estão resumidas na seção 11. O executor calcula SHA-256, registra cada versão e impede que um arquivo já aplicado seja alterado silenciosamente. A validação automatizada foi executada em PostgreSQL 16 vazio e também confirmou que uma segunda execução não reaplica migrations nem seeds.
 
 ## 2. Principais mudanças em relação ao diagrama original
 
@@ -26,12 +26,12 @@ O incremento foi implementado em quatro migrations e dois seeds. O executor calc
 | Documentos | Versões completas em JSONB | Conteúdo atual mais revisões contendo somente diferenças por campo | Evita cópias repetidas e mantém autoria de cada alteração |
 | Modelos documentais | Estrutura fixa implícita | `document_template_versions` guarda a estrutura de cada versão | Mudanças de formulário só afetam novas Trilhas |
 | Arquivos | Arquivos genéricos sem política de armazenamento | `file_assets` guarda somente metadados e chave externa | Fotos, documentos, vídeos e evidências não ficam como binário no PostgreSQL |
-| Softex | Relatórios, respostas e Anexo 12 no primeiro diagrama | Detalhamento adiado para migrations futuras | Os modelos ainda estão sendo definidos fora do sistema |
+| Softex | Relatórios, respostas e Anexo 12 no primeiro diagrama | Detalhamento adiado no incremento inicial; implementado depois nas migrations 009 e 010 (ver seção 11) | Os modelos ainda estavam sendo definidos fora do sistema |
 | Alunos | Inscrições, AVA, atividades, presença e certificado | Fora do primeiro incremento | A lista de alunos continuará externa até o módulo de inscrições |
 
 ### 2.1. Destino de cada tabela do diagrama original
 
-O diagrama anterior não será descartado. Ele será dividido entre o banco inicial e migrations futuras, conforme o mapa abaixo.
+O diagrama anterior não foi descartado. Ele foi dividido entre o banco inicial e migrations futuras, conforme o mapa abaixo, que reflete o planejamento do incremento inicial. Os itens de relatório Softex marcados como adiados foram implementados depois (seção 11).
 
 | Tabela original | Destino após o planejamento | Implementação |
 | --- | --- | --- |
@@ -549,7 +549,7 @@ As seguintes estruturas do diagrama original não serão criadas agora:
 - matrícula no Teams/AVA;
 - presença, avaliações, atividades e notas;
 - resultado final e certificado;
-- relatórios de prestação de contas, respostas Softex e Anexo 12;
+- relatórios de prestação de contas, respostas Softex e Anexo 12 (implementados depois, ver seção 11);
 - assinatura digital;
 - envio automático de e-mails, integração com Teams ou SharePoint;
 - catálogo ou motor de reserva de salas.
@@ -558,16 +558,37 @@ Esses módulos serão adicionados por migrations futuras, usando `tracks`, `trac
 
 ## 9. Ordem de implementação e validação
 
-1. As quatro migrations são aplicadas na ordem numérica pelo script `database/scripts/apply-migrations.ps1`.
-2. Os seeds cadastram papéis, cargos, áreas, categoria, 26 tarefas do workflow padrão e as versões iniciais dos dois modelos documentais.
+1. As migrations (001 a 004 no incremento inicial; hoje 001 a 014) são aplicadas na ordem numérica pelo script `database/scripts/apply-migrations.ps1`.
+2. Os seeds do incremento inicial (001 e 002) cadastram papéis, cargos, áreas, categoria, 26 tarefas do workflow padrão e as versões iniciais dos dois modelos documentais. Os seeds 003 a 007 foram adicionados depois (seção 11).
 3. O `psql` do container oficial aplica cada arquivo em uma transação e registra seu SHA-256.
 4. O script `database/scripts/test-database.ps1` sobe uma instância isolada, executa os testes de regras e repete o executor para validar idempotência.
 5. Os scripts exploratórios e o usuário fictício foram removidos de `docker/postgres/init`.
 
 ## 10. Decisões ainda deliberadamente adiadas
 
-- Estrutura definitiva dos relatórios Softex.
+- Estrutura definitiva dos relatórios Softex (o catálogo de etapas, perguntas e anexos foi implementado nas migrations 009 e 010, mas os modelos ainda podem mudar).
 - Campos pessoais, critérios e retenção de dados dos alunos.
 - Forma de importar planilhas de presença e atividades do Teams.
 - Provedor de armazenamento de produção; o banco já ficará independente dessa escolha.
 - Regras finais de conclusão, presença e certificação.
+
+## 11. Evolução após o incremento inicial
+
+As migrations e seeds abaixo foram adicionados depois das migrations 001 a 004. Quando uma mudança altera algo descrito nas seções anteriores, o que vale é o que está listado aqui.
+
+| Versão | Mudança |
+| --- | --- |
+| Migration 005 | `user_profiles.knowledge_area_id`: área de conhecimento do perfil do usuário |
+| Migration 006 | Remove a criação automática de `track_documents` ao inserir uma Trilha; a responsabilidade passou para a camada de aplicação (`TrackService`). As demais guardas de integridade de `track_documents` foram mantidas |
+| Migration 007 | `tracks.code` passa a ser um inteiro sequencial gerado pelo banco (`GENERATED ALWAYS AS IDENTITY`), nunca informado na criação |
+| Migration 008 | `tracks.category_id` deixa de ser obrigatório, até a decisão sobre categorias de Trilha ser fechada |
+| Migration 009 | Relatório Softex: `report_stages`, `report_questions`, `attachment_types`, `question_attachment_types`, `report_annexes`, `report_annex_images` e `question_annexes`, com limite de 20 imagens ativas por anexo e validação do vínculo entre pergunta e anexo |
+| Migration 010 | `report_answers` e a view `report_export_questions`, que combina cada resposta com seus anexos para exportação |
+| Migration 011 | Fluxo de revisão de documentos: o status `archived` passa a ser válido em `track_documents` e `review_comments` guarda a observação da última devolução |
+| Migration 012 | `refresh_tokens`: refresh tokens de uso único com rotação; apenas o hash SHA-256 é armazenado |
+| Migration 013 | `tracks.semester` (formato `AAAA/S`, obrigatório); Trilhas existentes recebem o semestre da data de início planejada ou da criação |
+| Migration 014 | O trigger do limite de imagens por anexo passa a travar o anexo pai antes de contar, eliminando a condição de corrida entre inserções concorrentes |
+| Seed 003 | Renomeia o modelo `proposal_scope` para "Escopo e Proposta" |
+| Seeds 004 a 007 | Catálogo de tipos de anexo, etapas e perguntas do relatório Softex, e catálogo de exportação das respostas |
+
+Os modelos documentais cadastrados passaram a ser três: `proposal_scope`, `teaching_plan` e `softex_accountability_report`.
