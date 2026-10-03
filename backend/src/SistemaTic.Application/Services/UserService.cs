@@ -64,6 +64,7 @@ public class UserService
                 user.Email,
                 administrativeEmail,
                 profile?.WorkLocation,
+                profile?.WeeklyWorkloadMinutes,
                 availability.Select(a => new UserAvailabilitySummaryDTO(a.Weekday, a.StartsAt, a.EndsAt))
             ));
         }

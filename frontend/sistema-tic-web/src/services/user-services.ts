@@ -115,6 +115,7 @@ export interface MemberSummaryDTO {
   institutionalEmail: string;
   administrativeEmail: string | null;
   workLocation: string | null;
+  weeklyWorkloadMinutes: number | null;
   availability: UserAvailabilitySummaryDTO[];
 }
 

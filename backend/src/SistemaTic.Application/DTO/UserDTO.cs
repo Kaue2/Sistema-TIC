@@ -35,5 +35,6 @@ public record MemberSummaryDTO(
     string InstitutionalEmail,
     string? AdministrativeEmail,
     string? WorkLocation,
+    int? WeeklyWorkloadMinutes,
     IEnumerable<UserAvailabilitySummaryDTO> Availability
 );

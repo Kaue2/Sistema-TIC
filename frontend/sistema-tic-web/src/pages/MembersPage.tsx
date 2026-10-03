@@ -21,6 +21,7 @@ export type Member = {
   administrativeEmail?: string;
   journeys: ScheduleItem[];
   location: string;
+  totalHours?: string;
   type: string;
 };
 
@@ -70,6 +71,9 @@ export function MembersPage() {
           institutionalEmail: m.institutionalEmail,
           administrativeEmail: m.administrativeEmail ?? undefined,
           location: m.workLocation ?? "",
+          totalHours: m.weeklyWorkloadMinutes
+            ? `${Math.round(m.weeklyWorkloadMinutes / 60)} horas`
+            : undefined,
           type: m.roleCode,
           journeys: m.availability.map((a) => ({
             day: WEEKDAY_NAMES[a.weekday],
