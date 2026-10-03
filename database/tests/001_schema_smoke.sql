@@ -649,4 +649,55 @@ BEGIN
 END;
 $$;
 
+-- Limite de 20 imagens ativas por anexo: o trigger deve travar o anexo pai (FOR UPDATE)
+-- antes de contar, senão inserts concorrentes passam do limite.
+SELECT pg_temp.assert_true(
+    pg_get_functiondef('enforce_report_annex_image_limit'::regproc) ~* 'FOR UPDATE',
+    'the annex image limit trigger must lock the parent annex before counting'
+);
+
+DO $$
+DECLARE
+    annex_id uuid := '43000000-0000-4000-8000-000000000001';
+    was_rejected boolean := false;
+    i integer;
+BEGIN
+    -- A imagem 1 já existe; completa até 20.
+    FOR i IN 2..20 LOOP
+        INSERT INTO file_assets (
+            provider, storage_key, original_file_name, media_type,
+            size_bytes, sha256, uploaded_by_user_id
+        ) VALUES (
+            'local', 'report-annexes/test/limit-' || i || '.png', 'limit.png', 'image/png',
+            8, repeat('b', 64), '10000000-0000-4000-8000-000000000003'
+        );
+        INSERT INTO report_annex_images (report_annex_id, file_asset_id, display_order)
+        SELECT annex_id, id, i
+          FROM file_assets
+         WHERE storage_key = 'report-annexes/test/limit-' || i || '.png';
+    END LOOP;
+
+    INSERT INTO file_assets (
+        provider, storage_key, original_file_name, media_type,
+        size_bytes, sha256, uploaded_by_user_id
+    ) VALUES (
+        'local', 'report-annexes/test/limit-21.png', 'limit.png', 'image/png',
+        8, repeat('c', 64), '10000000-0000-4000-8000-000000000003'
+    );
+
+    BEGIN
+        INSERT INTO report_annex_images (report_annex_id, file_asset_id, display_order)
+        SELECT annex_id, id, 21
+          FROM file_assets
+         WHERE storage_key = 'report-annexes/test/limit-21.png';
+    EXCEPTION WHEN raise_exception THEN
+        was_rejected := true;
+    END;
+
+    IF NOT was_rejected THEN
+        RAISE EXCEPTION 'The 21st active image was accepted for a single annex';
+    END IF;
+END;
+$$;
+
 ROLLBACK;
