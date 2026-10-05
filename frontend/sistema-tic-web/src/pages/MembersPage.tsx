@@ -11,6 +11,7 @@ import { EmptySearch } from "../components/molecules/EmptySearch";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
 import { getMembers, getUserPhotoUrl } from "../services/user-services";
 import { useUser } from "../contexts/userContext";
+import { getCurrentUserId } from "../services/auth";
 
 export type Member = {
   id: string;
@@ -84,18 +85,9 @@ export function MembersPage() {
       );
 
       summaries.forEach((m) => {
-        // o usuário logado já tem a própria foto em cache no contexto (ver UserProvider),
-        // então reaproveita em vez de pedir de novo.
-        if (m.id === userData?.id) {
-          if (userData.avatarUrl) {
-            setMembers((current) =>
-              current.map((member) =>
-                member.id === m.id ? { ...member, avatar: userData.avatarUrl ?? undefined } : member
-              )
-            );
-          }
-          return;
-        }
+        // o usuário logado já tem a própria foto em cache no contexto (ver UserProvider) e ela
+        // é aplicada na renderização, então não pede de novo.
+        if (m.id === getCurrentUserId()) return;
 
         getUserPhotoUrl(m.id).then((avatarUrl) => {
           if (!avatarUrl) return;
@@ -123,7 +115,9 @@ export function MembersPage() {
   }
 
   const filteredMembers = useMemo(() => {
-    let result = [...members];
+    let result = members.map((m) =>
+      m.id === userData?.id && userData.avatarUrl ? { ...m, avatar: userData.avatarUrl } : m
+    );
 
     if (debouncedSearch.trim()) {
       const term = debouncedSearch.trim().toLowerCase();
@@ -145,7 +139,7 @@ export function MembersPage() {
     }
 
     return result;
-  }, [members, debouncedSearch, filters]);
+  }, [members, userData, debouncedSearch, filters]);
 
   const hasActiveFilters = debouncedSearch.trim().length > 0 || filters.length > 0;
   const showEmpty = members.length === 0;

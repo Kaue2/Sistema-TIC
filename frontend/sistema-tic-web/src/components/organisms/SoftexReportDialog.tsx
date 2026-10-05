@@ -24,8 +24,14 @@ type SoftexReportDialogProps = {
   onExport: (stageCodes: string[]) => Promise<void>;
 };
 
-export function SoftexReportDialog({
-  open,
+// O conteúdo só é montado enquanto o diálogo está aberto, então o estado (metas selecionadas,
+// erro) começa limpo a cada abertura sem precisar de um efeito para resetar.
+export function SoftexReportDialog(props: SoftexReportDialogProps) {
+  if (!props.open) return null;
+  return <SoftexReportDialogContent {...props} />;
+}
+
+function SoftexReportDialogContent({
   trailTitle = "",
   trailTitles,
   onClose,
@@ -36,23 +42,13 @@ export function SoftexReportDialog({
   const [error, setError] = useState<string>();
 
   useEffect(() => {
-    if (!open) return;
-    setSelectedStages([]);
-    setError(undefined);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !isExporting) onClose();
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isExporting, onClose, open]);
-
-  if (!open) return null;
+  }, [isExporting, onClose]);
 
   const selectedTrailTitles = trailTitles ?? (trailTitle ? [trailTitle] : []);
   const allSelected = selectedStages.length === REPORT_STAGES.length;

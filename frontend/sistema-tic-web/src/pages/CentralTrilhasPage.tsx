@@ -94,18 +94,20 @@ export function CentralTrilhasPage() {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  const loadTracks = useCallback(async () => {
-    try {
-      const data = await getTracks();
-      setTracks(data);
-      setUseMockTrails(data.length === 0);
-    } catch {
-      setTracks([]);
-      setUseMockTrails(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadTracks = useCallback(
+    () =>
+      getTracks()
+        .then((data) => {
+          setTracks(data);
+          setUseMockTrails(data.length === 0);
+        })
+        .catch(() => {
+          setTracks([]);
+          setUseMockTrails(true);
+        })
+        .finally(() => setLoading(false)),
+    [],
+  );
 
   useEffect(() => {
     loadTracks();

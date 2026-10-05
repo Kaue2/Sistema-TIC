@@ -68,25 +68,27 @@ export function DocumentsPage() {
   const [teachingMode, setTeachingMode] = useState<TeachingMode | null>(null);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
-  const loadDocuments = useCallback(async () => {
-    try {
-      const pairs = await getAllTrackDocuments();
-      const flattened = pairs.flatMap((pair) =>
-        [
-          pair.escopoPropostaDaTrilha,
-          pair.planoEnsinoDaTrilha,
-          pair.softexDaTrilha,
-        ]
-          .filter((doc): doc is TrackDocumentSummaryDTO => doc !== null)
-          .map(toDocument)
-      );
-      setDocuments(flattened);
-    } catch {
-      setToast({ message: "Não foi possível carregar os documentos.", type: "error" });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadDocuments = useCallback(
+    () =>
+      getAllTrackDocuments()
+        .then((pairs) => {
+          const flattened = pairs.flatMap((pair) =>
+            [
+              pair.escopoPropostaDaTrilha,
+              pair.planoEnsinoDaTrilha,
+              pair.softexDaTrilha,
+            ]
+              .filter((doc): doc is TrackDocumentSummaryDTO => doc !== null)
+              .map(toDocument)
+          );
+          setDocuments(flattened);
+        })
+        .catch(() => {
+          setToast({ message: "Não foi possível carregar os documentos.", type: "error" });
+        })
+        .finally(() => setLoading(false)),
+    [],
+  );
 
   useEffect(() => {
     loadDocuments();

@@ -76,15 +76,6 @@ export function ProfilePage() {
     }
   }, [id, mode]);
 
-  useEffect(() => {
-    // depende de user?.id (não só de userData.avatarUrl) porque o fetch do perfil e o fetch
-    // da foto (cacheada no contexto) terminam em momentos diferentes; sem isso, se a foto já
-    // estava em cache quando este efeito rodou a 1ª vez e `user` ainda era null, a atualização
-    // se perdia e não disparava de novo.
-    if (mode !== "self" || !userData?.avatarUrl || !user) return;
-    setUser((current) => (current ? { ...current, avatar: userData.avatarUrl ?? current.avatar } : current));
-  }, [mode, userData?.avatarUrl, user?.id]);
-
   async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -108,6 +99,11 @@ export function ProfilePage() {
 
   if (!user) return null;
 
+  // pro próprio usuário a foto cacheada no contexto (UserProvider) tem prioridade; derivar na
+  // renderização evita depender de qual fetch termina primeiro (perfil ou foto).
+  const displayUser: User =
+    mode === "self" && userData?.avatarUrl ? { ...user, avatar: userData.avatarUrl } : user;
+
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background">
       <FixedNavigation
@@ -126,7 +122,7 @@ export function ProfilePage() {
       <main className="relative mx-auto flex min-h-screen w-full max-w-300 flex-col items-center px-6 pb-16 pt-12">
         <div className="mb-14 flex flex-col items-center">
           <ProfileHeader
-            user={user}
+            user={displayUser}
             mode={mode}
             onAvatarEditClick={() => {
               if (!uploadingPhoto) fileInputRef.current?.click();
@@ -143,7 +139,7 @@ export function ProfilePage() {
         />
 
         <ProfileContent
-          user={user}
+          user={displayUser}
           mode={mode}
           onPersonalize={() => console.log("Personalizar")}
           onChangePassword={() => console.log("Alterar senha")}
