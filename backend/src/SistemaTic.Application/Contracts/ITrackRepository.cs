@@ -30,4 +30,6 @@ public interface ITrackRepository
         decimal? attendanceRequirementPercent,
         Guid createdByUserId,
         IReadOnlyCollection<PublishedDocumentTemplate> documentTemplates);
+
+    public Task<Track> DuplicateAsync(Guid sourceTrackId, Guid createdByUserId);
 }

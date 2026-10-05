@@ -302,6 +302,20 @@ public class TrackService
             templates);
     }
 
+    // Mesma regra dos documentos: só quem está ativo na equipe da trilha pode duplicá-la, e por
+    // isso o autor da cópia sempre entra na equipe copiada.
+    public async Task<Track?> DuplicateTrackAsync(Guid trackId, Guid userId)
+    {
+        Track? track = await this._trackRepository.GetByIdAsync(trackId);
+        if (track is null)
+            return null;
+
+        if (!await this._trackTeamMemberRepository.IsActiveMemberAsync(trackId, userId))
+            throw new UnauthorizedAccessException("Somente membros da trilha podem duplicá-la.");
+
+        return await this._trackRepository.DuplicateAsync(trackId, userId);
+    }
+
     public async Task<TrackTeamMember> CreateTrackTeamMemberAsync(CreateTrackTeamMemberDTO dto, Guid assignedByUserId)
     {
         return await this._trackTeamMemberRepository.CreateAsync(

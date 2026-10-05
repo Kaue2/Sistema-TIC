@@ -193,4 +193,106 @@ public class TrackRepository : ITrackRepository
         await transaction.CommitAsync();
         return track;
     }
+
+    public async Task<Track> DuplicateAsync(Guid sourceTrackId, Guid createdByUserId)
+    {
+        // Trilha, equipe, documentos e respostas do Softex da cópia nascem na mesma transação:
+        // se qualquer insert falhar, nada fica gravado.
+        await using var connection = await this._dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(this._currentUser.Id);
+
+        // id e code são gerados pelo banco; idea_id fica de fora (é UNIQUE e a cópia não nasce de
+        // uma ideia). status, created_at e updated_at usam o default (status = 'draft').
+        Track track;
+        await using (var cmd = connection.CreateCommand())
+        {
+            cmd.Transaction = transaction;
+            cmd.CommandText = """
+                INSERT INTO tracks (
+                    source_track_id, knowledge_area_id, category_id, title, semester, short_description,
+                    modality, learning_level, planned_production_starts_on, planned_production_ends_on,
+                    planned_track_starts_on, planned_track_ends_on, registration_starts_at, registration_ends_at,
+                    online_workload_minutes, in_person_workload_minutes, planned_capacity, target_audience,
+                    prerequisites, attendance_requirement_percent, created_by_user_id
+                )
+                SELECT id, knowledge_area_id, category_id, title, semester, short_description,
+                       modality, learning_level, planned_production_starts_on, planned_production_ends_on,
+                       planned_track_starts_on, planned_track_ends_on, registration_starts_at, registration_ends_at,
+                       online_workload_minutes, in_person_workload_minutes, planned_capacity, target_audience,
+                       prerequisites, attendance_requirement_percent, @createdByUserId
+                  FROM tracks
+                 WHERE id = @sourceTrackId
+                RETURNING *;
+            """;
+            cmd.Parameters.AddWithValue("sourceTrackId", sourceTrackId);
+            cmd.Parameters.AddWithValue("createdByUserId", createdByUserId);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            if (!await reader.ReadAsync())
+                throw new KeyNotFoundException("Trilha não encontrada");
+            track = Map(reader);
+        }
+
+        // só a equipe ativa é copiada (ends_on IS NULL), com as mesmas responsabilidades
+        await using (var memberCmd = connection.CreateCommand())
+        {
+            memberCmd.Transaction = transaction;
+            memberCmd.CommandText = """
+                INSERT INTO track_team_members (track_id, user_id, responsibility, is_lead, assigned_by_user_id)
+                SELECT @trackId, user_id, responsibility, is_lead, @userId
+                  FROM track_team_members
+                 WHERE track_id = @sourceTrackId AND ends_on IS NULL;
+            """;
+            memberCmd.Parameters.AddWithValue("trackId", track.Id);
+            memberCmd.Parameters.AddWithValue("sourceTrackId", sourceTrackId);
+            memberCmd.Parameters.AddWithValue("userId", createdByUserId);
+            await memberCmd.ExecuteNonQueryAsync();
+        }
+
+        // Documentos levam o conteúdo atual e voltam a 'draft' (default). Revisões, comentários de
+        // revisão e SharePoint são histórico/vínculo da trilha original e não são copiados.
+        await using (var documentCmd = connection.CreateCommand())
+        {
+            documentCmd.Transaction = transaction;
+            documentCmd.CommandText = """
+                INSERT INTO track_documents (
+                    track_id, document_template_id, template_version_id, current_content,
+                    created_by_user_id, updated_by_user_id
+                )
+                SELECT @trackId, document_template_id, template_version_id, current_content, @userId, @userId
+                  FROM track_documents
+                 WHERE track_id = @sourceTrackId;
+            """;
+            documentCmd.Parameters.AddWithValue("trackId", track.Id);
+            documentCmd.Parameters.AddWithValue("sourceTrackId", sourceTrackId);
+            documentCmd.Parameters.AddWithValue("userId", createdByUserId);
+            await documentCmd.ExecuteNonQueryAsync();
+        }
+
+        // O relatório Softex é exportado a partir de report_answers (sincronizada com o conteúdo a
+        // cada save), então as respostas acompanham o documento copiado.
+        await using (var answerCmd = connection.CreateCommand())
+        {
+            answerCmd.Transaction = transaction;
+            answerCmd.CommandText = """
+                INSERT INTO report_answers (
+                    track_document_id, report_question_id, answer, created_by_user_id, updated_by_user_id
+                )
+                SELECT copied.id, answer.report_question_id, answer.answer, @userId, @userId
+                  FROM report_answers answer
+                  JOIN track_documents original ON original.id = answer.track_document_id
+                  JOIN track_documents copied
+                    ON copied.track_id = @trackId
+                   AND copied.document_template_id = original.document_template_id
+                 WHERE original.track_id = @sourceTrackId;
+            """;
+            answerCmd.Parameters.AddWithValue("trackId", track.Id);
+            answerCmd.Parameters.AddWithValue("sourceTrackId", sourceTrackId);
+            answerCmd.Parameters.AddWithValue("userId", createdByUserId);
+            await answerCmd.ExecuteNonQueryAsync();
+        }
+
+        await transaction.CommitAsync();
+        return track;
+    }
 }

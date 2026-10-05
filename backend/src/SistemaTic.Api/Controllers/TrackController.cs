@@ -86,6 +86,19 @@ public class TrackController : ControllerBase
         }
     }
 
+    [HttpPost("{id:guid}/duplicate")]
+    [Authorize]
+    public async Task<IActionResult> DuplicateTrack(Guid id)
+    {
+        Guid userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        Track? track = await this._trackService.DuplicateTrackAsync(id, userId);
+        if (track is null)
+            return NotFound();
+
+        return Ok(track);
+    }
+
     [HttpPost("create-track-team-member")]
     [Authorize]
     public async Task<IActionResult> CreateTrackTeamMember(CreateTrackTeamMemberDTO dto)

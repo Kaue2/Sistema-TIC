@@ -9,6 +9,7 @@ type TrailCardProps = {
   selectionMode: boolean;
   selected: boolean;
   onStartReportSelection: (trail: Trail) => void;
+  onDuplicate: (trail: Trail) => void;
   onToggleSelection: (trail: Trail) => void;
 };
 
@@ -22,6 +23,7 @@ export function TrailCard({
   selectionMode,
   selected,
   onStartReportSelection,
+  onDuplicate,
   onToggleSelection,
 }: TrailCardProps) {
   const moreButtonRef = useRef<HTMLButtonElement>(null);
@@ -49,6 +51,7 @@ export function TrailCard({
     setMenuAnchor(null);
     if (action === "open") onOpen(trail);
     if (action === "select-report") onStartReportSelection(trail);
+    if (action === "duplicate") onDuplicate(trail);
   }
 
   return (
@@ -154,6 +157,10 @@ export function TrailCard({
         items={[
           { id: "open", label: "Abrir", icon: "open_in_new" },
           { id: "select-report", label: "Selecionar para relatório", icon: "checklist" },
+          // trilhas de exemplo (sem backendId) não existem no servidor, então não dá para duplicar
+          ...(trail.backendId
+            ? [{ id: "duplicate", label: "Duplicar", icon: "content_copy" }]
+            : []),
         ]}
         anchor={menuAnchor}
         align="right"

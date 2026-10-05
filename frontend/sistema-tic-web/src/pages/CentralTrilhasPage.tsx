@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { isAxiosError } from "axios";
 import { Button } from "../components/atoms/Button";
 import { Skeleton } from "../components/atoms/Skeleton";
 import { EmptySearch } from "../components/molecules/EmptySearch";
@@ -14,7 +15,7 @@ import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { AttachmentService } from "../services/document/AttachmentService";
 import { CreateTrackModal } from "../components/molecules/CreateTrackModal";
 import { mockTrails } from "../data/mockTrails";
-import { getTracks, type TrackSummaryDTO } from "../services/track-services";
+import { duplicateTrack, getTracks, type TrackSummaryDTO } from "../services/track-services";
 import type { Trail, TrailModality, TrailStage } from "../types/trail";
 
 const MODALITY_OPTIONS = [
@@ -224,6 +225,26 @@ export function CentralTrilhasPage() {
     navigate(`/trails/${trail.id}`);
   }
 
+  // A API devolve { message } em 403 (só membros da trilha podem duplicar); repassa ao usuário.
+  async function handleDuplicateTrail(trail: Trail) {
+    if (!trail.backendId) return;
+
+    try {
+      const copy = await duplicateTrack(trail.backendId);
+      await loadTracks();
+      setToast({
+        message: `Trilha ${copy.title} duplicada como #${copy.code}.`,
+        type: "success",
+      });
+    } catch (error) {
+      const message = isAxiosError(error) ? error.response?.data?.message : null;
+      setToast({
+        message: typeof message === "string" && message ? message : "Não foi possível duplicar a trilha.",
+        type: "error",
+      });
+    }
+  }
+
   function startReportSelection(trail: Trail) {
     setReportSelectionMode(true);
     setSelectedTrailKeys(new Set([trailSelectionKey(trail)]));
@@ -376,6 +397,7 @@ export function CentralTrilhasPage() {
                 selectionMode={reportSelectionMode}
                 selected={selectedTrailKeys.has(trailSelectionKey(trail))}
                 onStartReportSelection={startReportSelection}
+                onDuplicate={handleDuplicateTrail}
                 onToggleSelection={toggleTrailSelection}
               />
             ))}

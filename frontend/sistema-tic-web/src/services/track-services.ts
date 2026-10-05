@@ -60,6 +60,11 @@ export async function createTrack(dto: CreateTrackDTO): Promise<TrackResponseDTO
   return response.data;
 }
 
+export async function duplicateTrack(id: string): Promise<TrackResponseDTO> {
+  const response = await api.post<TrackResponseDTO>(`track/${id}/duplicate`);
+  return response.data;
+}
+
 export async function getTrack(id: string): Promise<TrackResponseDTO> {
   const response = await api.get<TrackResponseDTO>(`track/${id}`);
   return response.data;

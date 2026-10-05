@@ -184,18 +184,6 @@ export function DocumentsPage() {
     !showEmpty && filteredDocuments.length === 0 && hasActiveFilters;
   const showDocuments = !showEmpty && !showEmptySearch;
 
-  function handleDuplicate(doc: Document) {
-    const currentNumber = parseInt(doc.number.replace("#", ""), 10);
-    const copy: Document = {
-      ...doc,
-      id: crypto.randomUUID(),
-      number: Number.isNaN(currentNumber) ? "" : `#${currentNumber + 1}`,
-      status: "Rascunho",
-    };
-    setDocuments((prev) => [copy, ...prev]);
-    setToast({ message: "Documento duplicado.", type: "success" });
-  }
-
   // A API devolve { message } em 403/409 (sem permissão, status não permite); repassa ao usuário.
   async function transition(
     doc: Document,
@@ -338,7 +326,6 @@ export function DocumentsPage() {
                     key={doc.id}
                     document={doc}
                     onEdit={handleEdit}
-                    onDuplicate={handleDuplicate}
                     onArchive={handleArchive}
                     onRestore={handleRestore}
                   />
