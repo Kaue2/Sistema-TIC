@@ -5,7 +5,7 @@ import {
   AttachmentUploadWizard,
   type AttachmentUploadWizardHandle,
 } from "../components/organisms/AttachmentUploadWizard";
-import { FixedNavigation } from "../components/organisms/FixedNavigation";
+import { FixedNavigation, type NavigationItem } from "../components/organisms/FixedNavigation";
 import { Toast, type ToastType } from "../components/organisms/Toast";
 import { getTrailById } from "../data/mockTrails";
 import { AttachmentService } from "../services/document/AttachmentService";
@@ -13,12 +13,12 @@ import { getTracks } from "../services/track-services";
 import type { Trail } from "../types/trail";
 import { isUuid, trackSummaryToTrail } from "../utils/trail";
 
-const NAV_ITEMS = [
+const NAV_ITEMS: NavigationItem[] = [
   { id: "notifications", label: "Avisos", icon: "notifications", route: "/notifications", enabled: true, visible: true, notification: true, active: false },
   { id: "trails", label: "Trilhas", icon: "route", route: "/trails", enabled: true, visible: true, notification: false, active: true },
   { id: "documents", label: "Documentos", icon: "article", route: "/documents", enabled: true, visible: true, notification: false, active: false },
   { id: "members", label: "Membros", icon: "group", route: "/members", enabled: true, visible: true, notification: false, active: false },
-  { id: "profile", label: "", icon: "account_circle", route: "/profile/1", enabled: true, visible: true, notification: false, active: false, avatar: true },
+  { id: "profile", label: "", icon: "account_circle", enabled: true, visible: true, notification: false, active: false, avatar: true },
 ];
 
 export function AttachmentUploadPage() {

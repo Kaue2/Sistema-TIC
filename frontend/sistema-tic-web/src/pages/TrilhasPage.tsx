@@ -157,7 +157,6 @@ export function TrilhasPage() {
             id: "profile",
             label: "",
             icon: "account_circle",
-            route: "/profile/1",
             enabled: true,
             visible: true,
             notification: false,
