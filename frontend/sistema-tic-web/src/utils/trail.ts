@@ -33,6 +33,7 @@ export function trackSummaryToTrail(track: TrackSummaryDTO): Trail {
   return {
     id: track.id,
     code: String(track.code),
+    legacyCode: track.legacyCode,
     title: track.title,
     icon: "route",
     career: track.knowledgeAreaName,
@@ -44,6 +45,11 @@ export function trackSummaryToTrail(track: TrackSummaryDTO): Trail {
     description: "",
     progress: [],
   };
+}
+
+export function formatTrailCode(trail: Pick<Trail, "code" | "legacyCode">): string {
+  const currentCode = `#${trail.code}`;
+  return trail.legacyCode ? `${currentCode} · legado ${trail.legacyCode}` : currentCode;
 }
 
 export function isUuid(value: string | undefined): value is string {

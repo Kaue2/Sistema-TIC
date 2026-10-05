@@ -14,7 +14,7 @@ import { getTrailById } from "../data/mockTrails";
 import { AttachmentService } from "../services/document/AttachmentService";
 import { getTracks } from "../services/track-services";
 import type { Trail } from "../types/trail";
-import { isUuid, trackSummaryToTrail } from "../utils/trail";
+import { formatTrailCode, isUuid, trackSummaryToTrail } from "../utils/trail";
 
 const STAGES = ["Pré Trilha", "Pré Execução", "Execução Trilha", "Pós Trilha"];
 
@@ -191,7 +191,7 @@ export function TrilhasPage() {
               {trail.title}
             </h1>
 
-            <span className="text-[20px] text-black-60">#{trail.code}</span>
+            <span className="text-[20px] text-black-60">{formatTrailCode(trail)}</span>
 
             <button
               ref={actionsButtonRef}

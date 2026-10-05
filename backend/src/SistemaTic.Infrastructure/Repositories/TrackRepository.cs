@@ -41,9 +41,12 @@ public class TrackRepository : ITrackRepository
         DateTimeOffset createdAt = reader.IsDBNull(24) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(24);
         DateTimeOffset updatedAt = reader.IsDBNull(25) ? DateTimeOffset.MinValue : reader.GetFieldValue<DateTimeOffset>(25);
         DateTimeOffset? cancelledAt = reader.IsDBNull(26) ? null : reader.GetFieldValue<DateTimeOffset>(26);
-        int code = reader.IsDBNull(27) ? 0 : reader.GetInt32(27);
+        int codeOrdinal = reader.GetOrdinal("code");
+        int code = reader.IsDBNull(codeOrdinal) ? 0 : reader.GetInt32(codeOrdinal);
+        int legacyCodeOrdinal = reader.GetOrdinal("legacy_code");
+        string? legacyCode = reader.IsDBNull(legacyCodeOrdinal) ? null : reader.GetString(legacyCodeOrdinal);
 
-        return new Track(id, code, ideaId, sourceTrackId, knowledgeAreaId, categoryId, title,
+        return new Track(id, code, legacyCode, ideaId, sourceTrackId, knowledgeAreaId, categoryId, title,
                           shortDescription, modality, learningLevel, status, plannedProductionStartsOn,
                           plannedProductionEndsOn, plannedTrackStartsOn, plannedTrackEndsOn,
                           registrationStartsAt, registrationEndsAt, onlineWorkloadMinutes,

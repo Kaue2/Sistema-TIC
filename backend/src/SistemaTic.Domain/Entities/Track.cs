@@ -4,6 +4,7 @@ public class Track
 {
     public Guid Id { get; set; }
     public int Code { get; set; }
+    public string? LegacyCode { get; set; }
     public Guid? IdeaId { get; set; }
     public Guid? SourceTrackId { get; set; }
     public Guid KnowledgeAreaId { get; set; }
@@ -31,7 +32,7 @@ public class Track
     public DateTimeOffset UpdatedAt { get; set; }
     public DateTimeOffset? CancelledAt { get; set; }
 
-    public Track(Guid id, int code, Guid? ideaId, Guid? sourceTrackId, Guid knowledgeAreaId,
+    public Track(Guid id, int code, string? legacyCode, Guid? ideaId, Guid? sourceTrackId, Guid knowledgeAreaId,
                  Guid? categoryId, string title, string? shortDescription, string modality,
                  string? learningLevel, string status, DateOnly? plannedProductionStartsOn,
                  DateOnly? plannedProductionEndsOn, DateOnly? plannedTrackStartsOn,
@@ -44,6 +45,7 @@ public class Track
     {
         this.Id = id;
         this.Code = code;
+        this.LegacyCode = legacyCode;
         this.IdeaId = ideaId;
         this.SourceTrackId = sourceTrackId;
         this.KnowledgeAreaId = knowledgeAreaId;

@@ -34,7 +34,8 @@ public record TrackSummaryDTO(
     string? LearningLevel,
     string Status,
     string KnowledgeAreaName,
-    IEnumerable<TrackMentorSummaryDTO> Mentors
+    IEnumerable<TrackMentorSummaryDTO> Mentors,
+    string? LegacyCode
 );
 
 public record TrackTaskDTO(

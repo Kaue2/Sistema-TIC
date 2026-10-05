@@ -16,7 +16,7 @@ import { CreateTrackModal } from "../components/molecules/CreateTrackModal";
 import { mockTrails } from "../data/mockTrails";
 import { getTracks, type TrackSummaryDTO } from "../services/track-services";
 import type { Trail, TrailModality } from "../types/trail";
-import { isUuid, trackSummaryToTrail } from "../utils/trail";
+import { formatTrailCode, isUuid, trackSummaryToTrail } from "../utils/trail";
 
 const MODALITY_OPTIONS = [
   { label: "Todos", value: "all", icon: "star" },
@@ -143,6 +143,7 @@ export function CentralTrilhasPage() {
       const searchableContent = [
         trail.title,
         trail.code,
+        trail.legacyCode ?? "",
         trail.id,
         trail.career,
         trail.semester,
@@ -374,7 +375,9 @@ export function CentralTrilhasPage() {
 
       <SoftexReportDialog
         open={reportDialogOpen}
-        trailTitles={selectedTrails.map((trail) => `${trail.title} #${trail.code}`)}
+        trailTitles={selectedTrails.map(
+          (trail) => `${trail.title} ${formatTrailCode(trail)}`,
+        )}
         onClose={() => setReportDialogOpen(false)}
         onExport={exportSoftexReport}
       />

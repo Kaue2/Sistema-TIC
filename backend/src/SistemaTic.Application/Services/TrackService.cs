@@ -85,7 +85,8 @@ public class TrackService
                 track.LearningLevel,
                 track.Status,
                 knowledgeArea?.Name ?? string.Empty,
-                mentors.Select(m => new TrackMentorSummaryDTO(m.FullName, m.Email)));
+                mentors.Select(m => new TrackMentorSummaryDTO(m.FullName, m.Email)),
+                track.LegacyCode);
         });
     }
 

@@ -11,7 +11,7 @@ import { getTrailById } from "../data/mockTrails";
 import { AttachmentService } from "../services/document/AttachmentService";
 import { getTracks } from "../services/track-services";
 import type { Trail } from "../types/trail";
-import { isUuid, trackSummaryToTrail } from "../utils/trail";
+import { formatTrailCode, isUuid, trackSummaryToTrail } from "../utils/trail";
 
 const NAV_ITEMS: NavigationItem[] = [
   { id: "notifications", label: "Avisos", icon: "notifications", route: "/notifications", enabled: true, visible: true, notification: true, active: false },
@@ -138,7 +138,7 @@ export function AttachmentUploadPage() {
               </h1>
             </div>
             <p className="mt-2 text-sm text-black-60 xl:ml-[50px]">
-              #{trail.code} | {trail.title}
+              {formatTrailCode(trail)} | {trail.title}
             </p>
           </div>
 

@@ -8,6 +8,7 @@ import { MultiSelectDropdown } from "./MultiSelectDropdown";
 import type { MultiSelectOption } from "./MultiSelectDropdown";
 import { SearchInput } from "./SearchInput";
 import { SegmentedControl } from "./SegmentedControl";
+import { formatTrailCode } from "../../utils/trail";
 
 const MODALITY_OPTIONS = [
   { label: "Todos", value: "all", icon: "star" },
@@ -101,6 +102,7 @@ export function TrailSelectorModal({
       const searchableContent = [
         trail.title,
         trail.code,
+        trail.legacyCode ?? "",
         trail.id,
         trail.career,
         trail.semester,
@@ -231,7 +233,7 @@ export function TrailSelectorModal({
                       >
                         <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5">
                           <span className="text-sm font-medium text-blue-100">
-                            #{trail.code}
+                            {formatTrailCode(trail)}
                           </span>
                           <span className="text-sm text-black-80">
                             {trail.title}

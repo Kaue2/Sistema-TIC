@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import type { Trail } from "../../types/trail";
+import { formatTrailCode } from "../../utils/trail";
 import { ContextMenu } from "../molecules/ContextMenu";
 import type { ContextMenuAnchor } from "../molecules/ContextMenu";
 
@@ -59,8 +60,8 @@ export function TrailCard({
         aria-checked={selectionMode ? selected : undefined}
         aria-label={
           selectionMode
-            ? `${selected ? "Remover" : "Selecionar"} trilha ${trail.title} #${trail.code}`
-            : `Abrir trilha ${trail.title} #${trail.code}`
+            ? `${selected ? "Remover" : "Selecionar"} trilha ${trail.title} ${formatTrailCode(trail)}`
+            : `Abrir trilha ${trail.title} ${formatTrailCode(trail)}`
         }
         onClick={activateCard}
         onKeyDown={handleKeyDown}
@@ -86,7 +87,7 @@ export function TrailCard({
             <h2 className="truncate text-xl font-normal leading-none text-blue-100">
               {trail.title}
             </h2>
-            <span className="shrink-0 text-sm text-black-60">#{trail.code}</span>
+            <span className="shrink-0 text-sm text-black-60">{formatTrailCode(trail)}</span>
           </div>
           <p className="mt-2 truncate text-sm leading-none text-black-80">
             {trail.career}

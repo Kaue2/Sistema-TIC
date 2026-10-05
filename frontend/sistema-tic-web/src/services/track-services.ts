@@ -88,6 +88,7 @@ export interface TrackMentorSummaryDTO {
 export interface TrackSummaryDTO {
   id: string;
   code: number;
+  legacyCode: string | null;
   title: string;
   modality: string;
   learningLevel: string | null;
