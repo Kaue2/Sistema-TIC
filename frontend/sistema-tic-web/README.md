@@ -111,7 +111,6 @@ Criar um membro envia os dados à API (`POST user/create-user`) e vincula as tri
 | Rota | Tela |
 | --- | --- |
 | `/` | Login |
-| `/welcome` | Boas-vindas |
 | `/access-update` | Atualização de acesso |
 | `/profile/:id` | Perfil |
 | `/members` | Lista de membros |
