@@ -8,12 +8,18 @@ import {
   saveSession,
 } from "./auth";
 
-const configuredBaseUrl =
-  import.meta.env.VITE_API_URL ?? "http://localhost:5000/api/";
+const devFallback = "http://localhost:5246/api/";
+const configuredBaseUrl = import.meta.env.VITE_API_URL?.trim();
 
-const baseURL = configuredBaseUrl.endsWith("/")
-  ? configuredBaseUrl
-  : `${configuredBaseUrl}/`;
+if (import.meta.env.PROD && !configuredBaseUrl) {
+  throw new Error("VITE_API_URL é obrigatória no build de produção.");
+}
+
+const baseURL = configuredBaseUrl
+  ? configuredBaseUrl.endsWith("/")
+    ? configuredBaseUrl
+    : `${configuredBaseUrl}/`
+  : devFallback;
 
 export const api = axios.create({ baseURL });
 

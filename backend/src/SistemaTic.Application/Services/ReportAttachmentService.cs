@@ -9,6 +9,9 @@ public class ReportAttachmentService
     public const int MaximumImagesPerAnnex = 20;
     public const long MaximumFileSizeBytes = 15 * 1024 * 1024;
 
+    public Task<IReadOnlyList<ReportStageDTO>> GetStagesAsync(CancellationToken cancellationToken = default)
+        => _repository.GetStagesAsync(cancellationToken);
+
     private readonly IReportAttachmentRepository _repository;
     private readonly IFileStorage _fileStorage;
     private readonly ITrackDocumentRepository _trackDocumentRepository;

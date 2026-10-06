@@ -5,45 +5,74 @@ import {
   AttachmentUploadWizard,
   type AttachmentUploadWizardHandle,
 } from "../components/organisms/AttachmentUploadWizard";
-import { FixedNavigation } from "../components/organisms/FixedNavigation";
+import { FixedNavigation, type NavigationItem } from "../components/organisms/FixedNavigation";
 import { Toast, type ToastType } from "../components/organisms/Toast";
-import { getTrailById, mockTrails } from "../data/mockTrails";
+import { getTrailById } from "../data/mockTrails";
 import { AttachmentService } from "../services/document/AttachmentService";
+import { getTracks } from "../services/track-services";
+import type { Trail } from "../types/trail";
+import { formatTrailCode, isUuid, trackSummaryToTrail } from "../utils/trail";
 
-const NAV_ITEMS = [
+const NAV_ITEMS: NavigationItem[] = [
   { id: "notifications", label: "Avisos", icon: "notifications", route: "/notifications", enabled: true, visible: true, notification: true, active: false },
   { id: "trails", label: "Trilhas", icon: "route", route: "/trails", enabled: true, visible: true, notification: false, active: true },
   { id: "documents", label: "Documentos", icon: "article", route: "/documents", enabled: true, visible: true, notification: false, active: false },
   { id: "members", label: "Membros", icon: "group", route: "/members", enabled: true, visible: true, notification: false, active: false },
-  { id: "profile", label: "", icon: "account_circle", route: "/profile/1", enabled: true, visible: true, notification: false, active: false, avatar: true },
+  { id: "profile", label: "", icon: "account_circle", enabled: true, visible: true, notification: false, active: false, avatar: true },
 ];
-
-function isUuid(value?: string) {
-  return Boolean(
-    value &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
-  );
-}
 
 export function AttachmentUploadPage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const trail = getTrailById(id) ?? mockTrails[0];
+  const mockTrail = getTrailById(id);
+  const [resolvedTrail, setResolvedTrail] = useState<{
+    routeId: string;
+    trail: Trail | null;
+  } | null>(null);
+  const [resolvedDocument, setResolvedDocument] = useState<{
+    routeId: string;
+    documentId?: string;
+  } | null>(null);
   const wizardRef = useRef<AttachmentUploadWizardHandle>(null);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
-  const [documentId, setDocumentId] = useState<string>();
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (!isUuid(trail.id)) return;
+    if (!id || getTrailById(id)) return;
 
     let active = true;
-    AttachmentService.getSoftexDocumentForTrail(trail.id)
+
+    getTracks()
+      .then((tracks) => {
+        if (!active) return;
+        const track = tracks.find((item) => item.id === id);
+        setResolvedTrail({
+          routeId: id,
+          trail: track ? trackSummaryToTrail(track) : null,
+        });
+      })
+      .catch(() => {
+        if (active) setResolvedTrail({ routeId: id, trail: null });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!isUuid(id)) return;
+
+    let active = true;
+    AttachmentService.getSoftexDocumentForTrail(id)
       .then((document) => {
-        if (active) setDocumentId(document.id);
+        if (active) {
+          setResolvedDocument({ routeId: id, documentId: document.id });
+        }
       })
       .catch(() => {
         if (active) {
+          setResolvedDocument({ routeId: id });
           setToast({
             message: "Não foi possível localizar o documento Softex desta trilha.",
             type: "error",
@@ -54,7 +83,18 @@ export function AttachmentUploadPage() {
     return () => {
       active = false;
     };
-  }, [trail.id]);
+  }, [id]);
+
+  const resolvedTrailForRoute =
+    resolvedTrail && resolvedTrail.routeId === id ? resolvedTrail.trail : null;
+  const trail = mockTrail ?? resolvedTrailForRoute;
+  const loadingTrail = Boolean(
+    id && !mockTrail && resolvedTrail?.routeId !== id,
+  );
+  const documentId =
+    resolvedDocument && resolvedDocument.routeId === id
+      ? resolvedDocument.documentId
+      : undefined;
 
   async function saveCurrentStep() {
     if (!wizardRef.current) return;
@@ -64,6 +104,22 @@ export function AttachmentUploadPage() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  if (loadingTrail) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-black-60">
+        Carregando trilha...
+      </div>
+    );
+  }
+
+  if (!trail) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-black-60">
+        Trilha não encontrada.
+      </div>
+    );
   }
 
   return (
@@ -82,7 +138,7 @@ export function AttachmentUploadPage() {
               </h1>
             </div>
             <p className="mt-2 text-sm text-black-60 xl:ml-[50px]">
-              #{trail.id} | {trail.title}
+              {formatTrailCode(trail)} | {trail.title}
             </p>
           </div>
 
@@ -99,7 +155,7 @@ export function AttachmentUploadPage() {
             <Button
               variant="outline"
               icon="arrow_back"
-              onClick={() => navigate(`/trails/${trail.id}`)}
+              onClick={() => navigate(`/trails/${id}`)}
               className="!h-9 !text-xs"
             >
               Voltar à trilha

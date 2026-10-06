@@ -26,6 +26,16 @@ public class ReportAttachmentController : ControllerBase
         _docxExportService = docxExportService;
     }
 
+    [HttpGet("/api/reports/softex/stages")]
+    public async Task<IActionResult> GetStages(CancellationToken cancellationToken)
+    {
+        var stages = await _service.GetStagesAsync(cancellationToken);
+        return Ok(stages.Select(stage => stage with
+        {
+            CanExport = _docxExportService.HasTemplate(stage.Code)
+        }));
+    }
+
     [HttpGet("stages/{stageCode}")]
     public async Task<IActionResult> GetStage(
         Guid documentId,
@@ -116,6 +126,10 @@ public class ReportAttachmentController : ControllerBase
             var export = await _docxExportService.CreateAsync(documentId, stageCode, cancellationToken);
             return File(export.Content, export.ContentType, export.FileName);
         }
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
         catch (KeyNotFoundException exception)
         {
             return NotFound(new { message = exception.Message });
@@ -123,6 +137,10 @@ public class ReportAttachmentController : ControllerBase
         catch (FileNotFoundException)
         {
             return StatusCode(StatusCodes.Status501NotImplemented, new { message = ExportNotImplementedMessage });
+        }
+        catch (SoftexExportException exception)
+        {
+            return Problem(statusCode: StatusCodes.Status500InternalServerError, detail: exception.Message);
         }
     }
 
@@ -152,6 +170,10 @@ public class ReportAttachmentController : ControllerBase
         {
             return StatusCode(StatusCodes.Status501NotImplemented, new { message = ExportNotImplementedMessage });
         }
+        catch (SoftexExportException exception)
+        {
+            return Problem(statusCode: StatusCodes.Status500InternalServerError, detail: exception.Message);
+        }
     }
 
     [HttpPost("/api/reports/softex/export/docx")]
@@ -178,6 +200,10 @@ public class ReportAttachmentController : ControllerBase
         catch (FileNotFoundException)
         {
             return StatusCode(StatusCodes.Status501NotImplemented, new { message = ExportNotImplementedMessage });
+        }
+        catch (SoftexExportException exception)
+        {
+            return Problem(statusCode: StatusCodes.Status500InternalServerError, detail: exception.Message);
         }
     }
 

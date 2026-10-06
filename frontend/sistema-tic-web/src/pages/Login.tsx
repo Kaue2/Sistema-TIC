@@ -11,6 +11,7 @@ import {
   type AuthResponseDTO,
 } from "../services/user-services";
 import { useUser } from "../contexts/userContext";
+import { getCurrentUserRole } from "../services/auth";
 
 const APP_VERSION = "1.0.0";
 
@@ -70,7 +71,7 @@ export function Login() {
         id: decoded.sub,
         email: response.email,
         name: response.name,
-        roleName: decoded.role,
+        roleName: getCurrentUserRole() ?? "",
       });
 
       setToast({ id: Date.now(), message: "Login realizado com sucesso!", type: "success" });

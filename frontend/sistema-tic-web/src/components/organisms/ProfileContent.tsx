@@ -4,6 +4,7 @@ import { AcademicInformation } from "./AcademicInformation";
 import { Settings } from "./Settings";
 import { UserRelations } from "./UserRelations";
 import { JourneySchedule } from "./JourneySchedule";
+import type { ToastType } from "./Toast";
 
 type ProfileContentProps = {
   user: User;
@@ -11,6 +12,9 @@ type ProfileContentProps = {
   onPersonalize?: () => void;
   onChangePassword?: () => void;
   onLogout?: () => void;
+  academicLinksEditingAllowed?: boolean;
+  onSaveAcademicLinks?: (curriculumUrl: string, lattesUrl: string) => Promise<boolean>;
+  onToast?: (message: string, type: ToastType) => void;
 };
 
 export function ProfileContent({
@@ -19,6 +23,9 @@ export function ProfileContent({
   onPersonalize,
   onChangePassword,
   onLogout,
+  academicLinksEditingAllowed = false,
+  onSaveAcademicLinks,
+  onToast,
 }: ProfileContentProps) {
   return (
     <div className="grid w-full max-w-200 grid-cols-1 gap-12 md:grid-cols-[45%_55%] md:gap-24">
@@ -29,9 +36,11 @@ export function ProfileContent({
         />
 
         <AcademicInformation
-          mode={mode}
           curriculumUrl={user.curriculumUrl}
           lattesUrl={user.lattesUrl}
+          editingAllowed={academicLinksEditingAllowed}
+          onSave={onSaveAcademicLinks}
+          onToast={onToast}
         />
 
         {mode === "self" ? (

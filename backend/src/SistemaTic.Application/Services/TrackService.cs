@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Application.DTO;
+using SistemaTic.Application.Exceptions;
 using SistemaTic.Domain.Entities;
 
 namespace SistemaTic.Application.Services;
@@ -14,6 +15,7 @@ public class TrackService
     private readonly ITrackDocumentRepository _trackDocumentRepository;
     private readonly IDocumentTemplateRepository _documentTemplateRepository;
     private readonly ITrackTeamMemberRepository _trackTeamMemberRepository;
+    private readonly ITrackTaskRepository _trackTaskRepository;
     private readonly IKnowledgeAreaRepository _knowledgeAreaRepository;
 
     public TrackService(
@@ -21,12 +23,14 @@ public class TrackService
         ITrackDocumentRepository trackDocumentRepository,
         IDocumentTemplateRepository documentTemplateRepository,
         ITrackTeamMemberRepository trackTeamMemberRepository,
+        ITrackTaskRepository trackTaskRepository,
         IKnowledgeAreaRepository knowledgeAreaRepository)
     {
         this._trackRepository = trackRepository;
         this._trackDocumentRepository = trackDocumentRepository;
         this._documentTemplateRepository = documentTemplateRepository;
         this._trackTeamMemberRepository = trackTeamMemberRepository;
+        this._trackTaskRepository = trackTaskRepository;
         this._knowledgeAreaRepository = knowledgeAreaRepository;
     }
 
@@ -40,6 +44,26 @@ public class TrackService
         return await this._trackRepository.GetByIdAsync(id);
     }
 
+    public async Task<IEnumerable<TrackTaskDTO>?> GetTasksByTrackIdAsync(Guid trackId)
+    {
+        Track? track = await this._trackRepository.GetByIdAsync(trackId);
+        if (track is null)
+            return null;
+
+        var tasks = await this._trackTaskRepository.GetByTrackIdAsync(trackId);
+
+        return tasks.Select(task => new TrackTaskDTO(
+            task.Id,
+            task.Phase,
+            task.Code,
+            task.Title,
+            task.Description,
+            task.Status,
+            task.DueAt,
+            task.DisplayOrder,
+            task.IsRequired));
+    }
+
     public async Task<TrackDocument?> GetSoftexDocumentAsync(Guid trackId)
     {
         return await this._trackDocumentRepository.GetSoftexDocumentByTrackIdAsync(trackId);
@@ -47,15 +71,16 @@ public class TrackService
 
     public async Task<IEnumerable<TrackSummaryDTO>> GetAllTracksAsync()
     {
-        var tracks = await this._trackRepository.GetAllAsync();
-        var summaries = new List<TrackSummaryDTO>();
+        var tracks = (await this._trackRepository.GetAllAsync()).ToList();
+        var knowledgeAreas = (await this._knowledgeAreaRepository.GetByIdsAsync(tracks.Select(t => t.KnowledgeAreaId))).ToDictionary(a => a.Id);
+        var mentorsByTrack = await this._trackTeamMemberRepository.GetActiveMentorsByTrackIdsAsync(tracks.Select(t => t.Id), "mentor");
 
-        foreach (var track in tracks)
+        return tracks.Select(track =>
         {
-            KnowledgeArea? knowledgeArea = await this._knowledgeAreaRepository.GetByIdAsync(track.KnowledgeAreaId);
-            var mentors = await this._trackTeamMemberRepository.GetActiveMembersAsync(track.Id, "mentor");
+            knowledgeAreas.TryGetValue(track.KnowledgeAreaId, out KnowledgeArea? knowledgeArea);
+            var mentors = mentorsByTrack.GetValueOrDefault(track.Id) ?? new List<TrackMemberSummary>();
 
-            summaries.Add(new TrackSummaryDTO(
+            return new TrackSummaryDTO(
                 track.Id,
                 track.Code,
                 track.Title,
@@ -64,17 +89,16 @@ public class TrackService
                 track.LearningLevel,
                 track.Status,
                 knowledgeArea?.Name ?? string.Empty,
-                mentors.Select(m => new TrackMentorSummaryDTO(m.FullName, m.Email))));
-        }
-
-        return summaries;
+                mentors.Select(m => new TrackMentorSummaryDTO(m.FullName, m.Email)),
+                track.LegacyCode);
+        });
     }
 
     public async Task<IEnumerable<TrackDocumentSummaryDTO>> GetDocumentsByTrackIdAsync(Guid trackId)
     {
         Track? track = await this._trackRepository.GetByIdAsync(trackId);
         if (track is null)
-            throw new Exception("Trilha não encontrada");
+            throw new NotFoundException("Trilha não encontrada");
 
         return await BuildDocumentSummariesAsync(track);
     }

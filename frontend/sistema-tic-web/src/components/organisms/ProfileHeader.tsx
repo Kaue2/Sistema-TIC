@@ -6,6 +6,7 @@ type ProfileHeaderProps = {
   mode: "self" | "user";
   onEditClick?: () => void;
   onAvatarEditClick?: () => void;
+  canEdit?: boolean;
 };
 
 export function ProfileHeader({
@@ -13,6 +14,7 @@ export function ProfileHeader({
   mode,
   onEditClick,
   onAvatarEditClick,
+  canEdit = false,
 }: ProfileHeaderProps) {
   return (
     <header className="flex flex-col items-center">
@@ -21,7 +23,7 @@ export function ProfileHeader({
           avatarUrl={user.avatar}
           fullName={user.fullName}
           size="lg"
-          editable={mode === "self"}
+          editable={mode === "self" || canEdit}
           onEditClick={onAvatarEditClick}
         />
       </div>
@@ -31,7 +33,7 @@ export function ProfileHeader({
           {user.fullName || "-"}
         </h1>
 
-        {mode === "self" && (
+        {canEdit && (
           <button
             type="button"
             onClick={onEditClick}

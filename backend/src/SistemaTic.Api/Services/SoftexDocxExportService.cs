@@ -1,7 +1,11 @@
+using System.Globalization;
+using System.IO.Compression;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Validation;
 using DocumentFormat.OpenXml.Wordprocessing;
 using SistemaTic.Application.DTO;
 using SistemaTic.Application.Services;
@@ -13,635 +17,348 @@ namespace SistemaTic.Api.Services;
 
 public sealed class SoftexDocxExportService
 {
-    private const string DocxContentType =
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
+    private const string DocxContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    private static readonly CultureInfo Portuguese = CultureInfo.GetCultureInfo("pt-BR");
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
     private readonly ReportAttachmentService _reportAttachmentService;
     private readonly IWebHostEnvironment _environment;
+    private readonly TimeProvider _clock;
 
-    public SoftexDocxExportService(
-        ReportAttachmentService reportAttachmentService,
-        IWebHostEnvironment environment)
+    public SoftexDocxExportService(ReportAttachmentService service, IWebHostEnvironment environment,
+        TimeProvider? clock = null)
     {
-        _reportAttachmentService = reportAttachmentService;
+        _reportAttachmentService = service;
         _environment = environment;
+        _clock = clock ?? TimeProvider.System;
     }
 
-    public async Task<SoftexDocxExport> CreateAsync(
-        Guid documentId,
-        string stageCode,
-        CancellationToken cancellationToken = default)
+    private string TemplatePath(string code) => Path.Combine(_environment.ContentRootPath, "Templates", "Softex", code[1..] + ".docx");
+
+    public bool HasTemplate(string stageCode)
     {
-        var normalizedStageCode = NormalizeStageCode(stageCode);
-        var context = await _reportAttachmentService
-            .GetExportContextAsync(documentId, normalizedStageCode, cancellationToken)
-            ?? throw new KeyNotFoundException("O documento Softex ou a etapa não foi encontrada.");
-        var questions = (await _reportAttachmentService
-                .GetExportQuestionsAsync(documentId, cancellationToken))
-            .Where(question => question.StageCode.Equals(normalizedStageCode, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(question => question.QuestionDisplayOrder)
-            .ThenBy(question => question.QuestionCode, StringComparer.Ordinal)
-            .ToArray();
-
-        if (questions.Length == 0)
-            throw new KeyNotFoundException("Não há perguntas Softex para esta etapa.");
-
-        var templatePath = Path.Combine(
-            _environment.ContentRootPath,
-            "Templates",
-            "Softex",
-            normalizedStageCode[1..] + ".docx");
-        if (!File.Exists(templatePath))
-            throw new FileNotFoundException("O modelo DOCX da etapa não está disponível.", templatePath);
-
-        var exportQuestions = questions
-            .Select(question => new ExportQuestion(question, ReadAnnexes(question.Annexes)))
-            .ToArray();
-        var annexes = GetUniqueAnnexes(exportQuestions);
-        var annexNumbers = annexes
-            .Select((annex, index) => new { annex.AnnexId, Number = index + 1 })
-            .ToDictionary(item => item.AnnexId, item => item.Number);
-
-        var output = new MemoryStream();
-        await using (var input = File.OpenRead(templatePath))
-            await input.CopyToAsync(output, cancellationToken);
-
-        output.Position = 0;
-        using (var document = WordprocessingDocument.Open(output, true))
-        {
-            var mainPart = document.MainDocumentPart
-                ?? throw new InvalidOperationException("O modelo DOCX não possui documento principal.");
-            var sourceBody = mainPart.Document.Body
-                ?? throw new InvalidOperationException("O modelo DOCX não possui corpo de documento.");
-            var sourceTable = FindQuestionTable(sourceBody);
-            var sectionProperties = GetTableSectionProperties(sourceBody, sourceTable)
-                ?? sourceBody.Elements<SectionProperties>().LastOrDefault()?.CloneNode(true) as SectionProperties
-                ?? new SectionProperties();
-            var questionTable = sourceTable is null
-                ? CreateQuestionTable(exportQuestions)
-                : (Table)sourceTable.CloneNode(true);
-
-            PopulateQuestionTable(questionTable, exportQuestions, annexNumbers);
-
-            sourceBody.RemoveAllChildren();
-            sourceBody.Append(CreateTitleParagraph("RELATÓRIO DE PRESTAÇÃO DE CONTAS SENAC PARA SOFTEX"));
-            sourceBody.Append(CreateSubtitleParagraph($"Trilha: {context.TrackTitle}"));
-            sourceBody.Append(CreateSubtitleParagraph($"Etapa {normalizedStageCode} - {context.StageName}"));
-            sourceBody.Append(questionTable);
-
-            uint drawingId = 1;
-            AppendAnnexHeading(sourceBody, annexes.Count > 0);
-            foreach (var annex in annexes)
-            {
-                AppendAnnexTitle(sourceBody, annexNumbers[annex.AnnexId], annex);
-                drawingId = await AppendAnnexImagesAsync(
-                    sourceBody,
-                    mainPart,
-                    documentId,
-                    annex,
-                    drawingId,
-                    cancellationToken);
-            }
-
-            sourceBody.Append(sectionProperties);
-            mainPart.Document.Save();
-        }
-
-        var bytes = output.ToArray();
-        await output.DisposeAsync();
-        return new SoftexDocxExport(
-            new MemoryStream(bytes, writable: false),
-            DocxContentType,
-            $"relatorio-softex-{normalizedStageCode.ToLowerInvariant()}.docx");
-    }
-
-    public async Task<SoftexDocxExport> CreateCombinedAsync(
-        Guid documentId,
-        IEnumerable<string>? stageCodes,
-        CancellationToken cancellationToken = default)
-    {
-        return await CreateMultiTrailAsync([documentId], stageCodes, cancellationToken);
-    }
-
-    public async Task<SoftexDocxExport> CreateMultiTrailAsync(
-        IEnumerable<Guid>? documentIds,
-        IEnumerable<string>? stageCodes,
-        CancellationToken cancellationToken = default)
-    {
-        var normalizedDocumentIds = (documentIds ?? [])
-            .Where(documentId => documentId != Guid.Empty)
-            .Distinct()
-            .ToArray();
-        if (normalizedDocumentIds.Length == 0)
-            throw new ArgumentException("Selecione ao menos uma trilha para exportar.");
-
-        var normalizedStageCodes = (stageCodes ?? [])
-            .Where(stageCode => !string.IsNullOrWhiteSpace(stageCode))
-            .Select(NormalizeStageCode)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-        if (normalizedStageCodes.Length == 0)
-            throw new ArgumentException("Selecione ao menos uma meta para exportar.");
-
-        var reports = new List<CombinedDocument>();
-        string? baseTemplatePath = null;
-        foreach (var documentId in normalizedDocumentIds)
-        {
-            var allQuestions = await _reportAttachmentService
-                .GetExportQuestionsAsync(documentId, cancellationToken);
-            var stages = new List<CombinedStage>();
-
-            foreach (var stageCode in normalizedStageCodes)
-            {
-                var context = await _reportAttachmentService
-                    .GetExportContextAsync(documentId, stageCode, cancellationToken)
-                    ?? throw new KeyNotFoundException(
-                        $"O documento Softex ou a meta {stageCode} não foi encontrada.");
-                var questions = allQuestions
-                    .Where(question => question.StageCode.Equals(stageCode, StringComparison.OrdinalIgnoreCase))
-                    .OrderBy(question => question.QuestionDisplayOrder)
-                    .ThenBy(question => question.QuestionCode, StringComparer.Ordinal)
-                    .Select(question => new ExportQuestion(question, ReadAnnexes(question.Annexes)))
-                    .ToArray();
-                if (questions.Length == 0)
-                    throw new KeyNotFoundException($"Não há perguntas Softex para a meta {stageCode}.");
-
-                Table? templateTable = null;
-                var templatePath = Path.Combine(
-                    _environment.ContentRootPath,
-                    "Templates",
-                    "Softex",
-                    stageCode[1..] + ".docx");
-                if (File.Exists(templatePath))
-                {
-                    using var template = WordprocessingDocument.Open(templatePath, false);
-                    var templateBody = template.MainDocumentPart?.Document.Body
-                        ?? throw new InvalidOperationException("O modelo DOCX não possui corpo de documento.");
-                    var sourceTable = FindQuestionTable(templateBody);
-                    templateTable = sourceTable is null
-                        ? null
-                        : (Table)sourceTable.CloneNode(true);
-                    baseTemplatePath ??= templatePath;
-                }
-
-                stages.Add(new CombinedStage(stageCode, context, questions, templateTable));
-            }
-
-            reports.Add(new CombinedDocument(documentId, stages[0].Context.TrackTitle, stages));
-        }
-
-        baseTemplatePath ??= Directory
-            .EnumerateFiles(
-                Path.Combine(_environment.ContentRootPath, "Templates", "Softex"),
-                "*.docx")
-            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-        if (baseTemplatePath is null)
-            throw new FileNotFoundException("Nenhum modelo DOCX Softex está disponível.");
-
-        var annexes = GetUniqueAnnexes(
-            reports.SelectMany(report => report.Stages).SelectMany(stage => stage.Questions));
-        var annexNumbers = annexes
-            .Select((annex, index) => new { annex.AnnexId, Number = index + 1 })
-            .ToDictionary(item => item.AnnexId, item => item.Number);
-
-        var output = new MemoryStream();
-        await using (var input = File.OpenRead(baseTemplatePath))
-            await input.CopyToAsync(output, cancellationToken);
-
-        output.Position = 0;
-        using (var document = WordprocessingDocument.Open(output, true))
-        {
-            var mainPart = document.MainDocumentPart
-                ?? throw new InvalidOperationException("O modelo DOCX n\u00e3o possui documento principal.");
-            var sourceBody = mainPart.Document.Body
-                ?? throw new InvalidOperationException("O modelo DOCX n\u00e3o possui corpo de documento.");
-            var sourceTable = FindQuestionTable(sourceBody);
-            var sectionProperties = GetTableSectionProperties(sourceBody, sourceTable)
-                ?? sourceBody.Elements<SectionProperties>().LastOrDefault()?.CloneNode(true) as SectionProperties
-                ?? new SectionProperties();
-
-            sourceBody.RemoveAllChildren();
-            sourceBody.Append(CreateTitleParagraph("RELAT\u00d3RIO DE PRESTA\u00c7\u00c3O DE CONTAS SENAC PARA SOFTEX"));
-            sourceBody.Append(CreateSubtitleParagraph(
-                reports.Count == 1
-                    ? $"Trilha: {reports[0].TrackTitle}"
-                    : $"Trilhas selecionadas: {reports.Count}"));
-            sourceBody.Append(CreateSubtitleParagraph($"Metas selecionadas: {string.Join(", ", normalizedStageCodes)}"));
-
-            for (var reportIndex = 0; reportIndex < reports.Count; reportIndex++)
-            {
-                sourceBody.Append(CreateStageTitleParagraph(
-                    $"TRILHA: {reports[reportIndex].TrackTitle}",
-                    reportIndex > 0));
-
-                for (var stageIndex = 0; stageIndex < reports[reportIndex].Stages.Count; stageIndex++)
-                {
-                    var stage = reports[reportIndex].Stages[stageIndex];
-                    var questionTable = stage.TemplateTable is null
-                        ? CreateQuestionTable(stage.Questions)
-                        : (Table)stage.TemplateTable.CloneNode(true);
-                    PopulateQuestionTable(questionTable, stage.Questions, annexNumbers);
-                    sourceBody.Append(CreateStageTitleParagraph(
-                        $"META {stage.StageCode} - {stage.Context.StageName}",
-                        stageIndex > 0));
-                    sourceBody.Append(questionTable);
-                }
-            }
-
-            uint drawingId = 1;
-            AppendAnnexHeading(sourceBody, annexes.Count > 0);
-            var addedAnnexes = new HashSet<Guid>();
-            foreach (var report in reports)
-            {
-                foreach (var stage in report.Stages)
-                {
-                    foreach (var annex in GetUniqueAnnexes(stage.Questions))
-                    {
-                        if (!addedAnnexes.Add(annex.AnnexId)) continue;
-
-                        AppendAnnexTitle(
-                            sourceBody,
-                            annexNumbers[annex.AnnexId],
-                            annex,
-                            $"{report.TrackTitle} - Meta {stage.StageCode}");
-                        drawingId = await AppendAnnexImagesAsync(
-                            sourceBody,
-                            mainPart,
-                            report.DocumentId,
-                            annex,
-                            drawingId,
-                            cancellationToken);
-                    }
-                }
-            }
-
-            sourceBody.Append(sectionProperties);
-            mainPart.Document.Save();
-        }
-
-        var bytes = output.ToArray();
-        await output.DisposeAsync();
-        return new SoftexDocxExport(
-            new MemoryStream(bytes, writable: false),
-            DocxContentType,
-            reports.Count == 1
-                ? $"relatorio-softex-{normalizedStageCodes.Length}-metas.docx"
-                : $"relatorio-softex-{reports.Count}-trilhas.docx");
-    }
-
-    private static string NormalizeStageCode(string stageCode)
-    {
-        var normalized = stageCode.Trim().ToUpperInvariant();
-        if (!normalized.StartsWith('M')) normalized = $"M{normalized}";
-        return normalized;
-    }
-
-    private static IReadOnlyList<ExportAnnex> ReadAnnexes(JsonElement annexes)
-    {
-        if (annexes.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
-            return [];
-
-        return JsonSerializer.Deserialize<List<ExportAnnex>>(annexes.GetRawText(), JsonOptions)
-            ?.Where(annex => annex.AnnexId != Guid.Empty)
-            .ToArray()
-            ?? [];
-    }
-
-    private static IReadOnlyList<ExportAnnex> GetUniqueAnnexes(
-        IEnumerable<ExportQuestion> questions)
-    {
-        var annexes = new List<ExportAnnex>();
-        var known = new HashSet<Guid>();
-        foreach (var question in questions)
-        {
-            foreach (var annex in question.Annexes)
-            {
-                if (known.Add(annex.AnnexId)) annexes.Add(annex);
-            }
-        }
-        return annexes;
-    }
-
-    private static Table? FindQuestionTable(Body body)
-    {
-        return body.Descendants<Table>()
-            .FirstOrDefault(table =>
-            {
-                var cells = table.Elements<TableRow>()
-                    .FirstOrDefault()?
-                    .Elements<TableCell>()
-                    .ToArray();
-                return cells is { Length: >= 3 }
-                    && cells[0].InnerText.Contains("Termo", StringComparison.OrdinalIgnoreCase)
-                    && cells[1].InnerText.Contains("preenchimento", StringComparison.OrdinalIgnoreCase);
-            });
-    }
-
-    private static SectionProperties? GetTableSectionProperties(Body body, Table? table)
-    {
-        if (table is null) return null;
-
-        var children = body.ChildElements.ToList();
-        var index = children.IndexOf(table);
-        for (var position = index - 1; position >= 0; position--)
-        {
-            var sectionProperties = children[position]
-                .Descendants<SectionProperties>()
-                .LastOrDefault();
-            if (sectionProperties is not null)
-                return (SectionProperties)sectionProperties.CloneNode(true);
-        }
-        return null;
-    }
-
-    private static void PopulateQuestionTable(
-        Table table,
-        IReadOnlyList<ExportQuestion> questions,
-        IReadOnlyDictionary<Guid, int> annexNumbers)
-    {
-        var rows = table.Elements<TableRow>().ToList();
-        var dataRows = rows.Skip(1).ToList();
-
-        for (var index = 0; index < questions.Count; index++)
-        {
-            if (index >= dataRows.Count)
-            {
-                var row = CreateQuestionRow(questions[index]);
-                table.Append(row);
-                dataRows.Add(row);
-            }
-
-            var cells = dataRows[index].Elements<TableCell>().ToArray();
-            if (cells.Length < 3) continue;
-
-            var question = questions[index];
-            ReplaceCellText(cells[1], string.IsNullOrWhiteSpace(question.Question.Answer)
-                ? "-"
-                : question.Question.Answer!);
-            ReplaceCellText(cells[2], BuildEvidenceText(question.Annexes, annexNumbers));
-        }
-
-        foreach (var unusedRow in dataRows.Skip(questions.Count))
-            unusedRow.Remove();
-    }
-
-    private static string BuildEvidenceText(
-        IReadOnlyList<ExportAnnex> annexes,
-        IReadOnlyDictionary<Guid, int> annexNumbers)
-    {
-        return string.Join(Environment.NewLine, annexes
-            .Where(annex => annexNumbers.ContainsKey(annex.AnnexId))
-            .Select(annex => $"Anexo {annexNumbers[annex.AnnexId]}: {annex.Title}"));
-    }
-
-    private static void ReplaceCellText(TableCell cell, string text)
-    {
-        var sourceParagraph = cell.Elements<Paragraph>().FirstOrDefault();
-        var paragraphProperties = sourceParagraph?.ParagraphProperties?.CloneNode(true) as ParagraphProperties;
-        var runProperties = sourceParagraph?.Descendants<RunProperties>().FirstOrDefault()?.CloneNode(true) as RunProperties;
-
-        foreach (var child in cell.ChildElements.Where(child => child is not TableCellProperties).ToList())
-            child.Remove();
-        cell.Append(CreateTextParagraph(text, paragraphProperties, runProperties));
-    }
-
-    private static Paragraph CreateTextParagraph(
-        string text,
-        ParagraphProperties? paragraphProperties = null,
-        RunProperties? runProperties = null)
-    {
-        var paragraph = new Paragraph();
-        if (paragraphProperties is not null) paragraph.Append(paragraphProperties);
-
-        var run = new Run();
-        if (runProperties is not null) run.Append(runProperties);
-
-        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
-        for (var index = 0; index < lines.Length; index++)
-        {
-            if (index > 0) run.Append(new Break());
-            run.Append(new Text(lines[index]) { Space = SpaceProcessingModeValues.Preserve });
-        }
-        paragraph.Append(run);
-        return paragraph;
-    }
-
-    private static Paragraph CreateTitleParagraph(string text)
-    {
-        return CreateTextParagraph(
-            text,
-            new ParagraphProperties(
-                new Justification { Val = JustificationValues.Center },
-                new SpacingBetweenLines { After = "180" }),
-            new RunProperties(new Bold(), new FontSize { Val = "28" }));
-    }
-
-    private static Paragraph CreateSubtitleParagraph(string text)
-    {
-        return CreateTextParagraph(
-            text,
-            new ParagraphProperties(
-                new Justification { Val = JustificationValues.Center },
-                new SpacingBetweenLines { After = "240" }),
-            new RunProperties(new FontSize { Val = "20" }));
-    }
-
-    private static Paragraph CreateStageTitleParagraph(string text, bool pageBreakBefore)
-    {
-        var properties = new ParagraphProperties(
-            new SpacingBetweenLines { Before = "180", After = "140" });
-        if (pageBreakBefore) properties.Append(new PageBreakBefore());
-
-        return CreateTextParagraph(
-            text,
-            properties,
-            new RunProperties(new Bold(), new FontSize { Val = "24" }));
-    }
-
-    private static Table CreateQuestionTable(IReadOnlyList<ExportQuestion> questions)
-    {
-        var table = new Table(
-            new TableProperties(
-                new TableWidth { Width = "0", Type = TableWidthUnitValues.Auto },
-                new TableLayout { Type = TableLayoutValues.Fixed },
-                new TableBorders(
-                    new TopBorder { Val = BorderValues.Single, Size = 6U, Color = "808080" },
-                    new BottomBorder { Val = BorderValues.Single, Size = 6U, Color = "808080" },
-                    new LeftBorder { Val = BorderValues.Single, Size = 6U, Color = "808080" },
-                    new RightBorder { Val = BorderValues.Single, Size = 6U, Color = "808080" },
-                    new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4U, Color = "BFBFBF" },
-                    new InsideVerticalBorder { Val = BorderValues.Single, Size = 4U, Color = "BFBFBF" })),
-            new TableGrid(
-                new GridColumn { Width = "3900" },
-                new GridColumn { Width = "5700" },
-                new GridColumn { Width = "2200" }));
-
-        table.Append(CreateHeaderRow());
-        foreach (var question in questions)
-            table.Append(CreateQuestionRow(question));
-        return table;
-    }
-
-    private static TableRow CreateHeaderRow()
-    {
-        return new TableRow(
-            CreateCell("Termo", "3900", true),
-            CreateCell("Campo de preenchimento", "5700", true),
-            CreateCell("Evidências", "2200", true));
-    }
-
-    private static TableRow CreateQuestionRow(ExportQuestion question)
-    {
-        return new TableRow(
-            CreateCell(question.Question.QuestionLabel, "3900"),
-            CreateCell("-", "5700"),
-            CreateCell(string.Empty, "2200"));
-    }
-
-    private static TableCell CreateCell(string text, string width, bool isHeader = false)
-    {
-        var properties = new TableCellProperties(
-            new TableCellWidth { Width = width, Type = TableWidthUnitValues.Dxa },
-            new TableCellVerticalAlignment { Val = TableVerticalAlignmentValues.Center });
-        if (isHeader)
-            properties.Append(new Shading { Fill = "D9EAF7", Val = ShadingPatternValues.Clear });
-
-        return new TableCell(
-            properties,
-            CreateTextParagraph(
-                text,
-                null,
-                isHeader ? new RunProperties(new Bold()) : null));
-    }
-
-    private static void AppendAnnexHeading(Body body, bool hasAnnexes)
-    {
-        body.Append(new Paragraph(
-            new ParagraphProperties(
-                new PageBreakBefore(),
-                new Justification { Val = JustificationValues.Center },
-                new SpacingBetweenLines { After = "160" }),
-            new Run(
-                new RunProperties(new Bold(), new FontSize { Val = "28" }),
-                new Text("ANEXOS"))));
-
-        if (!hasAnnexes)
-            body.Append(CreateTextParagraph("Nenhum anexo foi adicionado para esta etapa."));
-    }
-
-    private static void AppendAnnexTitle(Body body, int number, ExportAnnex annex)
-    {
-        AppendAnnexTitle(body, number, annex, null);
-    }
-
-    private static void AppendAnnexTitle(
-        Body body,
-        int number,
-        ExportAnnex annex,
-        string? contextLabel)
-    {
-        body.Append(CreateTextParagraph(
-            string.IsNullOrWhiteSpace(contextLabel)
-                ? $"ANEXO {number}: {annex.Title}"
-                : $"ANEXO {number} - {contextLabel}: {annex.Title}",
-            new ParagraphProperties(new SpacingBetweenLines { Before = "180", After = "80" }),
-            new RunProperties(new Bold(), new FontSize { Val = "22" })));
-
-        if (!string.IsNullOrWhiteSpace(annex.SourceReference))
-            body.Append(CreateTextParagraph($"Fonte: {annex.SourceReference}"));
-
-        if (annex.Images.Count == 0)
-            body.Append(CreateTextParagraph("Nenhuma imagem foi adicionada a este anexo."));
-    }
-
-    private async Task<uint> AppendAnnexImagesAsync(
-        Body body,
-        MainDocumentPart mainPart,
-        Guid documentId,
-        ExportAnnex annex,
-        uint drawingId,
-        CancellationToken cancellationToken)
-    {
-        foreach (var image in annex.Images.OrderBy(image => image.DisplayOrder))
-        {
-            if (!IsWordSupportedImage(image.MediaType))
-            {
-                body.Append(CreateTextParagraph(
-                    $"Arquivo não incorporado ao DOCX: {image.OriginalFileName} ({image.MediaType})."));
-                continue;
-            }
-
-            try
-            {
-                var download = await _reportAttachmentService
-                    .DownloadImageAsync(documentId, image.ImageId, cancellationToken);
-                await using (download.Content)
-                {
-                    var imagePart = mainPart.AddImagePart(download.MediaType);
-                    imagePart.FeedData(download.Content);
-                    var relationshipId = mainPart.GetIdOfPart(imagePart);
-                    var (width, height) = GetImageSize(download.Content, download.MediaType);
-
-                    body.Append(new Paragraph(
-                        new ParagraphProperties(new SpacingBetweenLines { Before = "80", After = "80" }),
-                        new Run(CreateImageDrawing(relationshipId, width, height, drawingId++, image.OriginalFileName))));
-                }
-            }
-            catch (FileNotFoundException)
-            {
-                body.Append(CreateTextParagraph($"Imagem indisponível: {image.OriginalFileName}."));
-            }
-        }
-        return drawingId;
-    }
-
-    private static bool IsWordSupportedImage(string mediaType)
-    {
-        return mediaType.ToLowerInvariant() is "image/jpeg" or "image/png" or "image/bmp" or "image/tiff";
-    }
-
-    private static (long Width, long Height) GetImageSize(Stream content, string mediaType)
-    {
-        const long maximumWidth = 6_400_800L; // 7 inches in EMUs
-        const long maximumHeight = 4_572_000L; // 5 inches in EMUs
-        const long emusPerPixelAt96Dpi = 9_525L;
-
-        if (!content.CanSeek) return (maximumWidth, maximumHeight);
-        var position = content.Position;
+        if (!Regex.IsMatch(stageCode, @"^M\d+\.\d+$")) return false;
+        var path = TemplatePath(stageCode);
+        if (!File.Exists(path)) return false;
         try
         {
-            content.Position = 0;
-            using var reader = new BinaryReader(content, System.Text.Encoding.UTF8, leaveOpen: true);
-            var (pixelsWidth, pixelsHeight) = mediaType.ToLowerInvariant() switch
-            {
-                "image/png" => ReadPngSize(reader),
-                "image/bmp" => ReadBmpSize(reader),
-                "image/jpeg" => ReadJpegSize(reader),
-                _ => (0, 0)
-            };
-
-            if (pixelsWidth <= 0 || pixelsHeight <= 0) return (maximumWidth, maximumHeight);
-            var width = pixelsWidth * emusPerPixelAt96Dpi;
-            var height = pixelsHeight * emusPerPixelAt96Dpi;
-            var scale = Math.Min(1d, Math.Min((double)maximumWidth / width, (double)maximumHeight / height));
-            return ((long)(width * scale), (long)(height * scale));
+            using var doc = WordprocessingDocument.Open(path, false);
+            ValidateTemplate(doc, stageCode);
+            return true;
         }
-        catch (EndOfStreamException)
+        catch (Exception exception) when (exception is IOException or OpenXmlPackageException or InvalidOperationException)
         {
-            return (maximumWidth, maximumHeight);
+            return false;
+        }
+    }
+
+    public Task<SoftexDocxExport> CreateAsync(Guid documentId, string stageCode, CancellationToken cancellationToken = default)
+        => CreateMultiTrailAsync([documentId], [stageCode], cancellationToken);
+
+    public Task<SoftexDocxExport> CreateCombinedAsync(Guid documentId, IEnumerable<string>? stageCodes,
+        CancellationToken cancellationToken = default)
+        => CreateMultiTrailAsync([documentId], stageCodes, cancellationToken);
+
+    public async Task<SoftexDocxExport> CreateMultiTrailAsync(IEnumerable<Guid>? documentIds,
+        IEnumerable<string>? stageCodes, CancellationToken cancellationToken = default)
+    {
+        var ids = (documentIds ?? []).Where(id => id != Guid.Empty).Distinct().ToArray();
+        var codes = (stageCodes ?? []).Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(NormalizeStageCode).Distinct(StringComparer.Ordinal).ToArray();
+        if (ids.Length == 0) throw new ArgumentException("Selecione ao menos uma trilha para exportar.");
+        if (codes.Length == 0) throw new ArgumentException("Selecione ao menos uma meta para exportar.");
+        var active = await _reportAttachmentService.GetStagesAsync(cancellationToken);
+        foreach (var code in codes)
+        {
+            if (!active.Any(stage => stage.Code == code))
+                throw new ArgumentException($"A meta {code} não está disponível.");
+            if (!HasTemplate(code))
+                throw new SoftexExportException($"O template da meta {code} está ausente ou inválido.");
+        }
+        var questionsByDocument = new Dictionary<Guid, IReadOnlyList<ReportExportQuestionDTO>>();
+        foreach (var id in ids)
+            questionsByDocument[id] = await _reportAttachmentService.GetExportQuestionsAsync(id, cancellationToken);
+        var exports = new List<SoftexDocxExport>();
+        try
+        {
+            foreach (var code in codes)
+            {
+                var tracks = new List<TrackReport>();
+                foreach (var id in ids)
+                {
+                    var context = await _reportAttachmentService.GetExportContextAsync(id, code, cancellationToken)
+                        ?? throw new KeyNotFoundException($"Documento Softex não encontrado para a meta {code}.");
+                    var questions = questionsByDocument[id].Where(q => q.StageCode == code)
+                        .OrderBy(q => q.QuestionDisplayOrder).ThenBy(q => q.QuestionCode, StringComparer.Ordinal)
+                        .Select(q => new ExportQuestion(q, ReadAnnexes(q.Annexes))).ToArray();
+                    if (questions.Length == 0) throw new KeyNotFoundException($"Não há perguntas cadastradas para a meta {code}.");
+                    tracks.Add(new TrackReport(id, context, questions));
+                }
+                exports.Add(await ComposeAsync(code, tracks, cancellationToken));
+            }
+            if (exports.Count == 1) return exports[0];
+            using var output = new MemoryStream();
+            using (var zip = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+                foreach (var export in exports)
+                {
+                    var entry = zip.CreateEntry(export.FileName);
+                    await using var content = entry.Open();
+                    await export.Content.CopyToAsync(content, cancellationToken);
+                }
+            return new SoftexDocxExport(new MemoryStream(output.ToArray(), writable: false),
+                "application/zip", "relatorios-softex.zip");
+        }
+        catch
+        {
+            foreach (var export in exports) await export.Content.DisposeAsync();
+            throw;
         }
         finally
         {
-            content.Position = position;
+            if (exports.Count > 1)
+                foreach (var export in exports) await export.Content.DisposeAsync();
         }
     }
 
+    private async Task<SoftexDocxExport> ComposeAsync(string code, IReadOnlyList<TrackReport> tracks,
+        CancellationToken cancellationToken)
+    {
+        using var output = new MemoryStream();
+        await using (var input = File.OpenRead(TemplatePath(code)))
+            await input.CopyToAsync(output, cancellationToken);
+        output.Position = 0;
+        using (var document = WordprocessingDocument.Open(output, true))
+        {
+            ValidateTemplate(document, code);
+            var main = document.MainDocumentPart!;
+            var body = main.Document.Body!;
+            var block = FindControl(body, "report:trails");
+            var prototype = (SdtBlock)block.CloneNode(true);
+            var content = block.GetFirstChild<SdtContentBlock>()!;
+            content.RemoveAllChildren();
+            var expectedCodes = prototype.Descendants<SdtBlock>()
+                .Select(Tag).Where(tag => tag.StartsWith("label:", StringComparison.Ordinal))
+                .Select(tag => tag[6..]).ToHashSet(StringComparer.Ordinal);
+            for (var index = 0; index < tracks.Count; index++)
+            {
+                var track = tracks[index];
+                if (!expectedCodes.SetEquals(track.Questions.Select(q => q.Question.QuestionCode)))
+                    throw new SoftexExportException($"O catálogo de perguntas da meta {code} não corresponde ao template.");
+                var copy = (SdtBlock)prototype.CloneNode(true);
+                var title = FindControl(copy, "track:title");
+                SetControlText(title, track.Context.TrackTitle);
+                if (index > 0)
+                    title.Descendants<Paragraph>().First().GetFirstChild<ParagraphProperties>()!
+                        .AddChild(new PageBreakBefore(), true);
+                var lookup = track.Questions.ToDictionary(q => q.Question.QuestionCode, StringComparer.Ordinal);
+                foreach (var control in copy.Descendants<SdtBlock>().ToArray())
+                {
+                    var tag = Tag(control);
+                    var split = tag.IndexOf(':');
+                    if (split < 0 || !lookup.TryGetValue(tag[(split + 1)..], out var question)) continue;
+                    switch (tag[..split])
+                    {
+                        case "label":
+                            if (!question.Question.QuestionLabel.StartsWith("Pergunta ", StringComparison.OrdinalIgnoreCase))
+                                SetControlText(control, question.Question.QuestionLabel);
+                            break;
+                        case "answer":
+                            SetControlText(control, string.IsNullOrWhiteSpace(question.Question.Answer) ? "-" : question.Question.Answer);
+                            break;
+                        case "fixed":
+                            SetControlText(control, string.IsNullOrWhiteSpace(question.Question.Answer)
+                                ? ReplaceVariables(control.InnerText, track) : question.Question.Answer);
+                            break;
+                        case "evidence":
+                            SetControlText(control, string.Join("\n", question.Annexes.DistinctBy(a => a.AnnexId).Select(a => a.Title)));
+                            break;
+                    }
+                }
+                content.Append(copy);
+            }
+            var localDate = TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), TimeZoneInfo.FindSystemTimeZoneById("America/Sao_Paulo"));
+            SetControlText(FindControl(body, "report:date"), $"São Paulo, {localDate.ToString("d 'de' MMMM 'de' yyyy", Portuguese)}");
+            // The institutional delivery title belongs to the template, not its abbreviated catalog name.
+            foreach (var overview in body.Descendants<SdtBlock>().Where(c => Tag(c) == "report:overview").ToArray())
+                SetControlText(overview, $"Este relatório apresenta {tracks.Count} trilha(s) selecionada(s):\n" +
+                    string.Join("\n", tracks.Select(t => $"{t.Context.TrackTitle} | Início previsto: {DateText(t.Context.StartsOn)} | Término previsto: {DateText(t.Context.EndsOn)}")));
+            var annexBlock = FindControl(body, "report:annexes");
+            var annexContent = annexBlock.GetFirstChild<SdtContentBlock>()!;
+            annexContent.RemoveAllChildren();
+            var seen = new HashSet<Guid>();
+            uint drawingId = 10;
+            var number = 0;
+            foreach (var track in tracks)
+                foreach (var annex in track.Questions.SelectMany(q => q.Annexes))
+                {
+                    if (!seen.Add(annex.AnnexId)) continue;
+                    if (annex.Images.Count == 0)
+                        throw new SoftexExportException($"Meta {code}: o anexo “{annex.Title}” de {track.Context.TrackTitle} não possui imagens.");
+                    var heading = TextParagraph($"Anexo {++number}: {annex.Title} - {track.Context.TrackTitle}", bold: true);
+                    heading.ParagraphProperties!.AddChild(new KeepNext(), true);
+                    if (number > 1) heading.ParagraphProperties.AddChild(new PageBreakBefore(), true);
+                    annexContent.Append(heading);
+                    if (!string.IsNullOrWhiteSpace(annex.SourceReference))
+                        annexContent.Append(TextParagraph($"Fonte: {annex.SourceReference}"));
+                    foreach (var image in annex.Images.OrderBy(i => i.DisplayOrder).ThenBy(i => i.ImageId))
+                    {
+                        if (image.MediaType.ToLowerInvariant() is not ("image/jpeg" or "image/png" or "image/bmp" or "image/tiff"))
+                            throw new SoftexExportException($"Meta {code}: formato inválido na evidência “{annex.Title}”, arquivo {image.OriginalFileName}.");
+                        try
+                        {
+                            var download = await _reportAttachmentService.DownloadImageAsync(track.DocumentId, image.ImageId, cancellationToken);
+                            await using var imageBytes = new MemoryStream();
+                            await using (download.Content) await download.Content.CopyToAsync(imageBytes, cancellationToken);
+                            var (width, height) = GetImageSize(imageBytes, image.MediaType);
+                            imageBytes.Position = 0;
+                            var part = main.AddImagePart(image.MediaType);
+                            part.FeedData(imageBytes);
+                            annexContent.Append(new Paragraph(new ParagraphProperties(new SpacingBetweenLines { After = "160" }),
+                                new Run(CreateImageDrawing(main.GetIdOfPart(part), width, height, drawingId++, image.OriginalFileName))));
+                        }
+                        catch (Exception exception) when (exception is IOException or KeyNotFoundException or ArgumentException or OverflowException)
+                        {
+                            throw new SoftexExportException($"Meta {code}: não foi possível incorporar a evidência “{annex.Title}”, arquivo {image.OriginalFileName}.", exception);
+                        }
+                    }
+                }
+            if (number == 0) annexContent.Append(TextParagraph("Nenhuma evidência foi citada nesta meta."));
+            main.Document.Save();
+            var errors = new OpenXmlValidator().Validate(document).Take(1).ToArray();
+            if (errors.Length > 0) throw new SoftexExportException($"Meta {code}: o documento gerado possui estrutura inválida: {errors[0].Description}");
+        }
+        return new SoftexDocxExport(new MemoryStream(output.ToArray(), writable: false), DocxContentType,
+            $"relatorio-softex-{code.ToLowerInvariant()}.docx");
+    }
+
+    private static void ValidateTemplate(WordprocessingDocument document, string code)
+    {
+        var body = document.MainDocumentPart?.Document.Body
+            ?? throw new SoftexExportException($"Meta {code}: template sem corpo de documento.");
+        foreach (var tag in new[] { "report:stage", "report:date", "report:trails", "report:annexes", "track:title" })
+            FindControl(body, tag);
+        var trail = FindControl(body, "report:trails");
+        var tags = trail.Descendants<SdtBlock>().Select(Tag).ToArray();
+        var questions = tags.Where(tag => tag.StartsWith("label:", StringComparison.Ordinal)).Select(tag => tag[6..]).ToArray();
+        if (questions.Length == 0)
+            throw new SoftexExportException($"Meta {code}: template sem perguntas identificadas.");
+        if (questions.Distinct(StringComparer.Ordinal).Count() != questions.Length)
+            throw new SoftexExportException($"Meta {code}: template com perguntas duplicadas.");
+        foreach (var question in questions)
+            if (!Regex.IsMatch(question, "^" + Regex.Escape(code) + @"_Q\d{2}$") ||
+                tags.Count(tag => tag == "answer:" + question || tag == "fixed:" + question) != 1 ||
+                tags.Count(tag => tag == "evidence:" + question) != 1)
+                throw new SoftexExportException($"Meta {code}: controles incompletos ou inválidos para a pergunta {question}.");
+        var error = new OpenXmlValidator().Validate(document).FirstOrDefault();
+        if (error is not null) throw new SoftexExportException($"Meta {code}: template inválido: {error.Description}");
+    }
+
+    private static string Tag(SdtBlock control) => control.SdtProperties?.GetFirstChild<Tag>()?.Val?.Value ?? "";
+    private static SdtBlock FindControl(OpenXmlElement root, string tag)
+        => root.Descendants<SdtBlock>().FirstOrDefault(c => Tag(c) == tag)
+            ?? throw new SoftexExportException($"O template não possui o campo obrigatório {tag}.");
+
+    private static void SetControlText(SdtBlock control, string text)
+    {
+        var content = control.GetFirstChild<SdtContentBlock>()!;
+        var source = content.Descendants<Paragraph>().FirstOrDefault();
+        var props = source?.ParagraphProperties?.CloneNode(true) as ParagraphProperties;
+        var runProps = source?.Descendants<RunProperties>().FirstOrDefault()?.CloneNode(true) as RunProperties;
+        content.RemoveAllChildren();
+        var paragraph = new Paragraph();
+        if (props is not null) paragraph.Append(props);
+        var run = new Run();
+        if (runProps is not null) run.Append(runProps);
+        foreach (var (line, index) in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n').Select((line, index) => (line, index)))
+        {
+            if (index > 0) run.Append(new Break());
+            run.Append(new Text(line) { Space = SpaceProcessingModeValues.Preserve });
+        }
+        paragraph.Append(run);
+        content.Append(paragraph);
+    }
+
+    private static Paragraph TextParagraph(string text, bool bold = false)
+        => new(new ParagraphProperties(new SpacingBetweenLines { After = "120" }),
+            new Run(new RunProperties(bold ? new Bold() : new Bold { Val = false }), new Text(text)));
+
+    private static string ReplaceVariables(string text, TrackReport track)
+    {
+        var values = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["track_title"] = track.Context.TrackTitle,
+            ["starts_on"] = DateText(track.Context.StartsOn),
+            ["ends_on"] = DateText(track.Context.EndsOn),
+            ["level"] = track.Context.LearningLevel ?? "-",
+            ["credential_count"] = track.Questions.FirstOrDefault(q => q.Question.QuestionCode == "M2.6_Q16")?.Question.Answer ?? "-",
+            ["emission_date"] = "-", ["collection_dates"] = "-", ["indicators"] = "-", ["contact"] = "-"
+        };
+        if (!string.IsNullOrWhiteSpace(track.Context.IntroJson))
+        {
+            using var intro = JsonDocument.Parse(track.Context.IntroJson);
+            if (intro.RootElement.ValueKind == JsonValueKind.Object)
+                foreach (var property in intro.RootElement.EnumerateObject())
+                    if (property.Value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(property.Value.GetString()))
+                        values[property.Name] = property.Value.GetString()!;
+        }
+        foreach (var key in values.Keys.ToArray())
+            if (string.IsNullOrWhiteSpace(values[key])) values[key] = "-";
+        return Regex.Replace(text, @"\{\{([a-zA-Z_]+)\}\}", match => values.GetValueOrDefault(match.Groups[1].Value, "-"));
+    }
+
+    private static string DateText(DateOnly? date) => date?.ToString("dd/MM/yyyy", Portuguese) ?? "-";
+    private static string NormalizeStageCode(string stageCode)
+    {
+        var code = stageCode.Trim().ToUpperInvariant();
+        if (!code.StartsWith('M')) code = "M" + code;
+        if (!Regex.IsMatch(code, @"^M\d+\.\d+$")) throw new ArgumentException("Código de meta inválido.");
+        return code;
+    }
+
+    private static IReadOnlyList<ExportAnnex> ReadAnnexes(JsonElement annexes)
+        => annexes.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined ? [] :
+            JsonSerializer.Deserialize<List<ExportAnnex>>(annexes.GetRawText(), JsonOptions)?
+                .Where(a => a.AnnexId != Guid.Empty).ToArray() ?? [];
+
+    private static (long Width, long Height) GetImageSize(Stream content, string mediaType)
+    {
+        content.Position = 0;
+        using var reader = new BinaryReader(content, System.Text.Encoding.UTF8, leaveOpen: true);
+        var (width, height) = mediaType.ToLowerInvariant() switch
+        {
+            "image/png" => ReadPngSize(reader), "image/jpeg" => ReadJpegSize(reader),
+            "image/bmp" => ReadBmpSize(reader), "image/tiff" => ReadTiffSize(reader), _ => (0, 0)
+        };
+        if (width <= 0 || height <= 0) throw new IOException("Não foi possível determinar as dimensões da imagem.");
+        const long emus = 9525;
+        var scale = Math.Min(1d, Math.Min(5_670_000d / (width * emus), 7_560_000d / (height * emus)));
+        return ((long)(width * emus * scale), (long)(height * emus * scale));
+    }
+
+    private static (int Width, int Height) ReadTiffSize(BinaryReader reader)
+    {
+        var order = reader.ReadBytes(2);
+        var little = order.SequenceEqual("II"u8.ToArray());
+        if (!little && !order.SequenceEqual("MM"u8.ToArray())) return (0, 0);
+        ushort U16() { var bytes = reader.ReadBytes(2); return little ? BitConverter.ToUInt16(bytes) : (ushort)((bytes[0] << 8) | bytes[1]); }
+        uint U32() { var bytes = reader.ReadBytes(4); return little ? BitConverter.ToUInt32(bytes) : (uint)ReadBigEndianInt32(bytes); }
+        if (U16() != 42) return (0, 0);
+        reader.BaseStream.Position = U32();
+        var count = U16();
+        int width = 0, height = 0;
+        for (var index = 0; index < count; index++)
+        {
+            var tag = U16(); var type = U16(); var length = U32();
+            var valuePosition = reader.BaseStream.Position;
+            var value = type == 3 ? U16() : U32();
+            reader.BaseStream.Position = valuePosition + 4;
+            if (length != 1) continue;
+            if (tag == 256) width = (int)value;
+            if (tag == 257) height = (int)value;
+        }
+        return (width, height);
+    }
+
+    private sealed record TrackReport(Guid DocumentId, ReportExportContextDTO Context, IReadOnlyList<ExportQuestion> Questions);
     private static (int Width, int Height) ReadPngSize(BinaryReader reader)
     {
         var signature = reader.ReadBytes(24);
@@ -742,17 +459,6 @@ public sealed class SoftexDocxExportService
             });
     }
 
-    private sealed record CombinedDocument(
-        Guid DocumentId,
-        string TrackTitle,
-        IReadOnlyList<CombinedStage> Stages);
-
-    private sealed record CombinedStage(
-        string StageCode,
-        ReportExportContextDTO Context,
-        IReadOnlyList<ExportQuestion> Questions,
-        Table? TemplateTable);
-
     private sealed record ExportQuestion(
         ReportExportQuestionDTO Question,
         IReadOnlyList<ExportAnnex> Annexes);
@@ -789,3 +495,5 @@ public sealed class SoftexDocxExportService
 }
 
 public sealed record SoftexDocxExport(Stream Content, string ContentType, string FileName);
+
+public sealed class SoftexExportException(string message, Exception? inner = null) : IOException(message, inner);

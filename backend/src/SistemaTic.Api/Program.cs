@@ -6,12 +6,22 @@ using SistemaTic.Application.Contracts;
 using SistemaTic.Api;
 using SistemaTic.Api.Services;
 using SistemaTic.Api.Filters;
+using SistemaTic.Api.Serialization;
+using SistemaTic.Api.ExceptionHandling;
 
 Env.Load(FindEnvFile());
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers(options => options.Filters.Add<ForbiddenExceptionFilter>());
+builder.Services
+    .AddControllers(options => options.Filters.Add<ForbiddenExceptionFilter>())
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(
+            new TimeOnlyJsonConverter());
+    });
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -38,10 +48,32 @@ if (app.Environment.IsDevelopment())
 
     await using var scope = app.Services.CreateAsyncScope();
     var dataSource = scope.ServiceProvider.GetRequiredService<NpgsqlDataSource>();
-    string devSeedSql = await File.ReadAllTextAsync(FindDevSeedFile("002_dev_user.sql"));
-    await using var devSeedCmd = dataSource.CreateCommand(devSeedSql);
-    await devSeedCmd.ExecuteNonQueryAsync();
+
+    await using (var schemaGuardCmd = dataSource.CreateCommand(
+        "SELECT to_regclass('public.users') IS NOT NULL AND to_regclass('public.roles') IS NOT NULL;"))
+    {
+        bool schemaReady = (bool)(await schemaGuardCmd.ExecuteScalarAsync())!;
+        if (!schemaReady)
+        {
+            app.Logger.LogWarning("Banco ainda não migrado; dev seed 002_dev_user.sql pulado.");
+        }
+        else
+        {
+        string devSeedSql = await File.ReadAllTextAsync(FindDevSeedFile("002_dev_user.sql"));
+        try
+        {
+            await using var devSeedCmd = dataSource.CreateCommand(devSeedSql);
+            await devSeedCmd.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning(ex, "Dev seed 002_dev_user.sql não aplicado: {Message}", ex.Message);
+        }
+        }
+    }
 }
+
+app.UseExceptionHandler();
 
 app.UseCors(Configuration.FrontendCorsPolicy);
 

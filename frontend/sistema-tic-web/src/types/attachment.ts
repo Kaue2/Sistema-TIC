@@ -44,6 +44,8 @@ export type AttachmentStage = {
   attachmentTypes: AttachmentType[];
 };
 
+export type ReportStage = { code: string; name: string; canExport: boolean };
+
 export type CreateAnnexRequest = {
   stageCode: string;
   attachmentTypeCode: string;

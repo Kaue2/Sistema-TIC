@@ -1,10 +1,10 @@
 import { jwtDecode } from "jwt-decode";
 import type { CustomJwtDecode } from "./api";
 
+const USER_STORAGE_KEY = "@SistemaTIC:user";
+const ROLE_CLAIM = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role";
 const TOKEN_KEY = "token";
 const REFRESH_TOKEN_KEY = "refreshToken";
-// mesma chave que o UserProvider usa para guardar o usuário logado
-const USER_KEY = "@SistemaTIC:user";
 
 export function getAccessToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -22,7 +22,7 @@ export function saveSession(token: string, refreshToken: string) {
 export function clearSession() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  localStorage.removeItem(USER_STORAGE_KEY);
 }
 
 // Marca (só até o próximo carregamento do login) que a sessão caiu por expiração, para o login avisar.
@@ -64,4 +64,21 @@ export function getCurrentUserId(): string | null {
   } catch {
     return null;
   }
+}
+
+export function getCurrentUserRole(): string | null {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+
+  try {
+    const decoded = jwtDecode<Record<string, unknown>>(token);
+    const role = decoded[ROLE_CLAIM];
+    return typeof role === "string" && role !== "" ? role : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearAuthSession(): void {
+  clearSession();
 }

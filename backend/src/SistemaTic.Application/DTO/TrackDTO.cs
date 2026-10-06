@@ -36,7 +36,20 @@ public record TrackSummaryDTO(
     string? LearningLevel,
     string Status,
     string KnowledgeAreaName,
-    IEnumerable<TrackMentorSummaryDTO> Mentors
+    IEnumerable<TrackMentorSummaryDTO> Mentors,
+    string? LegacyCode
+);
+
+public record TrackTaskDTO(
+    Guid Id,
+    string Phase,
+    string? Code,
+    string Title,
+    string? Description,
+    string Status,
+    DateTimeOffset? DueAt,
+    int DisplayOrder,
+    bool IsRequired
 );
 
 public record TrackDocumentSummaryDTO(

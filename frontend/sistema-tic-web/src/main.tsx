@@ -5,6 +5,9 @@ import { RouterProvider } from 'react-router-dom'
 import { router } from './Router'
 import { UserProvider } from './contexts/UserProvider'
 import { NotificationProvider } from './contexts/NotificationProvider'
+import { initializePersonalization } from './services/personalization'
+
+initializePersonalization()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { SearchInput } from "../components/molecules/SearchInput";
@@ -8,10 +8,11 @@ import { MemberListItem } from "../components/molecules/MemberListItem";
 import { MemberCard } from "../components/organisms/MemberRow";
 import { Empty } from "../components/molecules/Empty";
 import { EmptySearch } from "../components/molecules/EmptySearch";
+import { Button } from "../components/atoms/Button";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
 import { getMembers, getUserPhotoUrl } from "../services/user-services";
-import { useUser } from "../contexts/userContext";
 import { getCurrentUserId } from "../services/auth";
+import { useUser } from "../contexts/userContext";
 
 export type Member = {
   id: string;
@@ -57,49 +58,79 @@ export function MembersPage() {
     return saved === "cards" ? "cards" : "list";
   });
   const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  // cópia "viva" da foto do próprio usuário (cache do UserProvider). Aplicada dentro do
+  // loadMembers para o avatar não ser apagado quando o fetch da lista roda de novo
+  const avatarRef = useRef(userData?.avatarUrl);
+  useEffect(() => {
+    avatarRef.current = userData?.avatarUrl;
+  }, [userData?.avatarUrl]);
 
   useEffect(() => {
     localStorage.setItem("members-view", view);
   }, [view]);
 
-  useEffect(() => {
-    getMembers().then((summaries) => {
-      setMembers(
-        summaries.map((m) => ({
-          id: m.id,
-          fullName: m.fullName,
-          role: ROLE_LABELS[m.roleCode] ?? m.roleCode,
-          institutionalEmail: m.institutionalEmail,
-          administrativeEmail: m.administrativeEmail ?? undefined,
-          location: m.workLocation ?? "",
-          totalHours: m.weeklyWorkloadMinutes
-            ? `${Math.round(m.weeklyWorkloadMinutes / 60)} horas`
-            : undefined,
-          type: m.roleCode,
-          journeys: m.availability.map((a) => ({
-            day: WEEKDAY_NAMES[a.weekday],
-            start: a.startsAt.slice(0, 5),
-            end: a.endsAt.slice(0, 5),
-          })),
-        }))
-      );
+  const loadMembers = useCallback(() => {
+    getMembers()
+      .then((summaries) => {
+        setError(false);
+        const currentUserId = getCurrentUserId();
 
-      summaries.forEach((m) => {
-        // o usuário logado já tem a própria foto em cache no contexto (ver UserProvider) e ela
-        // é aplicada na renderização, então não pede de novo.
-        if (m.id === getCurrentUserId()) return;
+        setMembers(
+          summaries.map((m) => ({
+            id: m.id,
+            avatar: m.id === currentUserId ? (avatarRef.current ?? undefined) : undefined,
+            fullName: m.fullName,
+            role: ROLE_LABELS[m.roleCode] ?? m.roleCode,
+            institutionalEmail: m.institutionalEmail,
+            administrativeEmail: m.administrativeEmail ?? undefined,
+            location: m.workLocation ?? "",
+            totalHours: m.weeklyWorkloadMinutes
+              ? `${Math.round(m.weeklyWorkloadMinutes / 60)} horas`
+              : undefined,
+            type: m.roleCode,
+            journeys: m.availability.map((a) => ({
+              day: WEEKDAY_NAMES[a.weekday],
+              start: a.startsAt.slice(0, 5),
+              end: a.endsAt.slice(0, 5),
+            })),
+          }))
+        );
 
-        getUserPhotoUrl(m.id).then((avatarUrl) => {
-          if (!avatarUrl) return;
-          setMembers((current) =>
-            current.map((member) =>
-              member.id === m.id ? { ...member, avatar: avatarUrl } : member
-            )
-          );
+        summaries.forEach((m) => {
+          // o usuário logado já tem a própria foto em cache no contexto (ver UserProvider),
+          // então reaproveita em vez de pedir de novo.
+          if (m.id === currentUserId) return;
+
+          getUserPhotoUrl(m.id).then((avatarUrl) => {
+            if (!avatarUrl) return;
+            setMembers((current) =>
+              current.map((member) =>
+                member.id === m.id ? { ...member, avatar: avatarUrl } : member
+              )
+            );
+          });
         });
+      })
+      .catch(() => {
+        setError(true);
+      })
+      .finally(() => {
+        setLoading(false);
       });
-    });
   }, []);
+
+  useEffect(() => {
+    loadMembers();
+  }, [loadMembers]);
+
+  function retryLoadMembers() {
+    setLoading(true);
+    setError(false);
+    loadMembers();
+  }
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -145,6 +176,7 @@ export function MembersPage() {
   const showEmpty = members.length === 0;
   const showEmptySearch = !showEmpty && filteredMembers.length === 0 && hasActiveFilters;
   const showMembers = !showEmpty && !showEmptySearch;
+  const showContent = !loading && !error;
 
   function handleClearAll() {
     setSearch("");
@@ -161,7 +193,7 @@ export function MembersPage() {
           { id: "trails", label: "Trilhas", icon: "route", route: "/trails", enabled: true, visible: true, notification: false, active: false },
           { id: "documents", label: "Documentos", icon: "article", route: "/documents", enabled: true, visible: true, notification: false, active: false },
           { id: "members", label: "Membros", icon: "group", route: "/members", enabled: true, visible: true, notification: false, active: true },
-          { id: "profile", label: "", icon: "account_circle", route: "/profile", enabled: true, visible: true, notification: false, active: false, avatar: true },
+          { id: "profile", label: "", icon: "account_circle", enabled: true, visible: true, notification: false, active: false, avatar: true },
         ]}
       />
 
@@ -195,7 +227,23 @@ export function MembersPage() {
         </div>
 
         <div className="mt-8 flex w-full justify-center">
-          {showEmpty && (
+          {loading && (view === "list" ? <MembersListSkeleton /> : <MembersCardSkeleton />)}
+
+          {!loading && error && (
+            <div className="flex flex-col items-center gap-4 py-8 text-center">
+              <span className="material-symbols-outlined text-[56px] text-blue-100/50">
+                error_outline
+              </span>
+              <p className="max-w-90 text-sm text-blue-100">
+                Não foi possível carregar a equipe. Verifique sua conexão e tente novamente.
+              </p>
+              <Button variant="outline" icon="refresh" onClick={retryLoadMembers}>
+                Tentar novamente
+              </Button>
+            </div>
+          )}
+
+          {showContent && showEmpty && (
             <Empty
               iconTinted
               actionLabel="Adicionar membro"
@@ -203,11 +251,11 @@ export function MembersPage() {
             />
           )}
 
-          {showEmptySearch && (
+          {showContent && showEmptySearch && (
             <EmptySearch onClear={handleClearAll} />
           )}
 
-          {showMembers && view === "list" && (
+          {showContent && showMembers && view === "list" && (
             <div className="flex w-full max-w-225 flex-col items-center gap-3">
               {filteredMembers.map((member) => (
                 <MemberListItem key={member.id} member={member} />
@@ -215,7 +263,7 @@ export function MembersPage() {
             </div>
           )}
 
-          {showMembers && view === "cards" && (
+          {showContent && showMembers && view === "cards" && (
             <div className="flex w-full max-w-240 flex-col items-center gap-3">
               {filteredMembers.map((member) => (
                 <MemberCard key={member.id} member={member} />
@@ -224,6 +272,54 @@ export function MembersPage() {
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function MembersListSkeleton() {
+  return (
+    <div className="flex w-full max-w-225 flex-col items-center gap-3" aria-hidden>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex w-full h-20 items-center gap-6 rounded-lg border border-blue-40 bg-card-background px-6"
+        >
+          <div className="size-12 animate-pulse rounded-full bg-blue-100/10" />
+          <div className="flex flex-1 flex-col gap-2">
+            <div className="h-4 w-48 animate-pulse rounded bg-blue-100/10" />
+            <div className="h-3 w-32 animate-pulse rounded bg-blue-100/10" />
+          </div>
+          <div className="h-3 w-40 animate-pulse rounded bg-blue-100/10" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MembersCardSkeleton() {
+  return (
+    <div className="flex w-full max-w-240 flex-col items-center gap-3" aria-hidden>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div
+          key={i}
+          className="flex w-full h-87.5 items-stretch gap-6 rounded-2xl border border-blue-40 bg-card-background p-6"
+        >
+          <div className="flex items-center">
+            <div className="size-20 animate-pulse rounded-full bg-blue-100/10" />
+          </div>
+          <div className="flex flex-1 flex-col justify-center gap-3">
+            <div className="h-7 w-56 animate-pulse rounded bg-blue-100/10" />
+            <div className="h-4 w-32 animate-pulse rounded bg-blue-100/10" />
+            <div className="mt-4 h-3 w-72 animate-pulse rounded bg-blue-100/10" />
+            <div className="h-3 w-64 animate-pulse rounded bg-blue-100/10" />
+          </div>
+          <div className="flex w-80 flex-col justify-center gap-3">
+            <div className="h-5 w-24 animate-pulse rounded bg-blue-100/10" />
+            <div className="h-3 w-56 animate-pulse rounded bg-blue-100/10" />
+            <div className="h-3 w-48 animate-pulse rounded bg-blue-100/10" />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

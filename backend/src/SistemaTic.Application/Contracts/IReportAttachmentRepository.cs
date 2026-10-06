@@ -4,6 +4,8 @@ namespace SistemaTic.Application.Contracts;
 
 public interface IReportAttachmentRepository
 {
+    Task<IReadOnlyList<ReportStageDTO>> GetStagesAsync(CancellationToken cancellationToken = default);
+
     Task<AttachmentStageDTO?> GetStageAsync(
         Guid documentId,
         string stageCode,

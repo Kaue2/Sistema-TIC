@@ -41,7 +41,7 @@ export const DOCUMENT_STATUS_CONFIG: Record<
   "Retornado": { dotClass: "bg-orange-100", labelClass: "text-black-80" },
 };
 
-export type DocumentMode = "create" | "edit" | "view" | "review";
+export type DocumentMode = "edit" | "view" | "review";
 
 export type CheckboxListMode = "none" | "list";
 

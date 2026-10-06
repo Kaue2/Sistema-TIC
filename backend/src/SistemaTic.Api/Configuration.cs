@@ -70,7 +70,8 @@ public static class Configuration
 			{
 				policy.WithOrigins(allowedOrigins)
 					.WithMethods("GET", "POST", "PUT", "DELETE")
-					.WithHeaders("Authorization", "Content-Type");
+					.WithHeaders("Authorization", "Content-Type")
+					.WithExposedHeaders("Content-Disposition");
 			});
 		});
 

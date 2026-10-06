@@ -1,4 +1,5 @@
 using Npgsql;
+using NpgsqlTypes;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Domain.Entities;
 
@@ -69,6 +70,40 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
         return members;
     }
 
+    public async Task<IReadOnlyDictionary<Guid, List<TrackMemberSummary>>> GetActiveMentorsByTrackIdsAsync(IEnumerable<Guid> trackIds, string responsibility)
+    {
+        Dictionary<Guid, List<TrackMemberSummary>> byTrack = new Dictionary<Guid, List<TrackMemberSummary>>();
+        Guid[] ids = trackIds.Distinct().ToArray();
+        if (ids.Length == 0)
+            return byTrack;
+
+        await using var cmd = _dataSource.CreateCommand();
+        cmd.CommandText = """
+            SELECT ttm.track_id, u.full_name, u.email
+              FROM track_team_members ttm
+              JOIN users u ON u.id = ttm.user_id
+             WHERE ttm.track_id = ANY(@trackIds)
+               AND ttm.responsibility = @responsibility
+               AND ttm.ends_on IS NULL
+             ORDER BY ttm.track_id, u.full_name;
+        """;
+        cmd.Parameters.Add(new NpgsqlParameter("trackIds", NpgsqlDbType.Array | NpgsqlDbType.Uuid) { Value = ids });
+        cmd.Parameters.AddWithValue("responsibility", responsibility);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            Guid trackId = reader.GetGuid(0);
+            if (!byTrack.TryGetValue(trackId, out var list))
+            {
+                list = new List<TrackMemberSummary>();
+                byTrack[trackId] = list;
+            }
+            list.Add(new TrackMemberSummary(reader.GetString(1), reader.GetString(2)));
+        }
+        return byTrack;
+    }
+
     public async Task<IEnumerable<Guid>> GetActiveTrackIdsByUserIdAsync(Guid userId)
     {
         List<Guid> trackIds = new List<Guid>();
@@ -84,6 +119,35 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
         return trackIds;
     }
 
+    public async Task<IEnumerable<TrackTeamMember>> GetActiveByUserIdAsync(Guid userId)
+    {
+        List<TrackTeamMember> members = new List<TrackTeamMember>();
+        await using var cmd = _dataSource.CreateCommand(
+            "SELECT * FROM track_team_members WHERE user_id = @userId AND ends_on IS NULL ORDER BY track_id, responsibility");
+        cmd.Parameters.AddWithValue("userId", userId);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            members.Add(Map(reader));
+        }
+
+        return members;
+    }
+
+    public async Task<bool> EndAsync(Guid id)
+    {
+        await using var cmd = _dataSource.CreateCommand();
+        cmd.CommandText = """
+            UPDATE track_team_members
+               SET ends_on = GREATEST(starts_on, CURRENT_DATE),
+                   updated_at = clock_timestamp()
+             WHERE id = @id
+               AND ends_on IS NULL;
+        """;
+        cmd.Parameters.AddWithValue("id", id);
+        return await cmd.ExecuteNonQueryAsync() > 0;
+    }
     public async Task<bool> IsActiveMemberAsync(Guid trackId, Guid userId)
     {
         await using var cmd = _dataSource.CreateCommand(

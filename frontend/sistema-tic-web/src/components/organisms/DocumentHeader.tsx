@@ -1,10 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import type { DocumentMode, DocumentStatusValue } from "../../types/document";
+import type { DocumentStatusValue } from "../../types/document";
 import { DocumentStatus } from "../atoms/DocumentStatus";
 import { Button } from "../atoms/Button";
 
 type DocumentHeaderProps = {
-  mode: DocumentMode;
   backTo?: string;
   borderless?: boolean;
   title: string;
@@ -34,7 +33,6 @@ function formatUpdatedAt(iso?: string): string {
 }
 
 export function DocumentHeader({
-  mode,
   backTo = "/documents",
   borderless = false,
   title,
@@ -101,7 +99,7 @@ export function DocumentHeader({
               onClick={onSave}
               {...buttonProps}
             >
-              {mode === "create" ? "Salvar rascunho" : "Salvar alterações"}
+              Salvar alterações
             </Button>
           )}
           {onEdit && (

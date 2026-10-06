@@ -159,24 +159,22 @@ export function SoftexForm({ mode, document, type, onToast }: SoftexFormProps) {
   const selectedMetaIndex = metas.findIndex((meta) => meta.id === activeMeta);
   const selectedMeta = selectedMetaIndex >= 0 ? metas[selectedMetaIndex] : null;
 
-  const title = mode === "create" ? "Novo documento" : "Softex FM03";
-  const subtitle =
-    mode === "create" ? "Softex" : `${doc!.number} | ${doc!.trail}`;
+  const title = "Softex FM03";
+  const subtitle = `${doc!.number} | ${doc!.trail}`;
   const initials = initialsFrom("Softex FM03");
 
   return (
     <>
       <DocumentHeader
-        mode={mode}
         borderless
         title={title}
         subtitle={subtitle}
         initials={initials}
-        status={mode === "create" ? undefined : status}
+        status={status}
         disabled={isBusy}
-        onSave={mode === "create" || mode === "edit" ? actions.handleSave : undefined}
+        onSave={mode === "edit" ? actions.handleSave : undefined}
         onSendToReview={
-          mode === "create" || mode === "edit" ? handleSendToReview : undefined
+          mode === "edit" ? handleSendToReview : undefined
         }
         onDevolve={mode === "review" ? actions.openDevolveDialog : undefined}
         onClose={mode === "review" ? actions.handleClose : undefined}
@@ -185,14 +183,17 @@ export function SoftexForm({ mode, document, type, onToast }: SoftexFormProps) {
           status !== "Arquivado" &&
           status !== "Concluído" &&
           status !== "Retornado"
-            ? () => navigate(`/documents/${doc!.id}/edit`)
+            ? () =>
+                navigate(
+                  `/documents/${doc!.id}/edit?type=${encodeURIComponent(doc!.type)}`,
+                )
             : undefined
         }
         onReopen={
           mode === "view" && status === "Concluído" ? actions.handleReopen : undefined
         }
         onArchive={
-          mode !== "create" && status !== "Arquivado" && status !== "Concluído" && status !== "Retornado"
+          status !== "Arquivado" && status !== "Concluído" && status !== "Retornado"
             ? actions.handleArchive
             : undefined
         }

@@ -9,7 +9,6 @@ import { MultiSelectDropdown } from "../components/molecules/MultiSelectDropdown
 import { TrailSelectField } from "../components/molecules/TrailSelectField";
 import { CheckboxGroup } from "../components/molecules/CheckboxGroup";
 import { mockTrails } from "../data/mockTrails";
-import type { Trail, TrailModality, TrailStage } from "../types/trail";
 
 import { ExcelImportButton } from "../components/molecules/ExcelImportButton";
 import { Toast } from "../components/organisms/Toast";
@@ -19,9 +18,10 @@ import type { ScheduleItem } from "../components/organisms/JourneySchedule";
 import { calculateTotalHours } from "../utils/schedule";
 import type { MemberSpreadsheetDTO } from "../services/excel/types";
 import { downloadTemplate } from "../services/excel/ExcelTemplateService";
-import { createUser } from "../services/user-services";
+import { createUser, getMemberForEdit, updateMember } from "../services/user-services";
 import { createTrackTeamMember, getTracks } from "../services/track-services";
 import type { TrackSummaryDTO } from "../services/track-services";
+import { trackSummaryToTrail } from "../utils/trail";
 
 const POSITION_OPTIONS = [
   { label: "Coordenação", value: "coordinator" },
@@ -67,53 +67,39 @@ const DEFAULT_SCHEDULE: ScheduleItem[] = [
   { day: "Sexta", start: "", end: "" },
 ];
 
-const TRAIL_MODALITY_LABELS: Record<string, TrailModality> = {
-  online: "Assíncrono",
-  hybrid: "Híbrido",
-};
+const WEEKDAY_NAMES = [
+  "Domingo",
+  "Segunda",
+  "Terça",
+  "Quarta",
+  "Quinta",
+  "Sexta",
+  "Sábado",
+];
 
-const TRAIL_STATUS_TO_STAGE: Record<string, TrailStage> = {
-  draft: "Pré Trilha",
-  planning: "Pré Trilha",
-  production: "Pré Execução",
-  pre_track: "Pré Execução",
-  running: "Execução Trilha",
-  post_track: "Pós Trilha",
-  completed: "Pós Trilha",
-  cancelled: "Pós Trilha",
-};
+function buildScheduleFromAvailability(
+  availability: Array<{ weekday: number; startsAt: string; endsAt: string }>,
+): ScheduleItem[] {
+  const byDay = new Map<string, ScheduleItem>();
 
-// placeholder exibido quando a trilha não tem mentor vinculado.
-const TRAIL_SEMESTER_NOT_AVAILABLE = "Não informado";
+  for (const item of availability) {
+    const day = WEEKDAY_NAMES[item.weekday];
+    if (!day) continue;
 
-// Igual em espírito ao trackToTrail de CentralTrilhasPage.tsx, mas usa o id real (Guid) da
-// trilha em vez do "code" sequencial: esse id vira o trackId enviado pro backend ao vincular
-// o membro à trilha, e o code não bate com nenhuma FK.
-function trackToTrail(track: TrackSummaryDTO): Trail {
-  const mentors =
-    track.mentors.length > 0
-      ? track.mentors.map((mentor) => ({
-          id: mentor.email,
-          fullName: mentor.fullName,
-          role: "mentor",
-          email: mentor.email,
-        }))
-      : [{ id: "placeholder", fullName: TRAIL_SEMESTER_NOT_AVAILABLE, role: "", email: "" }];
+    byDay.set(day, {
+      day,
+      start: item.startsAt.slice(0, 5),
+      end: item.endsAt.slice(0, 5),
+    });
+  }
 
-  return {
-    id: track.id,
-    title: track.title,
-    icon: "route",
-    career: track.knowledgeAreaName,
-    mentors,
-    semester: track.semester,
-    modality: TRAIL_MODALITY_LABELS[track.modality] ?? "Assíncrono",
-    level: track.learningLevel ?? "",
-    stage: TRAIL_STATUS_TO_STAGE[track.status] ?? "Pré Trilha",
-    description: "",
-    progress: [],
-  };
+  const weekdays = DEFAULT_SCHEDULE.map((item) => byDay.get(item.day) ?? { ...item });
+  const weekdaySet = new Set(DEFAULT_SCHEDULE.map((item) => item.day));
+  const extras = Array.from(byDay.values()).filter((item) => !weekdaySet.has(item.day));
+
+  return [...weekdays, ...extras];
 }
+
 
 function Skeleton() {
   return (
@@ -183,54 +169,56 @@ export function MemberForm() {
   }
 
   useEffect(() => {
-    if (!isEdit) return;
-
-    const timer = setTimeout(() => {
-      setFullName("Ana Beatriz Costa");
-      setPosition("coordinator");
-      setFront("UX e UI");
-      setEducationalEmail("ana.costa@senacsp.edu.br");
-      setAdministrativeEmail("ana.admin@sp.senac.br");
-      setSchedule([
-        { day: "Segunda", start: "08:00", end: "12:00" },
-        { day: "Terça", start: "08:00", end: "12:00" },
-        { day: "Quarta", start: "08:00", end: "12:00" },
-        { day: "Quinta", start: "08:00", end: "12:00" },
-        { day: "Sexta", start: "08:00", end: "12:00" },
-      ]);
-
-      setLocation("E166");
-      setTrails(["2986", "2987"]);
-      setDocuments(["Escopo e Proposta", "Softex"]);
-      setLoading(false);
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [isEdit]);
-
-  useEffect(() => {
     let cancelled = false;
 
-    getTracks()
-      .then((data) => {
-        if (!cancelled) setTracks(data);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setToast({ message: "Não foi possível carregar as trilhas.", type: "error" });
+    async function loadFormData() {
+      setLoading(true);
+
+      try {
+        const [trackData, member] = await Promise.all([
+          getTracks(),
+          isEdit && id ? getMemberForEdit(id) : Promise.resolve(null),
+        ]);
+
+        if (cancelled) return;
+
+        setTracks(trackData);
+
+        if (member) {
+          setFullName(member.fullName);
+          setPosition(member.roleCode);
+          setEducationalEmail(member.institutionalEmail);
+          setAdministrativeEmail(member.administrativeEmail ?? "");
+          setSchedule(buildScheduleFromAvailability(member.availability));
+          setLocation(member.workLocation ?? "");
+          setTrails(member.trackIds);
+          setFront("");
+          setFrontCustom("");
+          setDocuments([]);
+          setDirty(false);
         }
-      })
-      .finally(() => {
-        // no modo de edição, quem controla o fim do loading é o preenchimento mockado acima.
-        if (!cancelled && !isEdit) setLoading(false);
-      });
+      } catch {
+        if (!cancelled) {
+          setToast({
+            message: isEdit
+              ? "Não foi possível carregar os dados do membro."
+              : "Não foi possível carregar as trilhas.",
+            type: "error",
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadFormData();
 
     return () => {
       cancelled = true;
     };
-  }, [isEdit]);
+  }, [id, isEdit]);
 
-  const availableTrails = useMemo(() => tracks.map(trackToTrail), [tracks]);
+  const availableTrails = useMemo(() => tracks.map(trackSummaryToTrail), [tracks]);
 
   const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -280,11 +268,16 @@ export function MemberForm() {
     setLocation(data.location);
     setTrails(
       data.trails
-        .map(
-          (trail) =>
-            mockTrails.find((t) => t.id === trail || t.title === trail)?.id ??
-            trail,
-        )
+        .map((trail) => {
+          const realTrail = availableTrails.find(
+            (item) => item.id === trail || item.code === trail || item.title === trail,
+          );
+          if (realTrail) return realTrail.id;
+
+          return mockTrails.find(
+            (item) => item.id === trail || item.code === trail || item.title === trail,
+          )?.id ?? trail;
+        })
         .filter(Boolean),
     );
     setDocuments(
@@ -293,7 +286,7 @@ export function MemberForm() {
       ),
     );
     setDirty(true);
-  }, []);
+  }, [availableTrails]);
 
   const handleImportError = useCallback((errors: string[]) => {
     setToast({ message: errors.join(" "), type: "error" });
@@ -331,7 +324,7 @@ export function MemberForm() {
     try {
       // "front" e "documents" ainda não têm tabela/endpoint no backend,
       // então não entram no payload por enquanto.
-      const userId = await createUser({
+      const memberPayload = {
         name: fullName,
         emailEducacional: educationalEmail,
         emailAdministrativo: administrativeEmail,
@@ -339,7 +332,21 @@ export function MemberForm() {
         totalHours,
         location,
         schedule: schedule.map(({ day, start, end }) => ({ day, start, end })),
-      });
+      };
+
+      if (isEdit && id) {
+        await updateMember(id, {
+          ...memberPayload,
+          trackIds: trails,
+        });
+
+        setDirty(false);
+        setToast({ message: "Membro atualizado com sucesso.", type: "success" });
+        setTimeout(() => navigate("/members"), 1200);
+        return;
+      }
+
+      const userId = await createUser(memberPayload);
 
       const linkResults = await Promise.allSettled(
         trails.map((trackId) =>
@@ -374,7 +381,10 @@ export function MemberForm() {
       // lista; o pequeno atraso deixa o toast visível antes da navegação desmontar a página.
       setTimeout(() => navigate("/members"), 1200);
     } catch {
-      setToast({ message: "Erro ao salvar membro.", type: "error" });
+      setToast({
+        message: isEdit ? "Erro ao atualizar membro." : "Erro ao salvar membro.",
+        type: "error",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -401,7 +411,7 @@ export function MemberForm() {
           { id: "trails", label: "Trilhas", icon: "route", route: "/trails", enabled: true, visible: true, notification: false, active: false },
           { id: "documents", label: "Documentos", icon: "article", route: "/documents", enabled: true, visible: true, notification: false, active: false },
           { id: "members", label: "Membros", icon: "group", route: "/members", enabled: true, visible: true, notification: false, active: true },
-          { id: "profile", label: "", icon: "account_circle", route: "/profile", enabled: true, visible: true, notification: false, active: false, avatar: true },
+          { id: "profile", label: "", icon: "account_circle", enabled: true, visible: true, notification: false, active: false, avatar: true },
         ]}
       />
 

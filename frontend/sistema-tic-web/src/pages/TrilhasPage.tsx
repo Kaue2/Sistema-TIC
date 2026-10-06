@@ -1,33 +1,65 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "../components/atoms/Button";
 import { ContextMenu } from "../components/molecules/ContextMenu";
 import type { ContextMenuAnchor } from "../components/molecules/ContextMenu";
-import { TrailCalendar } from "../components/molecules/TrailCalendar";
-import { TrailMilestoneDetails } from "../components/molecules/TrailMilestoneDetails";
 import { TrailPersonCard } from "../components/molecules/TrailPersonCard";
 import { TrailProgressRing } from "../components/molecules/TrailProgressRing";
 import { TrailSection } from "../components/molecules/TrailSection";
 import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { SoftexReportDialog } from "../components/organisms/SoftexReportDialog";
+import { TrailSchedule } from "../components/organisms/TrailSchedule";
 import { Toast, type ToastType } from "../components/organisms/Toast";
-import { getTrailById, mockTrails } from "../data/mockTrails";
+import { getTrailById } from "../data/mockTrails";
 import { AttachmentService } from "../services/document/AttachmentService";
+import { getTracks } from "../services/track-services";
+import type { Trail } from "../types/trail";
+import { formatTrailCode, isUuid, trackSummaryToTrail } from "../utils/trail";
 
 const STAGES = ["Pré Trilha", "Pré Execução", "Execução Trilha", "Pós Trilha"];
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
 
 export function TrilhasPage() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const trail = getTrailById(id) ?? mockTrails[0];
+  const mockTrail = getTrailById(id);
+  const [resolvedTrail, setResolvedTrail] = useState<{
+    routeId: string;
+    trail: Trail | null;
+  } | null>(null);
   const actionsButtonRef = useRef<HTMLButtonElement>(null);
   const [actionsAnchor, setActionsAnchor] = useState<ContextMenuAnchor | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+
+  useEffect(() => {
+    if (!id || getTrailById(id)) return;
+
+    let active = true;
+
+    getTracks()
+      .then((tracks) => {
+        if (!active) return;
+        const track = tracks.find((item) => item.id === id);
+        setResolvedTrail({
+          routeId: id,
+          trail: track ? trackSummaryToTrail(track) : null,
+        });
+      })
+      .catch(() => {
+        if (active) setResolvedTrail({ routeId: id, trail: null });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  const resolvedTrailForRoute =
+    resolvedTrail && resolvedTrail.routeId === id ? resolvedTrail.trail : null;
+  const trail = mockTrail ?? resolvedTrailForRoute;
+  const loadingTrail = Boolean(
+    id && !mockTrail && resolvedTrail?.routeId !== id,
+  );
 
   function openActionsMenu() {
     const rect = actionsButtonRef.current?.getBoundingClientRect();
@@ -36,16 +68,17 @@ export function TrilhasPage() {
 
   function handleTrailAction(action: string) {
     setActionsAnchor(null);
-    if (action === "send-attachments") navigate(`/trails/${trail.id}/attachments`);
+    if (!trail || !id) return;
+    if (action === "send-attachments") navigate(`/trails/${id}/attachments`);
     if (action === "generate-report") setReportOpen(true);
   }
 
   async function exportSoftexReport(stageCodes: string[]) {
-    if (!isUuid(trail.id)) {
+    if (!trail || !isUuid(id)) {
       throw new Error("A trilha selecionada ainda n\u00e3o possui um documento Softex no servidor.");
     }
 
-    const document = await AttachmentService.getSoftexDocumentForTrail(trail.id);
+    const document = await AttachmentService.getSoftexDocumentForTrail(id);
     const exportFile = await AttachmentService.exportSoftexReport(document.id, stageCodes);
     const objectUrl = URL.createObjectURL(exportFile.content);
     const link = window.document.createElement("a");
@@ -56,7 +89,23 @@ export function TrilhasPage() {
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
 
-    setToast({ message: "Relatório DOCX gerado com sucesso.", type: "success" });
+    setToast({ message: `Arquivo ${exportFile.fileName.endsWith(".zip") ? "ZIP" : "DOCX"} gerado com sucesso.`, type: "success" });
+  }
+
+  if (loadingTrail) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-black-60">
+        Carregando trilha...
+      </div>
+    );
+  }
+
+  if (!trail) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-black-60">
+        Trilha não encontrada.
+      </div>
+    );
   }
 
   return (
@@ -108,7 +157,6 @@ export function TrilhasPage() {
             id: "profile",
             label: "",
             icon: "account_circle",
-            route: "/profile/1",
             enabled: true,
             visible: true,
             notification: false,
@@ -143,7 +191,7 @@ export function TrilhasPage() {
               {trail.title}
             </h1>
 
-            <span className="text-[20px] text-black-60">#{trail.id}</span>
+            <span className="text-[20px] text-black-60">{formatTrailCode(trail)}</span>
 
             <button
               ref={actionsButtonRef}
@@ -204,7 +252,7 @@ export function TrilhasPage() {
                 onClick={() => {
                   const params = new URLSearchParams({
                     trail: trail.title,
-                    trailCode: trail.id,
+                    trailCode: trail.code,
                   });
                   navigate(`/documents?${params.toString()}`);
                 }}
@@ -230,31 +278,8 @@ export function TrilhasPage() {
             title="Cronograma"
             className="xl:h-[541px]"
             contentClassName="!p-0"
-            action={
-              <Button
-                variant="outline"
-                icon="edit"
-                className="!h-[35px] !w-[101px] !justify-center !rounded-[7.5px] !px-3 !text-xs"
-              >
-                Editar
-              </Button>
-            }
           >
-            <div className="grid h-full xl:grid-cols-[472px_minmax(0,1fr)]">
-              <TrailCalendar />
-
-              <div className="px-6 py-12 xl:px-8 xl:pt-[88px]">
-                <TrailMilestoneDetails
-                  day="10"
-                  dateLabel="de Agosto de 2026"
-                  generalStage="Pré Trilha"
-                  specificStage="Produzir a trilha conforme o documento Acomp. de Entregáveis"
-                  deadline="00/00/0000"
-                  status="Pendente"
-                  responsible={trail.mentors[0]?.fullName ?? "Não definido"}
-                />
-              </div>
-            </div>
+            <TrailSchedule trailId={id} />
           </TrailSection>
         </div>
       </main>

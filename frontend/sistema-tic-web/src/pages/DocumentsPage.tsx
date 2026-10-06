@@ -43,8 +43,6 @@ const TYPE_OPTIONS = [
   { label: "Softex", value: "Softex", icon: "business_center" },
 ];
 
-const CREATE_TYPE_OPTIONS = TYPE_OPTIONS.filter((opt) => opt.value !== "all");
-
 export function DocumentsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -230,7 +228,7 @@ export function DocumentsPage() {
           { id: "trails", label: "Trilhas", icon: "route", route: "/trails", enabled: true, visible: true, notification: false, active: false },
           { id: "documents", label: "Documentos", icon: "article", route: "/documents", enabled: true, visible: true, notification: false, active: true },
           { id: "members", label: "Membros", icon: "group", route: "/members", enabled: true, visible: true, notification: false, active: false },
-          { id: "profile", label: "", icon: "account_circle", route: "/profile", enabled: true, visible: true, notification: false, active: false, avatar: true },
+          { id: "profile", label: "", icon: "account_circle", enabled: true, visible: true, notification: false, active: false, avatar: true },
         ]}
       />
 
@@ -290,29 +288,10 @@ export function DocumentsPage() {
                 icon="description"
                 iconTinted
                 title="Nenhum documento cadastrado"
-                description="Comece criando o primeiro documento da sua trilha."
-              >
-                <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                  {CREATE_TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() =>
-                        navigate(`/documents/new?type=${encodeURIComponent(opt.value)}`)
-                      }
-                      className="flex h-9 items-center gap-2 rounded-lg border border-blue-100 px-4 text-sm text-blue-100 transition-colors hover:bg-blue-100 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100"
-                    >
-                      <span
-                        className="material-symbols-outlined"
-                        style={{ fontSize: 18 }}
-                      >
-                        {opt.icon}
-                      </span>
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </Empty>
+                description="Os documentos são gerados automaticamente junto com a trilha."
+                actionLabel="Nova Trilha"
+                onAction={() => navigate("/trails")}
+              />
             )}
 
             {showEmptySearch && (

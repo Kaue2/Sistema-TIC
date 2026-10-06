@@ -20,6 +20,7 @@ public class UserController : ControllerBase
     }
 
     [HttpGet("get-users")]
+    [Authorize]
     public async Task<IEnumerable<User>> GetUsers()
     {
         return await this._userService.GetAllUsersAsync();
@@ -30,6 +31,13 @@ public class UserController : ControllerBase
     public async Task<IEnumerable<MemberSummaryDTO>> GetMembers()
     {
         return await this._userService.GetMembersAsync();
+    }
+
+    [HttpGet("{id:guid}/edit")]
+    [Authorize(Roles = "coordinator,administrator")]
+    public async Task<IActionResult> GetMemberForEdit(Guid id)
+    {
+        return Ok(await this._userService.GetMemberForEditAsync(id));
     }
 
     [HttpGet("{id:guid}/profile")]
@@ -50,10 +58,24 @@ public class UserController : ControllerBase
         return File(photo.Value.Content, photo.Value.MediaType, photo.Value.FileName);
     }
 
+    [HttpPut("{id:guid}/profile")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProfileLinks(Guid id, UpdateProfileLinksDTO dto)
+    {
+        if (!IsOwnerOrPrivileged(id))
+            return Forbid();
+
+        await this._userService.UpdateProfileLinksAsync(id, dto.CurriculumUrl, dto.LattesUrl);
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/photo")]
     [Authorize]
     public async Task<IActionResult> UploadUserPhoto(Guid id, IFormFile file)
     {
+        if (!IsOwnerOrPrivileged(id))
+            return Forbid();
+
         Guid uploadedByUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         await using var stream = file.OpenReadStream();
@@ -70,6 +92,15 @@ public class UserController : ControllerBase
         return Ok(id);
     }
 
+    [HttpPut("{id:guid}")]
+    [Authorize(Roles = "coordinator,administrator")]
+    public async Task<IActionResult> UpdateMember(Guid id, UpdateMemberDTO dto)
+    {
+        Guid updatedByUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        await this._userService.UpdateMemberAsync(id, dto, updatedByUserId);
+        return NoContent();
+    }
+
     [HttpPost("change-password")]
     [Authorize]
     public async Task<IActionResult> ChangeUserPassword(ChangeUserPasswordDTO dto)
@@ -83,6 +114,12 @@ public class UserController : ControllerBase
 
         UserCredentials credentials = await this._userService.ChangeUserPasswordAsync(email, dto.OldPassword, dto.NewPassword, dto.ConfirmNewPassword);
         return Ok(credentials.UserId);
+    }
+
+    private bool IsOwnerOrPrivileged(Guid id)
+    {
+        Guid currentUserId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        return currentUserId == id || User.IsInRole("coordinator") || User.IsInRole("administrator");
     }
 
     [HttpPost("change-role")]

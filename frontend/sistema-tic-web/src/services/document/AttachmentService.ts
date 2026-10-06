@@ -1,7 +1,46 @@
+import axios from "axios";
 import { api } from "../api";
-import type { AttachmentStage, CreateAnnexRequest } from "../../types/attachment";
+import type { AttachmentStage, CreateAnnexRequest, ReportStage } from "../../types/attachment";
+
+export async function attachmentErrorMessage(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    let data = error.response?.data;
+    if (data instanceof Blob) {
+      try { data = JSON.parse(await data.text()); } catch { data = undefined; }
+    }
+    if (data && typeof data === "object") {
+      return data.message ?? data.detail ?? data.title ?? "Não foi possível processar os anexos.";
+    }
+  }
+  return error instanceof Error ? error.message : "Não foi possível processar os anexos.";
+}
+
+function exportFileName(header: unknown, stageCodes: string[]) {
+  if (typeof header === "string") {
+    const encoded = /filename\*=UTF-8''([^;]+)/i.exec(header)?.[1];
+    const plain = /filename="([^"]+)"|filename=([^;]+)/i.exec(header);
+    try {
+      const name = encoded ? decodeURIComponent(encoded.trim()) : plain?.[1] ?? plain?.[2]?.trim();
+      if (name) return name.split(/[\\/]/).pop()!;
+    } catch { /* Fall back to the requested format for a malformed header. */ }
+  }
+  return new Set(stageCodes).size > 1 ? "relatorios-softex.zip" : "relatorio-softex.docx";
+}
+
+async function exportReport(url: string, body: { stageCodes: string[]; documentIds?: string[] }) {
+  try {
+    const response = await api.post<Blob>(url, body, { responseType: "blob" });
+    return { content: response.data, fileName: exportFileName(response.headers["content-disposition"], body.stageCodes) };
+  } catch (error) {
+    throw new Error(await attachmentErrorMessage(error), { cause: error });
+  }
+}
 
 export const AttachmentService = {
+  async getReportStages() {
+    const response = await api.get<ReportStage[]>("reports/softex/stages");
+    return response.data;
+  },
   async getSoftexDocumentForTrail(trailId: string) {
     const response = await api.get<{ id: string; status: string }>(
       `track/${trailId}/documents/softex`
@@ -10,27 +49,11 @@ export const AttachmentService = {
   },
 
   async exportSoftexReport(documentId: string, stageCodes: string[]) {
-    const response = await api.post<Blob>(
-      `documents/${documentId}/attachments/export/docx`,
-      { stageCodes },
-      { responseType: "blob" }
-    );
-    return {
-      content: response.data,
-      fileName: "relatorio-softex.docx",
-    };
+    return exportReport(`documents/${documentId}/attachments/export/docx`, { stageCodes });
   },
 
   async exportSoftexReports(documentIds: string[], stageCodes: string[]) {
-    const response = await api.post<Blob>(
-      "reports/softex/export/docx",
-      { documentIds, stageCodes },
-      { responseType: "blob" }
-    );
-    return {
-      content: response.data,
-      fileName: "relatorio-softex-trilhas.docx",
-    };
+    return exportReport("reports/softex/export/docx", { documentIds, stageCodes });
   },
 
   async getStage(documentId: string, stageCode: string) {

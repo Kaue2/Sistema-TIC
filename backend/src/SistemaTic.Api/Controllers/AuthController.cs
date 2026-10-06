@@ -17,10 +17,10 @@ namespace MyApp.Namespace
 
 
         [HttpPost("login")]
-        public async Task<AuthenticateResponseDTO> AuthenticateUser(AuthenticateUserDTO dto)
+        public async Task<ActionResult<AuthenticateResponseDTO>> AuthenticateUser(AuthenticateUserDTO dto)
         {
             AuthenticateResponseDTO response = await this._authService.AuthenticateAsync(dto.Email, dto.Password);
-            return response;
+            return Ok(response);
         }
 
         // público de propósito: o access token já pode ter expirado quando o cliente renova

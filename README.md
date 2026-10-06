@@ -2,7 +2,7 @@
 
 Este repositorio esta sendo organizado como um monorepo para centralizar banco de dados, backend, frontend, infraestrutura local e documentacao do projeto.
 
-O projeto segue uma abordagem incremental: o banco, o backend e o frontend evoluem juntos, uma funcionalidade por vez, conforme as lacunas aparecem nos testes manuais. O banco PostgreSQL possui 15 migrations e 7 seeds, o backend expõe a API REST e o frontend consome a API para autenticação, membros, trilhas, documentos e relatório Softex. Algumas telas do frontend ainda usam dados simulados; o detalhamento está em `frontend/sistema-tic-web/README.md`.
+O projeto segue uma abordagem incremental: o banco, o backend e o frontend evoluem juntos, uma funcionalidade por vez, conforme as lacunas aparecem nos testes manuais. O banco PostgreSQL possui 17 migrations e 8 seeds, o backend expõe a API REST e o frontend consome a API para autenticação, membros, trilhas, documentos e relatório Softex. Algumas telas do frontend ainda usam dados simulados; o detalhamento está em `frontend/sistema-tic-web/README.md`.
 
 ## Objetivo Da Estrutura
 
@@ -79,16 +79,26 @@ Estrutura implementada:
 
 - `database/migrations`: scripts SQL versionados.
 - `database/seeds`: catálogos, workflow e modelos documentais iniciais.
-- `database/scripts/apply-migrations.ps1`: executor com transação, checksum SHA-256 e controle em `schema_migrations`/`data_seeds`.
-- `database/scripts/test-database.ps1`: teste completo em PostgreSQL 16 isolado e descartável.
+- `database/scripts/apply-migrations.ps1` / `apply-migrations.sh`: executor com transação, checksum SHA-256 e controle em `schema_migrations`/`data_seeds`.
+- `database/scripts/test-database.ps1` / `test-database.sh`: teste completo em PostgreSQL 16 isolado e descartável.
 - `database/docs/initial-database-model.md`: relatório da modelagem implementada e comparação com o diagrama original.
 
 Para iniciar somente o PostgreSQL e aplicar o banco:
+
+Windows (PowerShell):
 
 ```powershell
 Copy-Item .env.example .env
 docker compose up -d postgres
 .\database\scripts\apply-migrations.ps1
+```
+
+macOS/Linux (bash, sem necessidade de pwsh):
+
+```bash
+cp .env.example .env
+docker compose up -d postgres
+./database/scripts/apply-migrations.sh
 ```
 
 Para validar as migrations em um banco limpo sem alterar o volume local de desenvolvimento:
@@ -97,7 +107,13 @@ Para validar as migrations em um banco limpo sem alterar o volume local de desen
 .\database\scripts\test-database.ps1
 ```
 
+```bash
+./database/scripts/test-database.sh
+```
+
 O executor não reaplica versões registradas e interrompe a execução se o conteúdo de uma versão aplicada tiver outro checksum. Uma mudança posterior deve sempre entrar em uma nova migration.
+
+As duas branches usaram `011` para mudanças diferentes. A versão `011` permanece com o currículo do usuário, e o fluxo de revisão de documentos usa `0110`. Se o banco já registrou o fluxo como `011`, os executores reconhecem seu nome e checksum e ajustam apenas o identificador do histórico para `0110`, sem executar esse SQL novamente. O conteúdo das duas migrations foi preservado.
 
 ## Frontend
 

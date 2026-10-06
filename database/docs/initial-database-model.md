@@ -8,7 +8,7 @@ O banco usa PostgreSQL sem ORM, com migrations SQL incrementais. Tabelas e colun
 
 Esta modelagem substituiu os scripts exploratórios de `docker/postgres/init`, que usavam `SERIAL`, possuíam apenas o papel administrativo e inseriam um usuário fictício.
 
-O incremento inicial foi implementado nas migrations 001 a 004 e nos seeds 001 e 002; as seções 4 a 7 descrevem o banco nesse estado. O banco continuou evoluindo depois disso: atualmente há 15 migrations e 7 seeds, e as mudanças posteriores estão resumidas na seção 11. O executor calcula SHA-256, registra cada versão e impede que um arquivo já aplicado seja alterado silenciosamente. A validação automatizada foi executada em PostgreSQL 16 vazio e também confirmou que uma segunda execução não reaplica migrations nem seeds.
+O incremento inicial foi implementado nas migrations 001 a 004 e nos seeds 001 e 002; as seções 4 a 7 descrevem o banco nesse estado. O banco continuou evoluindo depois disso: atualmente há 17 migrations e 8 seeds, e as mudanças posteriores estão resumidas na seção 11. O executor calcula SHA-256, registra cada versão e impede que um arquivo já aplicado seja alterado silenciosamente. A validação automatizada foi executada em PostgreSQL 16 vazio e também confirmou que uma segunda execução não reaplica migrations nem seeds.
 
 ## 2. Principais mudanças em relação ao diagrama original
 
@@ -558,8 +558,8 @@ Esses módulos serão adicionados por migrations futuras, usando `tracks`, `trac
 
 ## 9. Ordem de implementação e validação
 
-1. As migrations (001 a 004 no incremento inicial; hoje 001 a 015) são aplicadas na ordem numérica pelo script `database/scripts/apply-migrations.ps1`.
-2. Os seeds do incremento inicial (001 e 002) cadastram papéis, cargos, áreas, categoria, 26 tarefas do workflow padrão e as versões iniciais dos dois modelos documentais. Os seeds 003 a 007 foram adicionados depois (seção 11).
+1. As migrations (001 a 004 no incremento inicial; hoje 001 a 015, incluindo 0060 e 0110) são aplicadas pela ordenação dos nomes dos arquivos pelo script `database/scripts/apply-migrations.ps1`.
+2. Os seeds do incremento inicial (001 e 002) cadastram papéis, cargos, áreas, categoria, 26 tarefas do workflow padrão e as versões iniciais dos dois modelos documentais. Os seeds 003 a 008 foram adicionados depois (seção 11).
 3. O `psql` do container oficial aplica cada arquivo em uma transação e registra seu SHA-256.
 4. O script `database/scripts/test-database.ps1` sobe uma instância isolada, executa os testes de regras e repete o executor para validar idempotência.
 5. Os scripts exploratórios e o usuário fictício foram removidos de `docker/postgres/init`.
@@ -580,16 +580,19 @@ As migrations e seeds abaixo foram adicionados depois das migrations 001 a 004. 
 | --- | --- |
 | Migration 005 | `user_profiles.knowledge_area_id`: área de conhecimento do perfil do usuário |
 | Migration 006 | Remove a criação automática de `track_documents` ao inserir uma Trilha; a responsabilidade passou para a camada de aplicação (`TrackService`). As demais guardas de integridade de `track_documents` foram mantidas |
+| Migration 0060 | Preserva os códigos anteriores das Trilhas em `legacy_code` antes da geração dos códigos sequenciais |
 | Migration 007 | `tracks.code` passa a ser um inteiro sequencial gerado pelo banco (`GENERATED ALWAYS AS IDENTITY`), nunca informado na criação |
 | Migration 008 | `tracks.category_id` deixa de ser obrigatório, até a decisão sobre categorias de Trilha ser fechada |
 | Migration 009 | Relatório Softex: `report_stages`, `report_questions`, `attachment_types`, `question_attachment_types`, `report_annexes`, `report_annex_images` e `question_annexes`, com limite de 20 imagens ativas por anexo e validação do vínculo entre pergunta e anexo |
 | Migration 010 | `report_answers` e a view `report_export_questions`, que combina cada resposta com seus anexos para exportação |
-| Migration 011 | Fluxo de revisão de documentos: o status `archived` passa a ser válido em `track_documents` e `review_comments` guarda a observação da última devolução |
+| Migration 011 | Adiciona `curriculum_url` ao perfil do usuário |
+| Migration 0110 | Fluxo de revisão de documentos: o status `archived` passa a ser válido em `track_documents` e `review_comments` guarda a observação da última devolução. Histórico antigo com versão `011` é reconhecido pelo nome e checksum pelos executores |
 | Migration 012 | `refresh_tokens`: refresh tokens de uso único com rotação; apenas o hash SHA-256 é armazenado |
 | Migration 013 | `tracks.semester` (formato `AAAA/S`, obrigatório); Trilhas existentes recebem o semestre da data de início planejada ou da criação |
 | Migration 014 | O trigger do limite de imagens por anexo passa a travar o anexo pai antes de contar, eliminando a condição de corrida entre inserções concorrentes |
 | Migration 015 | O guard de papéis passa a permitir que coordenador e administrador alterem papéis (criar usuário segue restrito ao coordenador), alinhando o banco à API, já que o backend agora informa o ator em `app.current_user_id` nos caminhos de usuário e trilha. A auditoria (`audit_row_change`) também passa a identificar por `user_id` as linhas de tabelas sem coluna `id` (`user_profiles`), que antes ficavam com `entity_id` vazio |
 | Seed 003 | Renomeia o modelo `proposal_scope` para "Escopo e Proposta" |
 | Seeds 004 a 007 | Catálogo de tipos de anexo, etapas e perguntas do relatório Softex, e catálogo de exportação das respostas |
+| Seed 008 | Completa os textos das perguntas do catálogo de exportação sem substituir os IDs nem os vínculos existentes |
 
 Os modelos documentais cadastrados passaram a ser três: `proposal_scope`, `teaching_plan` e `softex_accountability_report`.

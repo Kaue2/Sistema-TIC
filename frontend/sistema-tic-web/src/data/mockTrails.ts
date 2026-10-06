@@ -25,6 +25,7 @@ const defaultProgress = [
 export const mockTrails: Trail[] = [
   {
     id: "2986",
+    code: "2986",
     title: "Dominando Algoritmos com C",
     icon: "code",
     career: "Engenharia de Software",
@@ -39,6 +40,7 @@ export const mockTrails: Trail[] = [
   },
   {
     id: "2987",
+    code: "2987",
     title: "Dominando Algoritmos com C",
     icon: "construction",
     career: "UI & User Experience",
@@ -53,6 +55,7 @@ export const mockTrails: Trail[] = [
   },
   {
     id: "2988",
+    code: "2988",
     title: "Dominando Algoritmos com C",
     icon: "database",
     career: "Engenharia de Dados",
@@ -67,6 +70,7 @@ export const mockTrails: Trail[] = [
   },
   {
     id: "2989",
+    code: "2989",
     title: "Dominando Algoritmos com C",
     icon: "nutrition",
     career: "Projetos em ecossistema Apple",
@@ -81,6 +85,7 @@ export const mockTrails: Trail[] = [
   },
   {
     id: "2990",
+    code: "2990",
     title: "Dominando Algoritmos com C",
     icon: "science",
     career: "Computação Quântica",
@@ -95,6 +100,7 @@ export const mockTrails: Trail[] = [
   },
   {
     id: "2991",
+    code: "2991",
     title: "Dominando Algoritmos com C",
     icon: "explore",
     career: "Empregabilidade e Projeto de Vida",
@@ -109,6 +115,7 @@ export const mockTrails: Trail[] = [
   },
   {
     id: "2992",
+    code: "2992",
     title: "Dominando Algoritmos com C",
     icon: "query_stats",
     career: "Gestão e Inovação",

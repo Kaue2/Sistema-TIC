@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Remove="Templates\Softex\~$*.docx" />
     <None Update="Templates\Softex\*.docx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 

@@ -1,13 +1,36 @@
 import { useEffect, useRef, useState } from "react";
 import { UserContext, type UserData } from "./userContext";
 import { getUserPhotoUrl } from "../services/user-services";
+import { getCurrentUserRole } from "../services/auth";
+
+function parseStoredUser(raw: string): UserData | null {
+    try {
+        const parsed = JSON.parse(raw) as Partial<UserData> | null;
+
+        if (!parsed || typeof parsed.id !== "string" || typeof parsed.email !== "string" || typeof parsed.name !== "string") {
+            return null;
+        }
+
+        return parsed as UserData;
+    } catch {
+        return null;
+    }
+}
 
 export function UserProvider({children}: {children: React.ReactNode}) {
     const [userData, setUserData] = useState<UserData | null>(() => {
-    const storedUser = localStorage.getItem('@SistemaTIC:user');
+        const storedUser = localStorage.getItem('@SistemaTIC:user');
 
         if (storedUser) {
-            return JSON.parse(storedUser);
+            const parsed = parseStoredUser(storedUser);
+
+            if (parsed) {
+                // sessões antigas gravadas sem o papel no JSON (o JWT usa uma claim com URI
+                // completa, que o jwtDecode não normaliza); recupera do token quando faltar.
+                return { ...parsed, roleName: parsed.roleName || (getCurrentUserRole() ?? "") };
+            }
+
+            return null;
         }
 
         return null;

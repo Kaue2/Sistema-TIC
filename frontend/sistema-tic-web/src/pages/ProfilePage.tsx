@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
-import { FixedNavigation } from "../components/organisms/FixedNavigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { FixedNavigation, type NavigationItem } from "../components/organisms/FixedNavigation";
 import { DecorativeBackground } from "../components/atoms/DecorativeBackground";
+import { Button } from "../components/atoms/Button";
 import { ProfileHeader } from "../components/organisms/ProfileHeader";
 import { ProfileContent } from "../components/organisms/ProfileContent";
 import { Toast } from "../components/organisms/Toast";
+import { PersonalizationDialog } from "../components/organisms/PersonalizationDialog";
 import type { ToastType } from "../components/organisms/Toast";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
-import { getUserProfile, getUserPhotoUrl, logoutUser, uploadUserPhoto } from "../services/user-services";
+import { getUserProfile, getUserPhotoUrl, logoutUser, updateProfileLinks, uploadUserPhoto } from "../services/user-services";
 import { getCurrentUserId } from "../services/auth";
 import { useUser } from "../contexts/userContext";
 
@@ -32,49 +34,125 @@ const WEEKDAY_NAMES = [
   "Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado",
 ];
 
+const NAV_ITEMS: NavigationItem[] = [
+  { id: "notifications", label: "Avisos", icon: "notifications", route: "/notifications", enabled: true, visible: true, notification: true, active: false },
+  { id: "trails", label: "Trilhas", icon: "route", route: "/trails", enabled: true, visible: true, notification: false, active: false },
+  { id: "documents", label: "Documentos", icon: "article", route: "/documents", enabled: true, visible: true, notification: false, active: false },
+  { id: "members", label: "Membros", icon: "group", route: "/members", enabled: true, visible: true, notification: false, active: false },
+  { id: "profile", label: "", icon: "account_circle", enabled: true, visible: true, notification: false, active: false, avatar: true },
+];
+
+function ProfileSkeleton() {
+  return (
+    <div className="min-h-screen bg-background p-8 animate-pulse">
+      <div className="mx-auto max-w-300">
+        <div className="flex flex-col items-center">
+          <div className="size-28 rounded-full bg-black-20" />
+          <div className="mt-6 h-8 w-64 rounded bg-black-20" />
+          <div className="mt-3 h-6 w-40 rounded bg-black-20" />
+        </div>
+        <div className="mt-12 grid grid-cols-[45%_55%] gap-24 max-md:grid-cols-1">
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-12 w-full rounded bg-black-20" />
+            ))}
+          </div>
+          <div className="h-88 rounded-2xl bg-black-20" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
+  return <ProfilePageContent key={id} id={id} />;
+}
+
+function ProfilePageContent({ id }: { id: string | undefined }) {
   const mode = id === getCurrentUserId() ? "self" : "user";
   const { userData, setUserData } = useUser();
+  const navigate = useNavigate();
 
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [personalizationOpen, setPersonalizationOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isAdmin = userData?.roleName === "coordinator" || userData?.roleName === "administrator";
+
+  // cópia "viva" da foto em cache (UserProvider): aplicada dentro do loadProfile para não ser
+  // apagada quando o fetch do perfil roda de novo.
+  const avatarRef = useRef(userData?.avatarUrl);
+  useEffect(() => {
+    avatarRef.current = userData?.avatarUrl;
+  }, [userData?.avatarUrl]);
+
+  const loadProfile = useCallback(() => {
+    if (!id) return;
+
+    // perfil e foto resolvem juntos (a foto no modo "user" vem da rede); sem isso há uma
+    // corrida: se a foto termina antes do perfil, o avatar era descartado (perfil ainda null).
+    const photoPromise =
+      mode === "user" ? getUserPhotoUrl(id) : Promise.resolve<string | null>(null);
+
+    Promise.all([getUserProfile(id), photoPromise])
+      .then(([profile, avatarUrl]) => {
+        setError(false);
+        setUser({
+          id: profile.id,
+          avatar: mode === "user" ? (avatarUrl ?? undefined) : (avatarRef.current ?? undefined),
+          fullName: profile.name,
+          role: profile.roleName ?? "-",
+          institutionalEmail: profile.email,
+          administrativeEmail: profile.contacts.find((c) => c.isPrimary)?.contactValue,
+          lattesUrl: profile.lattesUrl ?? undefined,
+          curriculumUrl: profile.curriculumUrl ?? undefined,
+          location: profile.workLocation ?? "-",
+          totalHours: profile.weeklyWorkloadMinutes
+            ? `${Math.round(profile.weeklyWorkloadMinutes / 60)} horas`
+            : undefined,
+          journeys: profile.availability.map((a) => ({
+            day: WEEKDAY_NAMES[a.weekday],
+            start: a.startsAt.slice(0, 5),
+            end: a.endsAt.slice(0, 5),
+          })),
+        });
+      })
+      .catch(() => {
+        setError(true);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [id, mode]);
 
   useEffect(() => {
     if (!id) return;
 
-    getUserProfile(id).then((profile) => {
-      setUser({
-        id: profile.id,
-        fullName: profile.name,
-        role: profile.roleName ?? "-",
-        institutionalEmail: profile.email,
-        administrativeEmail: profile.contacts.find((c) => c.isPrimary)?.contactValue,
-        lattesUrl: profile.lattesUrl ?? undefined,
-        location: profile.workLocation ?? "-",
-        totalHours: profile.weeklyWorkloadMinutes
-          ? `${Math.round(profile.weeklyWorkloadMinutes / 60)} horas`
-          : undefined,
-        journeys: profile.availability.map((a) => ({
-          day: WEEKDAY_NAMES[a.weekday],
-          start: a.startsAt.slice(0, 5),
-          end: a.endsAt.slice(0, 5),
-        })),
-      });
-    });
+    loadProfile();
 
-    // pro próprio usuário logado a foto já vem cacheada pelo UserProvider (busca única no
-    // login/reload); só buscamos aqui quando é o perfil de outra pessoa.
-    if (mode === "user") {
-      getUserPhotoUrl(id).then((avatarUrl) => {
-        if (avatarUrl) {
-          setUser((current) => (current ? { ...current, avatar: avatarUrl } : current));
-        }
-      });
-    }
-  }, [id, mode]);
+    // A foto do próprio usuário vem do contexto na renderização; a foto de terceiros
+    // é carregada junto com o perfil.
+  }, [id, loadProfile]);
+
+  function retryLoadProfile() {
+    setLoading(true);
+    setError(false);
+    loadProfile();
+  }
+
+  function handleLogout() {
+    setUserData(null);
+    void logoutUser();
+  }
+
+  function handleChangePassword() {
+    navigate("/access-update");
+  }
 
   async function handlePhotoSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -97,6 +175,55 @@ export function ProfilePage() {
     }
   }
 
+  function handleEditClick() {
+    if (!id) return;
+    navigate(`/members/${id}/edit`);
+  }
+
+  async function handleSaveLinks(curriculumUrl: string, lattesUrl: string): Promise<boolean> {
+    if (!id) return false;
+
+    try {
+      await updateProfileLinks(id, { curriculumUrl, lattesUrl });
+      setUser((current) =>
+        current ? { ...current, curriculumUrl, lattesUrl } : current
+      );
+      setToast({ message: "Informações acadêmicas atualizadas.", type: "success" });
+      return true;
+    } catch {
+      setToast({ message: "Não foi possível salvar as informações acadêmicas.", type: "error" });
+      return false;
+    }
+  }
+
+  if (loading) return <ProfileSkeleton />;
+
+  if (error) {
+    return (
+      <div className="relative min-h-screen overflow-x-hidden bg-background">
+        <FixedNavigation
+          position="left"
+          items={NAV_ITEMS}
+        />
+
+        <main className="relative mx-auto flex min-h-screen w-full max-w-300 flex-col items-center justify-center px-6 pb-16 pt-12">
+          <div className="flex max-w-md flex-col items-center gap-4 text-center">
+            <span className="material-symbols-outlined text-5xl text-black-60">error_outline</span>
+            <h1 className="text-2xl font-medium text-black-80">
+              Não foi possível carregar o perfil
+            </h1>
+            <p className="text-sm text-black-60">
+              Verifique sua conexão e tente novamente.
+            </p>
+            <Button variant="outline" icon="refresh" onClick={retryLoadProfile}>
+              Tentar novamente
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (!user) return null;
 
   // pro próprio usuário a foto cacheada no contexto (UserProvider) tem prioridade; derivar na
@@ -108,13 +235,7 @@ export function ProfilePage() {
     <div className="relative min-h-screen overflow-x-hidden bg-background">
       <FixedNavigation
         position="left"
-        items={[
-          { id: "notifications", label: "Avisos", icon: "notifications", route: "/notifications", enabled: true, visible: true, notification: true, active: false },
-          { id: "trails", label: "Trilhas", icon: "route", route: "/trails", enabled: true, visible: true, notification: false, active: false },
-          { id: "documents", label: "Documentos", icon: "article", route: "/documents", enabled: true, visible: true, notification: false, active: false },
-          { id: "members", label: "Membros", icon: "group", route: "/members", enabled: true, visible: true, notification: false, active: false },
-          { id: "profile", label: "", icon: "account_circle", route: "/profile", enabled: true, visible: true, notification: false, active: false, avatar: true },
-        ]}
+        items={NAV_ITEMS}
       />
 
       <DecorativeBackground />
@@ -124,6 +245,8 @@ export function ProfilePage() {
           <ProfileHeader
             user={displayUser}
             mode={mode}
+            canEdit={isAdmin}
+            onEditClick={handleEditClick}
             onAvatarEditClick={() => {
               if (!uploadingPhoto) fileInputRef.current?.click();
             }}
@@ -141,11 +264,18 @@ export function ProfilePage() {
         <ProfileContent
           user={displayUser}
           mode={mode}
-          onPersonalize={() => console.log("Personalizar")}
-          onChangePassword={() => console.log("Alterar senha")}
-          onLogout={logoutUser}
+          onPersonalize={() => setPersonalizationOpen(true)}
+          onChangePassword={handleChangePassword}
+          onLogout={handleLogout}
+          academicLinksEditingAllowed={mode === "self" || isAdmin}
+          onSaveAcademicLinks={handleSaveLinks}
+          onToast={(message, type) => setToast({ message, type })}
         />
       </main>
+
+      {personalizationOpen && (
+        <PersonalizationDialog onClose={() => setPersonalizationOpen(false)} />
+      )}
 
       {toast && (
         <Toast

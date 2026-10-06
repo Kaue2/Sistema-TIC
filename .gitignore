@@ -5,6 +5,10 @@ bin/
 obj/
 TestResults/
 
+# Python helpers
+__pycache__/
+*.pyc
+
 # Node / Angular
 node_modules/
 dist/
@@ -19,3 +23,4 @@ storage/
 # OS / IDE
 .DS_Store
 Thumbs.db
+~$*

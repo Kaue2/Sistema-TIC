@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$ComposeFile = (Join-Path $PSScriptRoot '..\..\docker-compose.yml'),
+    [string]$ComposeFile,
     [string]$Service = 'postgres',
     [string]$ProjectName = 'sistema-tic',
     [switch]$SkipSeeds,
@@ -9,8 +9,21 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+$scriptDirectory = $PSScriptRoot
+if ([string]::IsNullOrWhiteSpace($scriptDirectory)) {
+    $scriptPath = $MyInvocation.MyCommand.Path
+    if ([string]::IsNullOrWhiteSpace($scriptPath)) {
+        throw 'Unable to determine the migration script directory.'
+    }
+    $scriptDirectory = Split-Path -Parent $scriptPath
+}
+
+if ([string]::IsNullOrWhiteSpace($ComposeFile)) {
+    $ComposeFile = Join-Path $scriptDirectory '..\..\docker-compose.yml'
+}
+
 $resolvedComposeFile = (Resolve-Path -LiteralPath $ComposeFile).Path
-$databaseRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+$databaseRoot = (Resolve-Path -LiteralPath (Join-Path $scriptDirectory '..')).Path
 $composeArguments = @('compose', '-f', $resolvedComposeFile, '-p', $ProjectName)
 
 function Invoke-Compose {
@@ -103,6 +116,16 @@ function Apply-VersionedSqlFiles {
         [Parameter(Mandatory)]
         [string]$Kind
     )
+
+    # Reconcile before iterating: filename sorting differs between platforms.
+    $workflowMigration = Join-Path $Directory '0110_document_workflow_statuses.sql'
+    if ($TrackingTable -eq 'schema_migrations' -and (Test-Path -LiteralPath $workflowMigration)) {
+        $workflowChecksum = (Get-FileHash -LiteralPath $workflowMigration -Algorithm SHA256).Hash.ToLowerInvariant()
+        Invoke-Psql -Arguments @(
+            '-q', '-c',
+            "UPDATE schema_migrations SET version = '0110' WHERE version = '011' AND name = 'document_workflow_statuses' AND checksum_sha256 = '$workflowChecksum';"
+        )
+    }
 
     $files = Get-ChildItem -LiteralPath $Directory -Filter '*.sql' -File | Sort-Object Name
     foreach ($file in $files) {

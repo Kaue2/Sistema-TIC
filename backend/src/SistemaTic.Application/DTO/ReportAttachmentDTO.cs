@@ -43,6 +43,8 @@ public record AttachmentStageDTO(
     bool IsEditable,
     IReadOnlyList<AttachmentTypeDTO> AttachmentTypes);
 
+public record ReportStageDTO(string Code, string Name, bool CanExport = false);
+
 public record CreateReportAnnexDTO(
     string StageCode,
     string AttachmentTypeCode,
@@ -59,7 +61,13 @@ public record CreateMultiTrailSoftexDocxExportDTO(
 
 public record ReportExportContextDTO(
     string TrackTitle,
-    string StageName);
+    string StageName,
+    DateOnly? StartsOn = null,
+    DateOnly? EndsOn = null,
+    string? LearningLevel = null,
+    int? WorkloadMinutes = null,
+    decimal? AttendanceRequirementPercent = null,
+    string? IntroJson = null);
 
 public record ReportExportQuestionDTO(
     string StageCode,

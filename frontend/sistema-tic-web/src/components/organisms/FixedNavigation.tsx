@@ -5,18 +5,28 @@ import { getCurrentUserId } from "../../services/auth";
 
 type NavigationPosition = "left" | "right" | "top" | "bottom";
 
-interface NavigationItem {
+interface NavigationItemBase {
   id: string;
   label: string;
   icon: string;
-  route: string;
   enabled: boolean;
   visible: boolean;
   notification: boolean;
   active: boolean;
-  avatar?: boolean;
   avatarUrl?: string;
 }
+
+interface AvatarNavigationItem extends NavigationItemBase {
+  avatar: true;
+  route?: never;
+}
+
+interface RouteNavigationItem extends NavigationItemBase {
+  avatar?: false;
+  route: string;
+}
+
+export type NavigationItem = AvatarNavigationItem | RouteNavigationItem;
 
 interface FixedNavigationProps {
   position: NavigationPosition;
@@ -72,7 +82,7 @@ function MaterialIcon({ name, active }: { name: string; active?: boolean }) {
           { id: "trails", label: "Trilhas", icon: "route", route: "/trails", enabled: true, visible: true, notification: false, active: false },
           { id: "documents", label: "Documentos", icon: "article", route: "/documents", enabled: true, visible: true, notification: false, active: false },
           { id: "members", label: "Membros", icon: "group", route: "/members", enabled: true, visible: true, notification: false, active: false },
-          { id: "profile", label: "", icon: "account_circle", route: "/profile", enabled: true, visible: true, notification: false, active: false, avatar: true }, 
+          { id: "profile", label: "", icon: "account_circle", enabled: true, visible: true, notification: false, active: false, avatar: true },
         ]}
       /> */}
 
@@ -86,7 +96,7 @@ function MaterialIcon({ name, active }: { name: string; active?: boolean }) {
  *     { id: "trails", label: "Trilhas", icon: "route", route: "/trails", enabled: true, visible: true, notification: false, active: false },
  *     { id: "documents", label: "Documentos", icon: "article", route: "/documents", enabled: true, visible: true, notification: false, active: false },
  *     { id: "members", label: "Membros", icon: "group", route: "/members", enabled: true, visible: true, notification: false, active: false },
- *     { id: "profile", label: "", icon: "account_circle", route: "/profile", enabled: true, visible: true, notification: false, active: false, avatar: true }, 
+ *     { id: "profile", label: "", icon: "account_circle", enabled: true, visible: true, notification: false, active: false, avatar: true },
  *   ]}
  * />
  */
@@ -198,7 +208,7 @@ function NavigationItemRenderer({
 }
 
 interface AvatarItemProps {
-  item: NavigationItem;
+  item: AvatarNavigationItem;
   onNavigate: (route: string) => void;
   onKeyDown: (e: React.KeyboardEvent, route: string, enabled: boolean) => void;
 }

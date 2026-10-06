@@ -17,7 +17,6 @@ type UseDocumentEditorActionsOptions<C extends object> = {
 };
 
 export function useDocumentEditorActions<C extends object>({
-  mode,
   save,
   sendToReview,
   devolve,
@@ -51,18 +50,16 @@ export function useDocumentEditorActions<C extends object>({
   const [devolveNote, setDevolveNote] = useState("");
 
   async function handleSave() {
-    const saved = await attempt(save);
+    const saved = await attempt(save, "Não foi possível salvar o documento.");
     if (!saved) return;
-    if (mode === "create") {
-      onToast("Rascunho salvo.", "success");
-      navigate(`/documents/${saved.id}/edit`);
-    } else {
-      onToast("Alterações salvas.", "success");
-    }
+    onToast("Alterações salvas.", "success");
   }
 
   async function handleSendToReview() {
-    const saved = await attempt(sendToReview);
+    const saved = await attempt(
+      sendToReview,
+      "Não foi possível enviar o documento para revisão."
+    );
     if (!saved) return;
     onToast("Documento enviado para revisão.", "success");
     navigate(`/documents/${saved.id}/review`);
@@ -74,7 +71,10 @@ export function useDocumentEditorActions<C extends object>({
   }
 
   async function confirmDevolve() {
-    const updated = await attempt(() => devolve(devolveNote.trim() || undefined), "Não foi possível devolver o documento.");
+    const updated = await attempt(
+      () => devolve(devolveNote.trim() || undefined),
+      "Não foi possível devolver o documento."
+    );
     if (!updated) return;
     setDevolveOpen(false);
     onToast("Documento devolvido para correção.", "success");

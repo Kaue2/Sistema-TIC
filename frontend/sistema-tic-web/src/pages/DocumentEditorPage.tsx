@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { FixedNavigation } from "../components/organisms/FixedNavigation";
+import { FixedNavigation, type NavigationItem } from "../components/organisms/FixedNavigation";
 import { Toast, type ToastType } from "../components/organisms/Toast";
 import { FormSection } from "../components/molecules/FormSection";
 import { Button } from "../components/atoms/Button";
@@ -16,12 +16,12 @@ const VALID_TYPES: DocumentType[] = [
   "Softex",
 ];
 
-const NAV_ITEMS = [
+const NAV_ITEMS: NavigationItem[] = [
   { id: "notifications", label: "Avisos", icon: "notifications", route: "/notifications", enabled: true, visible: true, notification: true, active: false },
   { id: "trails", label: "Trilhas", icon: "route", route: "/trails", enabled: true, visible: true, notification: false, active: false },
   { id: "documents", label: "Documentos", icon: "article", route: "/documents", enabled: true, visible: true, notification: false, active: true },
   { id: "members", label: "Membros", icon: "group", route: "/members", enabled: true, visible: true, notification: false, active: false },
-  { id: "profile", label: "", icon: "account_circle", route: "/profile", enabled: true, visible: true, notification: false, active: false, avatar: true },
+  { id: "profile", label: "", icon: "account_circle", enabled: true, visible: true, notification: false, active: false, avatar: true },
 ];
 
 export function DocumentEditorPage({ mode }: { mode: DocumentMode }) {
@@ -41,7 +41,7 @@ export function DocumentEditorPage({ mode }: { mode: DocumentMode }) {
 
       <main className="relative mx-auto flex min-h-screen w-full max-w-300 flex-col px-6 pb-16">
         <DocumentEditor
-          key={mode === "create" ? `create:${type}` : id}
+          key={id}
           mode={mode}
           type={type}
           onToast={(message, toastType) => setToast({ message, type: toastType })}
@@ -68,7 +68,6 @@ function DocumentEditor({ mode, type, onToast }: DocumentEditorProps) {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (mode === "create") return;
     let cancelled = false;
     DocumentService.getDocument(id!, type).then((doc) => {
       if (cancelled) return;
@@ -79,17 +78,6 @@ function DocumentEditor({ mode, type, onToast }: DocumentEditorProps) {
       cancelled = true;
     };
   }, [id, mode, type]);
-
-  if (mode === "create") {
-    return (
-      <DocumentEditorForm
-        mode={mode}
-        document={null}
-        type={type}
-        onToast={onToast}
-      />
-    );
-  }
 
   if (notFound) {
     return (

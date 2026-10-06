@@ -8,7 +8,7 @@ type TrailMilestoneDetailsProps = {
   specificStage: string;
   deadline: string;
   status: string;
-  responsible: string;
+  responsible?: string | null;
 };
 
 export function TrailMilestoneDetails({
@@ -35,24 +35,43 @@ export function TrailMilestoneDetails({
         <MilestoneField label="Prazo Limite">{deadline}</MilestoneField>
         <MilestoneField label="Situação">
           <span className="flex items-center gap-2">
-            <span className="size-2 rounded-full bg-red-100" />
+            <span className={`size-2 rounded-full ${getStatusDotClass(status)}`} />
             {status}
           </span>
         </MilestoneField>
         <MilestoneField label="Membros Responsáveis">
-          <span className="flex items-center gap-2">
-            <Avatar
-              fullName={responsible}
-              size="sm"
-              className="!size-6"
-              iconSize={24}
-            />
-            <span className="truncate">{responsible}</span>
-          </span>
+          {responsible ? (
+            <span className="flex items-center gap-2">
+              <Avatar
+                fullName={responsible}
+                size="sm"
+                className="!size-6"
+                iconSize={24}
+              />
+              <span className="truncate">{responsible}</span>
+            </span>
+          ) : (
+            <span className="text-black-60">Não informado</span>
+          )}
         </MilestoneField>
       </dl>
     </div>
   );
+}
+
+function getStatusDotClass(status: string) {
+  switch (status) {
+    case "Concluído":
+      return "bg-green-100";
+    case "Em andamento":
+      return "bg-yellow-100";
+    case "Bloqueado":
+      return "bg-red-100";
+    case "Cancelado":
+      return "bg-black-40";
+    default:
+      return "bg-red-100";
+  }
 }
 
 function MilestoneField({

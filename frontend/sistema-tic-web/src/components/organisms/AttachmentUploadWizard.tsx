@@ -34,7 +34,6 @@ const EMPTY_FILES: File[] = [];
 const ACCEPTED_TYPES = new Set([
   "image/jpeg",
   "image/png",
-  "image/webp",
   "image/bmp",
   "image/tiff",
 ]);
@@ -299,7 +298,7 @@ export const AttachmentUploadWizard = forwardRef<
             </p>
             <h3 className="mt-1 text-xl font-medium text-black-90">{step.label}</h3>
             <p className="mt-1 text-sm text-black-60">
-              Insira imagens JPEG, PNG, WebP, BMP ou TIFF, com até 15 MB por arquivo.
+              Insira imagens JPEG, PNG, BMP ou TIFF, com até 15 MB por arquivo.
             </p>
           </div>
           <button
@@ -315,7 +314,7 @@ export const AttachmentUploadWizard = forwardRef<
             ref={inputRef}
             type="file"
             multiple
-            accept="image/jpeg,image/png,image/webp,image/bmp,image/tiff,.tif,.tiff"
+            accept="image/jpeg,image/png,image/bmp,image/tiff,.tif,.tiff"
             className="hidden"
             onChange={(event) => {
               addFiles(Array.from(event.target.files ?? []));
