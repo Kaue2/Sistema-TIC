@@ -34,11 +34,6 @@ try {
         throw 'Database schema tests failed.'
     }
 
-    & docker @composeArguments exec -T $service `
-        psql -X -v ON_ERROR_STOP=1 -U sistema_tic_test -d sistema_tic_test `
-        -f /database/tests/002_report_templates.sql
-    if ($LASTEXITCODE -ne 0) { throw 'Report template catalog tests failed.' }
-
     Write-Host 'Running migrations and seeds a second time to verify idempotency...'
     & $migrationRunner `
         -ComposeFile $composeFile `

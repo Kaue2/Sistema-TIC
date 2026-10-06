@@ -37,17 +37,6 @@ com as perguntas continua usando a matriz existente. Apenas metas com modelo
 válido podem ser exportadas. Os POSTs existentes preservam `stageCodes` e `documentIds`;
 o nome do download vem de `Content-Disposition`, exposto no CORS.
 
-Na raiz do repositório:
-
-```powershell
-dotnet run --project backend/tests/SistemaTic.ReportExport.Tests -c Release
-./database/scripts/test-database.ps1
-```
-
-Os testes de exportação usam dados artificiais, exercitam imagens PNG/JPEG/BMP/TIFF,
-uma/várias trilhas e metas, e geram exemplos em `backend/TestResults/Softex`.
-Os testes SQL rodam em PostgreSQL isolado, verificam idempotência e preservação dos vínculos.
-
 Para reconstruir os modelos a partir das mesmas fontes (não é necessário para publicar):
 
 ```powershell

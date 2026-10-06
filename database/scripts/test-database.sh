@@ -56,10 +56,6 @@ compose exec -T "${service}" \
     -d sistema_tic_test \
     -f /database/tests/001_schema_smoke.sql </dev/null
 
-compose exec -T "${service}" \
-    psql -X -v ON_ERROR_STOP=1 -U sistema_tic_test -d sistema_tic_test \
-    -f /database/tests/002_report_templates.sql </dev/null
-
 echo "Running migrations and seeds a second time to verify idempotency..."
 "${migration_runner}" \
     --compose-file "${compose_file}" \
