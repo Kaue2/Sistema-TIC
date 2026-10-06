@@ -20,7 +20,7 @@ function getContextMenuItems(status: DocumentStatusValue): ContextMenuItem[] {
       { id: "restore", label: "Restaurar", icon: "unarchive" },
     ];
   }
-  if (status === "Concluído") {
+  if (status === "Concluído" || status === "Retornado") {
     return [
       { id: "open", label: "Abrir", icon: "open_in_new" },
     ];

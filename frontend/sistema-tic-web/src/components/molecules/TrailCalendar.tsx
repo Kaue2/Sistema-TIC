@@ -48,7 +48,10 @@ export function TrailCalendar({
               }
               className="flex size-10 items-center justify-center rounded-full bg-card-background text-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: 20 }}
+              >
                 chevron_left
               </span>
             </button>
@@ -60,7 +63,10 @@ export function TrailCalendar({
               }
               className="flex size-10 items-center justify-center rounded-full bg-card-background text-blue-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100"
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+              <span
+                className="material-symbols-outlined"
+                style={{ fontSize: 20 }}
+              >
                 chevron_right
               </span>
             </button>
@@ -69,7 +75,10 @@ export function TrailCalendar({
 
         <div className="mt-9 grid grid-cols-7 gap-2 px-2 text-center text-xs text-black-60">
           {WEEKDAYS.map((weekday, index) => (
-            <span key={`${weekday}-${index}`} className="flex h-4 items-center justify-center">
+            <span
+              key={`${weekday}-${index}`}
+              className="flex h-4 items-center justify-center"
+            >
               {weekday}
             </span>
           ))}

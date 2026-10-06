@@ -181,7 +181,8 @@ export function SoftexForm({ mode, document, type, onToast }: SoftexFormProps) {
         onEdit={
           mode === "view" &&
           status !== "Arquivado" &&
-          status !== "Concluído"
+          status !== "Concluído" &&
+          status !== "Retornado"
             ? () =>
                 navigate(
                   `/documents/${doc!.id}/edit?type=${encodeURIComponent(doc!.type)}`,
@@ -192,7 +193,7 @@ export function SoftexForm({ mode, document, type, onToast }: SoftexFormProps) {
           mode === "view" && status === "Concluído" ? actions.handleReopen : undefined
         }
         onArchive={
-          status !== "Arquivado" && status !== "Concluído"
+          status !== "Arquivado" && status !== "Concluído" && status !== "Retornado"
             ? actions.handleArchive
             : undefined
         }

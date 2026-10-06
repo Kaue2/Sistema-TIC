@@ -10,6 +10,7 @@ import type {
   SoftexItem,
   SoftexMeta,
 } from "../../types/document";
+import { isAxiosError } from "axios";
 import { mockDocuments } from "../../data/mockDocuments";
 import { SOFTEX_METAS, type SoftexItemSeed, type SoftexMetaSeed } from "../../data/softexFields";
 import { SOFTEX_INTRODUCTION_DEFAULT } from "../../data/softexIntroFields";
@@ -17,6 +18,9 @@ import {
   getTrackDocumentContent,
   saveTrackDocumentContent,
   submitTrackDocumentForReview,
+  transitionTrackDocument,
+  type DocumentTransitionAction,
+  type TrackDocumentContentDTO,
 } from "../document-services";
 
 export function emptySoftexItem(item: SoftexItemSeed): SoftexItem {
@@ -174,6 +178,47 @@ function hydrateDocumentContent(
   return { ...EMPTY_CONTENT_BY_TYPE[type](), ...rawContent };
 }
 
+// A API devolve { message } em 403/409 (sem permissão, status não permite); repassa ao usuário.
+function apiErrorMessage(error: unknown, fallback: string): string {
+  if (isAxiosError(error)) {
+    const message = error.response?.data?.message;
+    if (typeof message === "string" && message) return message;
+  }
+  return fallback;
+}
+
+function fromDto<C extends object>(
+  dto: TrackDocumentContentDTO,
+  fallbackType: DocumentType,
+  overrides: Partial<Pick<StoredDocument, "trail" | "semester" | "career">> = {}
+): StoredDocument<C> {
+  const resolvedType = BACKED_TYPES.includes(dto.documentType as DocumentType)
+    ? (dto.documentType as DocumentType)
+    : fallbackType;
+  return {
+    id: dto.id,
+    number: "",
+    title: DOCUMENT_TITLE_BY_TYPE[resolvedType],
+    type: resolvedType,
+    trail: overrides.trail ?? "",
+    semester: overrides.semester ?? "",
+    career: overrides.career ?? "",
+    teachingMode: "" as unknown as StoredDocument["teachingMode"],
+    status: dto.status as DocumentStatusValue,
+    devolveObservation: dto.devolveObservation ?? undefined,
+    content: hydrateDocumentContent(resolvedType, dto.content) as C,
+  } as StoredDocument<C>;
+}
+
+// Status que cada ação produz nos documentos mock (os documentos da API usam o endpoint do backend).
+const MOCK_STATUS_BY_ACTION: Record<DocumentTransitionAction, DocumentStatusValue> = {
+  devolve: "Rascunho",
+  close: "Concluído",
+  reopen: "Em Revisão",
+  archive: "Arquivado",
+  restore: "Rascunho",
+};
+
 export const DocumentService = {
   async getDocument(
     id: string,
@@ -187,25 +232,7 @@ export const DocumentService = {
     }
 
     try {
-      const dto = await getTrackDocumentContent(id);
-      const resolvedType = BACKED_TYPES.includes(dto.documentType as DocumentType)
-        ? (dto.documentType as DocumentType)
-        : type;
-      return {
-        id: dto.id,
-        number: "",
-        title: DOCUMENT_TITLE_BY_TYPE[resolvedType],
-        type: resolvedType,
-        trail: "",
-        semester: "",
-        career: "",
-        teachingMode: "" as unknown as StoredDocument["teachingMode"],
-        status: dto.status as DocumentStatusValue,
-        content: hydrateDocumentContent(
-          resolvedType,
-          dto.content
-        ) as unknown as DocumentContent,
-      };
+      return fromDto<DocumentContent>(await getTrackDocumentContent(id), type);
     } catch {
       return null;
     }
@@ -240,34 +267,30 @@ export const DocumentService = {
               return submitTrackDocumentForReview(id);
             })()
           : await saveTrackDocumentContent(id, patch.content);
-      const resolvedType = BACKED_TYPES.includes(dto.documentType as DocumentType)
-        ? (dto.documentType as DocumentType)
-        : type;
-      return {
-        id: dto.id,
-        number: "",
-        title: DOCUMENT_TITLE_BY_TYPE[resolvedType],
-        type: resolvedType,
-        trail: patch.trail ?? "",
-        semester: patch.semester ?? "",
-        career: patch.career ?? "",
-        teachingMode: "" as unknown as StoredDocument["teachingMode"],
-        status: dto.status as DocumentStatusValue,
-        content: hydrateDocumentContent(resolvedType, dto.content) as C,
-      } as StoredDocument<C>;
-    } catch {
-      return null;
+      return fromDto<C>(dto, type, patch);
+    } catch (error) {
+      throw new Error(apiErrorMessage(error, "Não foi possível salvar o documento."), { cause: error });
     }
   },
 
-  async transitionStatus<C extends object = DocumentContent>(
+  async transition<C extends object = DocumentContent>(
     id: string,
-    status: DocumentStatusValue,
-    devolveObservation?: string
+    action: DocumentTransitionAction,
+    devolveObservation?: string,
+    type: DocumentType = "Escopo e Proposta"
   ): Promise<StoredDocument<C> | null> {
+    if (isUuid(id)) {
+      try {
+        return fromDto<C>(await transitionTrackDocument(id, action, devolveObservation), type);
+      } catch (error) {
+        throw new Error(apiErrorMessage(error, "Não foi possível concluir a ação no documento."), { cause: error });
+      }
+    }
+
     await wait(150);
     const doc = store.get(id);
     if (!doc) return null;
+    const status = MOCK_STATUS_BY_ACTION[action];
     const updated = (
       devolveObservation === undefined
         ? { ...doc, status }

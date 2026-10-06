@@ -7,6 +7,7 @@ public record CreateTrackDTO(
     Guid KnowledgeAreaId,
     Guid? CategoryId,
     string Title,
+    string Semester,
     string? ShortDescription,
     string Modality,
     string? LearningLevel,
@@ -30,6 +31,7 @@ public record TrackSummaryDTO(
     Guid Id,
     int Code,
     string Title,
+    string Semester,
     string Modality,
     string? LearningLevel,
     string Status,
@@ -53,7 +55,9 @@ public record TrackTaskDTO(
 public record TrackDocumentSummaryDTO(
     Guid Id,
     string DocumentType,
+    int TrackCode,
     string TrackTitle,
+    string Semester,
     string KnowledgeAreaName,
     string Status
 );
@@ -62,8 +66,11 @@ public record TrackDocumentContentDTO(
     Guid Id,
     string DocumentType,
     string Status,
-    JsonElement Content
+    JsonElement Content,
+    string? DevolveObservation
 );
+
+public record DevolveTrackDocumentDTO(string? Observation);
 
 public record DocumentosTrilhaDTO(
     TrackDocumentSummaryDTO? EscopoPropostaDaTrilha,

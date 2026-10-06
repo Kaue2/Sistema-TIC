@@ -5,6 +5,7 @@ export interface CreateTrackDTO {
   knowledgeAreaId: string;
   categoryId: string | null;
   title: string;
+  semester: string;
   shortDescription: string | null;
   modality: string;
   learningLevel: string | null;
@@ -30,6 +31,7 @@ export interface TrackResponseDTO {
   knowledgeAreaId: string;
   categoryId: string | null;
   title: string;
+  semester: string;
   shortDescription: string | null;
   modality: string;
   learningLevel: string | null;
@@ -55,6 +57,11 @@ export interface TrackResponseDTO {
 
 export async function createTrack(dto: CreateTrackDTO): Promise<TrackResponseDTO> {
   const response = await api.post<TrackResponseDTO>("track/create-track", dto);
+  return response.data;
+}
+
+export async function duplicateTrack(id: string): Promise<TrackResponseDTO> {
+  const response = await api.post<TrackResponseDTO>(`track/${id}/duplicate`);
   return response.data;
 }
 
@@ -90,6 +97,7 @@ export interface TrackSummaryDTO {
   code: number;
   legacyCode: string | null;
   title: string;
+  semester: string;
   modality: string;
   learningLevel: string | null;
   status: string;

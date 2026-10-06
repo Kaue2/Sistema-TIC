@@ -12,6 +12,7 @@ public interface ITrackRepository
         Guid knowledgeAreaId,
         Guid? categoryId,
         string title,
+        string semester,
         string? shortDescription,
         string modality,
         string? learningLevel,
@@ -27,5 +28,8 @@ public interface ITrackRepository
         string? targetAudience,
         string? prerequisites,
         decimal? attendanceRequirementPercent,
-        Guid createdByUserId);
+        Guid createdByUserId,
+        IReadOnlyCollection<PublishedDocumentTemplate> documentTemplates);
+
+    public Task<Track> DuplicateAsync(Guid sourceTrackId, Guid createdByUserId);
 }

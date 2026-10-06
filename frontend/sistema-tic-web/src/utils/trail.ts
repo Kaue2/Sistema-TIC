@@ -38,7 +38,7 @@ export function trackSummaryToTrail(track: TrackSummaryDTO): Trail {
     icon: "route",
     career: track.knowledgeAreaName,
     mentors,
-    semester: NOT_AVAILABLE,
+    semester: track.semester || NOT_AVAILABLE,
     modality: MODALITY_LABELS[track.modality] ?? "Assíncrono",
     level: track.learningLevel ?? "",
     stage: STATUS_TO_STAGE[track.status] ?? "Pré Trilha",

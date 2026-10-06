@@ -1,7 +1,6 @@
 import { createBrowserRouter } from "react-router-dom";
 import { Login } from "./pages/Login";
 import { ProfilePage } from "./pages/ProfilePage";
-import { WelcomeConfirmation } from "./pages/WelcomeConfirmation";
 import { AccessUpdate } from "./pages/AccessUpdate";
 import { MembersPage } from "./pages/MembersPage";
 import { MemberForm } from "./pages/MemberForm";
@@ -22,10 +21,6 @@ export const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
-      {
-        path: "/welcome",
-        element: <WelcomeConfirmation />,
-      },
       {
         path: "/access-update",
         element: <AccessUpdate />,

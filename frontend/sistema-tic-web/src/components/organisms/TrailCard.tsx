@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { Trail } from "../../types/trail";
-import { formatTrailCode } from "../../utils/trail";
+import { formatTrailCode, isUuid } from "../../utils/trail";
 import { ContextMenu } from "../molecules/ContextMenu";
 import type { ContextMenuAnchor } from "../molecules/ContextMenu";
 
@@ -10,6 +10,7 @@ type TrailCardProps = {
   selectionMode: boolean;
   selected: boolean;
   onStartReportSelection: (trail: Trail) => void;
+  onDuplicate: (trail: Trail) => void;
   onToggleSelection: (trail: Trail) => void;
 };
 
@@ -23,6 +24,7 @@ export function TrailCard({
   selectionMode,
   selected,
   onStartReportSelection,
+  onDuplicate,
   onToggleSelection,
 }: TrailCardProps) {
   const moreButtonRef = useRef<HTMLButtonElement>(null);
@@ -50,6 +52,7 @@ export function TrailCard({
     setMenuAnchor(null);
     if (action === "open") onOpen(trail);
     if (action === "select-report") onStartReportSelection(trail);
+    if (action === "duplicate") onDuplicate(trail);
   }
 
   return (
@@ -155,6 +158,10 @@ export function TrailCard({
         items={[
           { id: "open", label: "Abrir", icon: "open_in_new" },
           { id: "select-report", label: "Selecionar para relatório", icon: "checklist" },
+          // Somente trilhas com um UUID do servidor podem ser duplicadas.
+          ...(isUuid(trail.id)
+            ? [{ id: "duplicate", label: "Duplicar", icon: "content_copy" }]
+            : []),
         ]}
         anchor={menuAnchor}
         align="right"

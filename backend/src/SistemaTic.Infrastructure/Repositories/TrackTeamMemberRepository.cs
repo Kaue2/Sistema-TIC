@@ -8,9 +8,11 @@ namespace SistemaTic.Infrastructure.Repositories;
 public class TrackTeamMemberRepository : ITrackTeamMemberRepository
 {
     private readonly NpgsqlDataSource _dataSource;
-    public TrackTeamMemberRepository(NpgsqlDataSource dataSource)
+    private readonly ICurrentUser _currentUser;
+    public TrackTeamMemberRepository(NpgsqlDataSource dataSource, ICurrentUser currentUser)
     {
         this._dataSource = dataSource;
+        this._currentUser = currentUser;
     }
 
     private static TrackTeamMember Map(NpgsqlDataReader reader)
@@ -146,6 +148,15 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
         cmd.Parameters.AddWithValue("id", id);
         return await cmd.ExecuteNonQueryAsync() > 0;
     }
+    public async Task<bool> IsActiveMemberAsync(Guid trackId, Guid userId)
+    {
+        await using var cmd = _dataSource.CreateCommand(
+            "SELECT EXISTS (SELECT 1 FROM track_team_members WHERE track_id = @trackId AND user_id = @userId AND ends_on IS NULL)");
+        cmd.Parameters.AddWithValue("trackId", trackId);
+        cmd.Parameters.AddWithValue("userId", userId);
+
+        return (bool)(await cmd.ExecuteScalarAsync())!;
+    }
 
     public async Task<TrackTeamMember> CreateAsync(
         Guid trackId,
@@ -156,7 +167,11 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
         Guid assignedByUserId)
     {
         // startsOn nulo deixa o banco usar o default (CURRENT_DATE)
-        await using var cmd = _dataSource.CreateCommand();
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(_currentUser.Id);
+
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
         cmd.CommandText = """
             INSERT INTO track_team_members (track_id, user_id, responsibility, is_lead, starts_on, assigned_by_user_id)
             VALUES (@trackId, @userId, @responsibility, @isLead, COALESCE(@startsOn, CURRENT_DATE), @assignedByUserId)
@@ -172,6 +187,10 @@ public class TrackTeamMemberRepository : ITrackTeamMemberRepository
 
         await using var reader = await cmd.ExecuteReaderAsync();
         await reader.ReadAsync();
-        return Map(reader);
+        var member = Map(reader);
+        await reader.CloseAsync();
+        await transaction.CommitAsync();
+
+        return member;
     }
 }

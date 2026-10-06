@@ -2,7 +2,7 @@
 
 Este repositorio esta sendo organizado como um monorepo para centralizar banco de dados, backend, frontend, infraestrutura local e documentacao do projeto.
 
-O primeiro incremento do banco PostgreSQL está implementado. Backend e frontend permanecem fora deste incremento para preservar a ordem banco, backend e frontend.
+O projeto segue uma abordagem incremental: o banco, o backend e o frontend evoluem juntos, uma funcionalidade por vez, conforme as lacunas aparecem nos testes manuais. O banco PostgreSQL possui 17 migrations e 8 seeds, o backend expõe a API REST e o frontend consome a API para autenticação, membros, trilhas, documentos e relatório Softex. Algumas telas do frontend ainda usam dados simulados; o detalhamento está em `frontend/sistema-tic-web/README.md`.
 
 ## Objetivo Da Estrutura
 
@@ -14,32 +14,32 @@ A organizacao separa claramente as responsabilidades do sistema:
 - `docker/`: arquivos auxiliares para infraestrutura local.
 - `docs/`: documentacao tecnica e funcional do projeto.
 
-## Fluxo De Desenvolvimento Proposto
+## Fluxo De Desenvolvimento
 
-O desenvolvimento deve seguir uma ordem sequencial:
+Cada funcionalidade segue a mesma ordem, de baixo para cima:
 
 1. Banco de dados
 2. Backend
 3. Frontend
 
-Essa ordem evita que a API e a interface sejam construidas antes de existir clareza sobre modelo de dados, regras principais e contratos esperados.
+Essa ordem evita que a API e a interface sejam construidas antes de existir clareza sobre modelo de dados, regras principais e contratos esperados. As tabelas, endpoints e telas são criados sob demanda, quando a funcionalidade é necessária, e não todos de uma vez.
 
-## Estrutura Planejada
+## Estrutura
 
 ```text
 Sistema-TIC/
 ├── backend/
-│   ├── SistemaTic.sln
+│   ├── backend.slnx
 │   ├── src/
 │   │   ├── SistemaTic.Api/
 │   │   ├── SistemaTic.Domain/
 │   │   ├── SistemaTic.Application/
 │   │   ├── SistemaTic.Infrastructure/
-│   │   ├── SistemaTic.Shared/
-│   │   └── SistemaTic.DatabaseMigrator/
+│   │   ├── SistemaTic.Shared/             (reservado, ainda sem código)
+│   │   └── SistemaTic.DatabaseMigrator/   (reservado, ainda sem código)
 │   └── tests/
-│       ├── SistemaTic.UnitTests/
-│       └── SistemaTic.IntegrationTests/
+│       ├── SistemaTic.UnitTests/          (reservado, ainda sem testes)
+│       └── SistemaTic.IntegrationTests/   (reservado, ainda sem testes)
 ├── frontend/
 │   └── sistema-tic-web/
 │       └── src/
@@ -58,16 +58,16 @@ Sistema-TIC/
 
 ## Backend
 
-O backend sera uma API ASP.NET Core com arquitetura Onion.
+O backend é uma API ASP.NET Core com arquitetura Onion. A solução é `backend/backend.slnx`.
 
-Responsabilidades previstas:
+Responsabilidades de cada projeto:
 
-- `SistemaTic.Api`: controllers, Swagger, configuracao HTTP, health checks, CORS e entrada da aplicacao.
+- `SistemaTic.Api`: controllers, Swagger (habilitado em desenvolvimento), configuracao HTTP, autenticação JWT com refresh token, CORS e entrada da aplicacao.
 - `SistemaTic.Domain`: entidades, value objects e regras de dominio.
 - `SistemaTic.Application`: casos de uso, contratos de aplicacao, DTOs internos e validacoes.
 - `SistemaTic.Infrastructure`: acesso ao PostgreSQL, implementacoes de persistencia, transacoes e servicos externos.
-- `SistemaTic.Shared`: tipos compartilhados somente quando houver necessidade real.
-- `SistemaTic.DatabaseMigrator`: runner para aplicar migrations SQL versionadas.
+- `SistemaTic.Shared`: tipos compartilhados somente quando houver necessidade real. Ainda não possui código.
+- `SistemaTic.DatabaseMigrator`: reservado para um runner em C# de migrations SQL versionadas. Ainda não foi implementado; hoje as migrations são aplicadas por `database/scripts/apply-migrations.ps1`.
 
 ## Banco de dados
 
@@ -113,11 +113,11 @@ Para validar as migrations em um banco limpo sem alterar o volume local de desen
 
 O executor não reaplica versões registradas e interrompe a execução se o conteúdo de uma versão aplicada tiver outro checksum. Uma mudança posterior deve sempre entrar em uma nova migration.
 
+As duas branches usaram `011` para mudanças diferentes. A versão `011` permanece com o currículo do usuário, e o fluxo de revisão de documentos usa `0110`. Se o banco já registrou o fluxo como `011`, os executores reconhecem seu nome e checksum e ajustam apenas o identificador do histórico para `0110`, sem executar esse SQL novamente. O conteúdo das duas migrations foi preservado.
+
 ## Frontend
 
-O frontend será uma SPA React com Vite, TypeScript, React Router e Tailwind CSS, gerenciada por `pnpm`.
-
-A pasta `frontend/sistema-tic-web` ficará reservada até o início da etapa de frontend.
+O frontend é uma SPA React com Vite, TypeScript, React Router e Tailwind CSS, gerenciada por `pnpm`, em `frontend/sistema-tic-web`. Instalação, configuração da URL da API (`VITE_API_URL`), rotas e limitações conhecidas estão em `frontend/sistema-tic-web/README.md`.
 
 ## Documentacao
 
@@ -137,4 +137,4 @@ A pasta `docs/` deve concentrar materiais de alinhamento da equipe, como:
 - PostgreSQL sem ORM.
 - Imagem oficial do PostgreSQL em Docker.
 - Swagger para documentação da API.
-- Desenvolvimento sequencial: banco, backend e frontend.
+- Desenvolvimento incremental e bottom-up: cada funcionalidade percorre banco, backend e frontend, à medida que a necessidade aparece.

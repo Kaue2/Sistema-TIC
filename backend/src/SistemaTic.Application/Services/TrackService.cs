@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using SistemaTic.Application.Contracts;
 using SistemaTic.Application.DTO;
 using SistemaTic.Application.Exceptions;
@@ -8,6 +9,8 @@ namespace SistemaTic.Application.Services;
 
 public class TrackService
 {
+    private static readonly Regex SemesterFormat = new(@"\A[0-9]{4}/[12]\z");
+
     private readonly ITrackRepository _trackRepository;
     private readonly ITrackDocumentRepository _trackDocumentRepository;
     private readonly IDocumentTemplateRepository _documentTemplateRepository;
@@ -81,6 +84,7 @@ public class TrackService
                 track.Id,
                 track.Code,
                 track.Title,
+                track.Semester,
                 track.Modality,
                 track.LearningLevel,
                 track.Status,
@@ -131,7 +135,9 @@ public class TrackService
             summaries.Add(new TrackDocumentSummaryDTO(
                 document.Id,
                 MapDocumentType(template),
+                track.Code,
                 track.Title,
+                track.Semester,
                 knowledgeArea?.Name ?? string.Empty,
                 MapDocumentStatus(document.Status)));
         }
@@ -154,6 +160,11 @@ public class TrackService
         if (document is null)
             return null;
 
+        await EnsureTrackMemberAsync(document, updatedByUserId);
+        if (document.Status is "approved" or "rejected" or "archived")
+            throw new InvalidOperationException(
+                $"O documento está {MapDocumentStatus(document.Status)} e não pode ser editado.");
+
         TrackDocument updated = await this._trackDocumentRepository.ReplaceContentAsync(documentId, content, updatedByUserId);
         return await ToContentDTOAsync(updated);
     }
@@ -164,8 +175,51 @@ public class TrackService
         if (document is null)
             return null;
 
+        await EnsureTrackMemberAsync(document, updatedByUserId);
+        if (document.Status is not ("draft" or "changes_requested"))
+            throw new InvalidOperationException(
+                $"O documento está {MapDocumentStatus(document.Status)}; só é possível enviar para revisão documentos em rascunho.");
+
         TrackDocument updated = await this._trackDocumentRepository.SubmitForReviewAsync(documentId, updatedByUserId);
         return await ToContentDTOAsync(updated);
+    }
+
+    // Ações de revisão/ciclo de vida do documento: status de origem aceitos e status de destino.
+    // Espelha o que o front libera em cada tela (devolver/concluir na revisão, reabrir só de
+    // Concluído, arquivar de qualquer status ainda não finalizado, restaurar só de Arquivado).
+    private static readonly Dictionary<string, (string[] From, string To)> DocumentTransitions = new()
+    {
+        ["devolve"] = (["submitted"], "changes_requested"),
+        ["close"] = (["submitted"], "approved"),
+        ["reopen"] = (["approved"], "submitted"),
+        ["archive"] = (["draft", "submitted", "changes_requested"], "archived"),
+        ["restore"] = (["archived"], "draft"),
+    };
+
+    public async Task<TrackDocumentContentDTO?> TransitionTrackDocumentAsync(
+        Guid documentId, string action, Guid updatedByUserId, string? reviewComments = null)
+    {
+        if (!DocumentTransitions.TryGetValue(action, out var transition))
+            throw new ArgumentException($"Ação de documento desconhecida: {action}");
+
+        TrackDocument? document = await this._trackDocumentRepository.GetByIdAsync(documentId);
+        if (document is null)
+            return null;
+
+        if (action is "archive" or "restore")
+            await EnsureTrackMemberAsync(document, updatedByUserId);
+
+        string? comments = string.IsNullOrWhiteSpace(reviewComments) ? null : reviewComments.Trim();
+        TrackDocument updated = await this._trackDocumentRepository.TransitionStatusAsync(
+            documentId, transition.From, transition.To, updatedByUserId, comments);
+        return await ToContentDTOAsync(updated);
+    }
+
+    // Só quem está ativo na equipe da trilha do documento pode modificá-lo.
+    private async Task EnsureTrackMemberAsync(TrackDocument document, Guid userId)
+    {
+        if (!await this._trackTeamMemberRepository.IsActiveMemberAsync(document.TrackId, userId))
+            throw new UnauthorizedAccessException("Somente membros da trilha podem modificar este documento.");
     }
 
     private async Task<TrackDocumentContentDTO> ToContentDTOAsync(TrackDocument document)
@@ -177,19 +231,22 @@ public class TrackService
             document.Id,
             MapDocumentType(template),
             MapDocumentStatus(document.Status),
-            parsedContent.RootElement.Clone());
+            parsedContent.RootElement.Clone(),
+            document.ReviewComments);
     }
 
     private static string MapDocumentStatus(string status)
     {
-        // "rejected" ainda não tem um status equivalente no front (Rascunho/Em Revisão/Concluído/Arquivado);
-        // por ora devolvemos o código crudo até decidirmos a migration que trata isso.
+        // Status do banco -> rótulo do front. Um status novo no banco sem entrada aqui segue cru
+        // (o front mostra um visual neutro para valores que não conhece).
         return status switch
         {
             "draft" => "Rascunho",
             "submitted" => "Em Revisão",
-            "changes_requested" => "Em Revisão",
+            "changes_requested" => "Rascunho",
             "approved" => "Concluído",
+            "archived" => "Arquivado",
+            "rejected" => "Retornado",
             _ => status,
         };
     }
@@ -205,14 +262,51 @@ public class TrackService
         };
     }
 
+    // Espelha tracks_modality_workload (003_tracks.sql). No banco essa regra é ignorada em status 'draft',
+    // que é o status de toda trilha recém-criada, então a criação precisa validar por conta própria.
+    private static void ValidateModalityWorkload(CreateTrackDTO dto)
+    {
+        switch (dto.Modality)
+        {
+            case "online":
+                if (dto.OnlineWorkloadMinutes <= 0)
+                    throw new ArgumentException("Trilhas online precisam de carga horária online maior que zero.");
+                if (dto.InPersonWorkloadMinutes != 0)
+                    throw new ArgumentException("Trilhas online não podem ter carga horária presencial.");
+                break;
+            case "hybrid":
+                if (dto.OnlineWorkloadMinutes <= 0)
+                    throw new ArgumentException("Trilhas híbridas precisam de carga horária online maior que zero.");
+                if (dto.InPersonWorkloadMinutes <= 0)
+                    throw new ArgumentException("Trilhas híbridas precisam de carga horária presencial maior que zero.");
+                break;
+            default:
+                throw new ArgumentException("Regime inválido: use 'online' ou 'hybrid'.");
+        }
+    }
+
+    // Espelha tracks_semester_format (013_track_semester.sql): AAAA/S, com S = 1 ou 2.
+    private static void ValidateSemester(string? semester)
+    {
+        if (semester is null || !SemesterFormat.IsMatch(semester))
+            throw new ArgumentException("Semestre inválido: use o formato AAAA/S (ex.: 2026/1).");
+    }
+
     public async Task<Track> CreateTrackAsync(CreateTrackDTO dto, Guid createdByUserId)
     {
-        Track track = await this._trackRepository.CreateAsync(
+        ValidateModalityWorkload(dto);
+        ValidateSemester(dto.Semester);
+
+        var templates = (await this._documentTemplateRepository.GetActivePublishedAsync()).ToList();
+
+        // trilha, coordenador e todos os documentos (Escopo, Plano de Ensino, Softex...) são gravados atomicamente
+        return await this._trackRepository.CreateAsync(
             null,
             dto.SourceTrackId,
             dto.KnowledgeAreaId,
             dto.CategoryId,
             dto.Title,
+            dto.Semester,
             dto.ShortDescription,
             dto.Modality,
             dto.LearningLevel,
@@ -228,28 +322,22 @@ public class TrackService
             dto.TargetAudience,
             dto.Prerequisites,
             dto.AttendanceRequirementPercent,
-            createdByUserId);
-
-        await this._trackTeamMemberRepository.CreateAsync(
-            track.Id,
             createdByUserId,
-            "coordinator",
-            isLead: true,
-            startsOn: null,
-            assignedByUserId: createdByUserId);
+            templates);
+    }
 
-        var templates = await this._documentTemplateRepository.GetActivePublishedAsync();
-        foreach (var template in templates)
-        {
-            await this._trackDocumentRepository.CreateAsync(
-                track.Id,
-                template.DocumentTemplateId,
-                template.TemplateVersionId,
-                createdByUserId,
-                createdByUserId);
-        }
+    // Mesma regra dos documentos: só quem está ativo na equipe da trilha pode duplicá-la, e por
+    // isso o autor da cópia sempre entra na equipe copiada.
+    public async Task<Track?> DuplicateTrackAsync(Guid trackId, Guid userId)
+    {
+        Track? track = await this._trackRepository.GetByIdAsync(trackId);
+        if (track is null)
+            return null;
 
-        return track;
+        if (!await this._trackTeamMemberRepository.IsActiveMemberAsync(trackId, userId))
+            throw new UnauthorizedAccessException("Somente membros da trilha podem duplicá-la.");
+
+        return await this._trackRepository.DuplicateAsync(trackId, userId);
     }
 
     public async Task<TrackTeamMember> CreateTrackTeamMemberAsync(CreateTrackTeamMemberDTO dto, Guid assignedByUserId)

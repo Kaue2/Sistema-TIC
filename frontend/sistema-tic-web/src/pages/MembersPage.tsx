@@ -23,6 +23,7 @@ export type Member = {
   administrativeEmail?: string;
   journeys: ScheduleItem[];
   location: string;
+  totalHours?: string;
   type: string;
 };
 
@@ -72,11 +73,9 @@ export function MembersPage() {
   }, [view]);
 
   const loadMembers = useCallback(() => {
-    setLoading(true);
-    setError(false);
-
     getMembers()
       .then((summaries) => {
+        setError(false);
         const currentUserId = getCurrentUserId();
 
         setMembers(
@@ -88,6 +87,9 @@ export function MembersPage() {
             institutionalEmail: m.institutionalEmail,
             administrativeEmail: m.administrativeEmail ?? undefined,
             location: m.workLocation ?? "",
+            totalHours: m.weeklyWorkloadMinutes
+              ? `${Math.round(m.weeklyWorkloadMinutes / 60)} horas`
+              : undefined,
             type: m.roleCode,
             journeys: m.availability.map((a) => ({
               day: WEEKDAY_NAMES[a.weekday],
@@ -124,20 +126,11 @@ export function MembersPage() {
     loadMembers();
   }, [loadMembers]);
 
-  // foto do próprio usuário chega de forma assíncrona pelo UserProvider; quando ela
-  // fica disponível, aplica no membro correspondente sem refazer o fetch da lista.
-  useEffect(() => {
-    if (!userData?.avatarUrl) return;
-
-    const currentUserId = getCurrentUserId();
-    setMembers((current) =>
-      current.map((member) =>
-        member.id === currentUserId
-          ? { ...member, avatar: userData.avatarUrl ?? undefined }
-          : member
-      )
-    );
-  }, [userData?.avatarUrl]);
+  function retryLoadMembers() {
+    setLoading(true);
+    setError(false);
+    loadMembers();
+  }
 
   function handleSearchChange(value: string) {
     setSearch(value);
@@ -153,7 +146,9 @@ export function MembersPage() {
   }
 
   const filteredMembers = useMemo(() => {
-    let result = [...members];
+    let result = members.map((m) =>
+      m.id === userData?.id && userData.avatarUrl ? { ...m, avatar: userData.avatarUrl } : m
+    );
 
     if (debouncedSearch.trim()) {
       const term = debouncedSearch.trim().toLowerCase();
@@ -175,7 +170,7 @@ export function MembersPage() {
     }
 
     return result;
-  }, [members, debouncedSearch, filters]);
+  }, [members, userData, debouncedSearch, filters]);
 
   const hasActiveFilters = debouncedSearch.trim().length > 0 || filters.length > 0;
   const showEmpty = members.length === 0;
@@ -242,7 +237,7 @@ export function MembersPage() {
               <p className="max-w-90 text-sm text-blue-100">
                 Não foi possível carregar a equipe. Verifique sua conexão e tente novamente.
               </p>
-              <Button variant="outline" icon="refresh" onClick={loadMembers}>
+              <Button variant="outline" icon="refresh" onClick={retryLoadMembers}>
                 Tentar novamente
               </Button>
             </div>

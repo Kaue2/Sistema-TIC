@@ -31,19 +31,46 @@ const LEARNING_LEVEL_OPTIONS = [
   { label: "Avançado", value: "advanced" },
 ];
 
+// Semestres no formato AAAA/S: do ano seguinte ao anterior, do mais recente ao mais antigo.
+function currentSemester(): string {
+  const now = new Date();
+  return `${now.getFullYear()}/${now.getMonth() < 6 ? 1 : 2}`;
+}
+
+function buildSemesterOptions() {
+  const year = new Date().getFullYear();
+  const options = [];
+  for (let y = year + 1; y >= year - 1; y--) {
+    for (const term of [2, 1]) {
+      options.push({ label: `${y}/${term}`, value: `${y}/${term}` });
+    }
+  }
+  return options;
+}
+
+const SEMESTER_OPTIONS = buildSemesterOptions();
+
 type CreateTrackModalProps = {
   open: boolean;
   onClose: () => void;
   onCreated: (track: TrackResponseDTO) => void;
 };
 
-export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalProps) {
+// O conteúdo só é montado enquanto o modal está aberto, então o formulário começa limpo a
+// cada abertura sem precisar de um efeito para resetar os campos.
+export function CreateTrackModal(props: CreateTrackModalProps) {
+  if (!props.open) return null;
+  return <CreateTrackModalContent {...props} />;
+}
+
+function CreateTrackModalContent({ onClose, onCreated }: CreateTrackModalProps) {
   const [knowledgeAreas, setKnowledgeAreas] = useState<KnowledgeAreaDTO[]>([]);
   const [mentors, setMentors] = useState<MemberSummaryDTO[]>([]);
   const [monitors, setMonitors] = useState<MemberSummaryDTO[]>([]);
   const [title, setTitle] = useState("");
   const [knowledgeAreaId, setKnowledgeAreaId] = useState("");
   const [modality, setModality] = useState("online");
+  const [semester, setSemester] = useState(currentSemester);
   const [learningLevel, setLearningLevel] = useState("");
   const [workloadMinutes, setWorkloadMinutes] = useState("1440");
   const [inPersonWorkloadMinutes, setInPersonWorkloadMinutes] = useState("1440");
@@ -55,20 +82,6 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-
-    setTitle("");
-    setKnowledgeAreaId("");
-    setModality("online");
-    setLearningLevel("");
-    setWorkloadMinutes("1440");
-    setInPersonWorkloadMinutes("1440");
-    setMentorUserId("");
-    setMonitorUserId("");
-    setTitleError(false);
-    setKnowledgeAreaError(false);
-    setError(null);
-
     getKnowledgeAreas()
       .then(setKnowledgeAreas)
       .catch(() => setError("Não foi possível carregar as áreas de conhecimento."));
@@ -79,18 +92,15 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
         setMonitors(members.filter((member) => member.roleCode === "monitor"));
       })
       .catch(() => setError("Não foi possível carregar os membros."));
-  }, [open]);
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
-
-  if (!open) return null;
+  }, [onClose]);
 
   async function handleSave() {
     let hasError = false;
@@ -117,6 +127,7 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
         knowledgeAreaId,
         categoryId: null,
         title,
+        semester,
         shortDescription: null,
         modality,
         learningLevel: learningLevel || null,
@@ -232,6 +243,19 @@ export function CreateTrackModal({ open, onClose, onCreated }: CreateTrackModalP
                     setKnowledgeAreaId(selected[0] ?? "");
                     setKnowledgeAreaError(false);
                   }}
+                  size="md"
+                />
+              </FormField>
+
+              <FormField id="track-semester" label="Semestre">
+                <MultiSelectDropdown
+                  id="track-semester"
+                  label="Semestre"
+                  icon="calendar_month"
+                  multiple={false}
+                  options={SEMESTER_OPTIONS}
+                  selected={[semester]}
+                  onChange={(selected) => setSemester(selected[0] ?? currentSemester())}
                   size="md"
                 />
               </FormField>

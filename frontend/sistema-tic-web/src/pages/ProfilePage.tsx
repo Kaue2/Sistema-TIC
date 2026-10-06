@@ -9,8 +9,8 @@ import { Toast } from "../components/organisms/Toast";
 import { PersonalizationDialog } from "../components/organisms/PersonalizationDialog";
 import type { ToastType } from "../components/organisms/Toast";
 import type { ScheduleItem } from "../components/organisms/JourneySchedule";
-import { getUserProfile, getUserPhotoUrl, updateProfileLinks, uploadUserPhoto } from "../services/user-services";
-import { clearAuthSession, getCurrentUserId } from "../services/auth";
+import { getUserProfile, getUserPhotoUrl, logoutUser, updateProfileLinks, uploadUserPhoto } from "../services/user-services";
+import { getCurrentUserId } from "../services/auth";
 import { useUser } from "../contexts/userContext";
 
 export interface User {
@@ -66,6 +66,10 @@ function ProfileSkeleton() {
 
 export function ProfilePage() {
   const { id } = useParams<{ id: string }>();
+  return <ProfilePageContent key={id} id={id} />;
+}
+
+function ProfilePageContent({ id }: { id: string | undefined }) {
   const mode = id === getCurrentUserId() ? "self" : "user";
   const { userData, setUserData } = useUser();
   const navigate = useNavigate();
@@ -90,9 +94,6 @@ export function ProfilePage() {
   const loadProfile = useCallback(() => {
     if (!id) return;
 
-    setLoading(true);
-    setError(false);
-
     // perfil e foto resolvem juntos (a foto no modo "user" vem da rede); sem isso há uma
     // corrida: se a foto termina antes do perfil, o avatar era descartado (perfil ainda null).
     const photoPromise =
@@ -100,6 +101,7 @@ export function ProfilePage() {
 
     Promise.all([getUserProfile(id), photoPromise])
       .then(([profile, avatarUrl]) => {
+        setError(false);
         setUser({
           id: profile.id,
           avatar: mode === "user" ? (avatarUrl ?? undefined) : (avatarRef.current ?? undefined),
@@ -133,24 +135,19 @@ export function ProfilePage() {
 
     loadProfile();
 
-    // pro próprio usuário logado a foto vem cacheada pelo UserProvider (busca única no
-    // login/reload) e é aplicada pelo efeito reativo abaixo; a foto de terceiros já veio no
-    // loadProfile.
+    // A foto do próprio usuário vem do contexto na renderização; a foto de terceiros
+    // é carregada junto com o perfil.
   }, [id, loadProfile]);
 
-  useEffect(() => {
-    // depende de user?.id (não só de userData.avatarUrl) porque o fetch do perfil e o fetch
-    // da foto (cacheada no contexto) terminam em momentos diferentes; sem isso, se a foto já
-    // estava em cache quando este efeito rodou a 1ª vez e `user` ainda era null, a atualização
-    // se perdia e não disparava de novo.
-    if (mode !== "self" || !userData?.avatarUrl || !user) return;
-    setUser((current) => (current ? { ...current, avatar: userData.avatarUrl ?? current.avatar } : current));
-  }, [mode, userData?.avatarUrl, user?.id]);
+  function retryLoadProfile() {
+    setLoading(true);
+    setError(false);
+    loadProfile();
+  }
 
   function handleLogout() {
-    clearAuthSession();
     setUserData(null);
-    navigate("/", { replace: true });
+    void logoutUser();
   }
 
   function handleChangePassword() {
@@ -218,7 +215,7 @@ export function ProfilePage() {
             <p className="text-sm text-black-60">
               Verifique sua conexão e tente novamente.
             </p>
-            <Button variant="outline" icon="refresh" onClick={loadProfile}>
+            <Button variant="outline" icon="refresh" onClick={retryLoadProfile}>
               Tentar novamente
             </Button>
           </div>
@@ -228,6 +225,11 @@ export function ProfilePage() {
   }
 
   if (!user) return null;
+
+  // pro próprio usuário a foto cacheada no contexto (UserProvider) tem prioridade; derivar na
+  // renderização evita depender de qual fetch termina primeiro (perfil ou foto).
+  const displayUser: User =
+    mode === "self" && userData?.avatarUrl ? { ...user, avatar: userData.avatarUrl } : user;
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-background">
@@ -241,7 +243,7 @@ export function ProfilePage() {
       <main className="relative mx-auto flex min-h-screen w-full max-w-300 flex-col items-center px-6 pb-16 pt-12">
         <div className="mb-14 flex flex-col items-center">
           <ProfileHeader
-            user={user}
+            user={displayUser}
             mode={mode}
             canEdit={isAdmin}
             onEditClick={handleEditClick}
@@ -260,7 +262,7 @@ export function ProfilePage() {
         />
 
         <ProfileContent
-          user={user}
+          user={displayUser}
           mode={mode}
           onPersonalize={() => setPersonalizationOpen(true)}
           onChangePassword={handleChangePassword}

@@ -7,9 +7,11 @@ namespace SistemaTic.Infrastructure.Repositories;
 public class TrackRepository : ITrackRepository
 {
     private readonly NpgsqlDataSource _dataSource;
-    public TrackRepository(NpgsqlDataSource dataSource)
+    private readonly ICurrentUser _currentUser;
+    public TrackRepository(NpgsqlDataSource dataSource, ICurrentUser currentUser)
     {
         this._dataSource = dataSource;
+        this._currentUser = currentUser;
     }
 
     private static Track Map(NpgsqlDataReader reader)
@@ -43,8 +45,16 @@ public class TrackRepository : ITrackRepository
         DateTimeOffset? cancelledAt = reader.IsDBNull(26) ? null : reader.GetFieldValue<DateTimeOffset>(26);
         int codeOrdinal = reader.GetOrdinal("code");
         int code = reader.IsDBNull(codeOrdinal) ? 0 : reader.GetInt32(codeOrdinal);
+
         int legacyCodeOrdinal = reader.GetOrdinal("legacy_code");
-        string? legacyCode = reader.IsDBNull(legacyCodeOrdinal) ? null : reader.GetString(legacyCodeOrdinal);
+        string? legacyCode = reader.IsDBNull(legacyCodeOrdinal)
+            ? null
+            : reader.GetString(legacyCodeOrdinal);
+
+        int semesterOrdinal = reader.GetOrdinal("semester");
+        string semester = reader.IsDBNull(semesterOrdinal)
+            ? string.Empty
+            : reader.GetString(semesterOrdinal);
 
         return new Track(id, code, legacyCode, ideaId, sourceTrackId, knowledgeAreaId, categoryId, title,
                           shortDescription, modality, learningLevel, status, plannedProductionStartsOn,
@@ -52,7 +62,7 @@ public class TrackRepository : ITrackRepository
                           registrationStartsAt, registrationEndsAt, onlineWorkloadMinutes,
                           inPersonWorkloadMinutes, totalWorkloadMinutes, plannedCapacity, targetAudience,
                           prerequisites, attendanceRequirementPercent, createdByUserId, createdAt,
-                          updatedAt, cancelledAt);
+                          updatedAt, cancelledAt, semester);
     }
 
     public async Task<Track?> GetByIdAsync(Guid id)
@@ -87,6 +97,7 @@ public class TrackRepository : ITrackRepository
         Guid knowledgeAreaId,
         Guid? categoryId,
         string title,
+        string semester,
         string? shortDescription,
         string modality,
         string? learningLevel,
@@ -102,20 +113,27 @@ public class TrackRepository : ITrackRepository
         string? targetAudience,
         string? prerequisites,
         decimal? attendanceRequirementPercent,
-        Guid createdByUserId)
+        Guid createdByUserId,
+        IReadOnlyCollection<PublishedDocumentTemplate> documentTemplates)
     {
+        // Trilha, coordenador responsável e documentos nascem na mesma transação:
+        // se qualquer insert falhar, nada fica gravado.
+        await using var connection = await this._dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(this._currentUser.Id);
+
         // code não entra no insert: é gerado automaticamente pelo banco (GENERATED ALWAYS AS IDENTITY)
-        await using var cmd = _dataSource.CreateCommand();
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = transaction;
         cmd.CommandText = """
             INSERT INTO tracks (
-                idea_id, source_track_id, knowledge_area_id, category_id, title, short_description,
+                idea_id, source_track_id, knowledge_area_id, category_id, title, semester, short_description,
                 modality, learning_level, planned_production_starts_on, planned_production_ends_on,
                 planned_track_starts_on, planned_track_ends_on, registration_starts_at, registration_ends_at,
                 online_workload_minutes, in_person_workload_minutes, planned_capacity, target_audience,
                 prerequisites, attendance_requirement_percent, created_by_user_id
             )
             VALUES (
-                @ideaId, @sourceTrackId, @knowledgeAreaId, @categoryId, @title, @shortDescription,
+                @ideaId, @sourceTrackId, @knowledgeAreaId, @categoryId, @title, @semester, @shortDescription,
                 @modality, @learningLevel, @plannedProductionStartsOn, @plannedProductionEndsOn,
                 @plannedTrackStartsOn, @plannedTrackEndsOn, @registrationStartsAt, @registrationEndsAt,
                 @onlineWorkloadMinutes, @inPersonWorkloadMinutes, @plannedCapacity, @targetAudience,
@@ -129,6 +147,7 @@ public class TrackRepository : ITrackRepository
         cmd.Parameters.AddWithValue("knowledgeAreaId", knowledgeAreaId);
         cmd.Parameters.AddWithValue("categoryId", (object?)categoryId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("title", title);
+        cmd.Parameters.AddWithValue("semester", semester);
         cmd.Parameters.AddWithValue("shortDescription", (object?)shortDescription ?? DBNull.Value);
         cmd.Parameters.AddWithValue("modality", modality);
         cmd.Parameters.AddWithValue("learningLevel", (object?)learningLevel ?? DBNull.Value);
@@ -146,8 +165,144 @@ public class TrackRepository : ITrackRepository
         cmd.Parameters.AddWithValue("attendanceRequirementPercent", (object?)attendanceRequirementPercent ?? DBNull.Value);
         cmd.Parameters.AddWithValue("createdByUserId", createdByUserId);
 
-        await using var reader = await cmd.ExecuteReaderAsync();
-        await reader.ReadAsync();
-        return Map(reader);
+        Track track;
+        await using (var reader = await cmd.ExecuteReaderAsync())
+        {
+            await reader.ReadAsync();
+            track = Map(reader);
+        }
+
+        await using (var memberCmd = connection.CreateCommand())
+        {
+            memberCmd.Transaction = transaction;
+            memberCmd.CommandText = """
+                INSERT INTO track_team_members (track_id, user_id, responsibility, is_lead, assigned_by_user_id)
+                VALUES (@trackId, @userId, 'coordinator', true, @userId);
+            """;
+            memberCmd.Parameters.AddWithValue("trackId", track.Id);
+            memberCmd.Parameters.AddWithValue("userId", createdByUserId);
+            await memberCmd.ExecuteNonQueryAsync();
+        }
+
+        foreach (var template in documentTemplates)
+        {
+            // current_content/current_revision_number/status ficam de fora: o banco já tem default pra eles
+            await using var documentCmd = connection.CreateCommand();
+            documentCmd.Transaction = transaction;
+            documentCmd.CommandText = """
+                INSERT INTO track_documents (track_id, document_template_id, template_version_id, created_by_user_id, updated_by_user_id)
+                VALUES (@trackId, @documentTemplateId, @templateVersionId, @userId, @userId);
+            """;
+            documentCmd.Parameters.AddWithValue("trackId", track.Id);
+            documentCmd.Parameters.AddWithValue("documentTemplateId", template.DocumentTemplateId);
+            documentCmd.Parameters.AddWithValue("templateVersionId", template.TemplateVersionId);
+            documentCmd.Parameters.AddWithValue("userId", createdByUserId);
+            await documentCmd.ExecuteNonQueryAsync();
+        }
+
+        await transaction.CommitAsync();
+        return track;
+    }
+
+    public async Task<Track> DuplicateAsync(Guid sourceTrackId, Guid createdByUserId)
+    {
+        // Trilha, equipe, documentos e respostas do Softex da cópia nascem na mesma transação:
+        // se qualquer insert falhar, nada fica gravado.
+        await using var connection = await this._dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(this._currentUser.Id);
+
+        // id e code são gerados pelo banco; idea_id fica de fora (é UNIQUE e a cópia não nasce de
+        // uma ideia). status, created_at e updated_at usam o default (status = 'draft').
+        Track track;
+        await using (var cmd = connection.CreateCommand())
+        {
+            cmd.Transaction = transaction;
+            cmd.CommandText = """
+                INSERT INTO tracks (
+                    source_track_id, knowledge_area_id, category_id, title, semester, short_description,
+                    modality, learning_level, planned_production_starts_on, planned_production_ends_on,
+                    planned_track_starts_on, planned_track_ends_on, registration_starts_at, registration_ends_at,
+                    online_workload_minutes, in_person_workload_minutes, planned_capacity, target_audience,
+                    prerequisites, attendance_requirement_percent, created_by_user_id
+                )
+                SELECT id, knowledge_area_id, category_id, title, semester, short_description,
+                       modality, learning_level, planned_production_starts_on, planned_production_ends_on,
+                       planned_track_starts_on, planned_track_ends_on, registration_starts_at, registration_ends_at,
+                       online_workload_minutes, in_person_workload_minutes, planned_capacity, target_audience,
+                       prerequisites, attendance_requirement_percent, @createdByUserId
+                  FROM tracks
+                 WHERE id = @sourceTrackId
+                RETURNING *;
+            """;
+            cmd.Parameters.AddWithValue("sourceTrackId", sourceTrackId);
+            cmd.Parameters.AddWithValue("createdByUserId", createdByUserId);
+
+            await using var reader = await cmd.ExecuteReaderAsync();
+            if (!await reader.ReadAsync())
+                throw new KeyNotFoundException("Trilha não encontrada");
+            track = Map(reader);
+        }
+
+        // só a equipe ativa é copiada (ends_on IS NULL), com as mesmas responsabilidades
+        await using (var memberCmd = connection.CreateCommand())
+        {
+            memberCmd.Transaction = transaction;
+            memberCmd.CommandText = """
+                INSERT INTO track_team_members (track_id, user_id, responsibility, is_lead, assigned_by_user_id)
+                SELECT @trackId, user_id, responsibility, is_lead, @userId
+                  FROM track_team_members
+                 WHERE track_id = @sourceTrackId AND ends_on IS NULL;
+            """;
+            memberCmd.Parameters.AddWithValue("trackId", track.Id);
+            memberCmd.Parameters.AddWithValue("sourceTrackId", sourceTrackId);
+            memberCmd.Parameters.AddWithValue("userId", createdByUserId);
+            await memberCmd.ExecuteNonQueryAsync();
+        }
+
+        // Documentos levam o conteúdo atual e voltam a 'draft' (default). Revisões, comentários de
+        // revisão e SharePoint são histórico/vínculo da trilha original e não são copiados.
+        await using (var documentCmd = connection.CreateCommand())
+        {
+            documentCmd.Transaction = transaction;
+            documentCmd.CommandText = """
+                INSERT INTO track_documents (
+                    track_id, document_template_id, template_version_id, current_content,
+                    created_by_user_id, updated_by_user_id
+                )
+                SELECT @trackId, document_template_id, template_version_id, current_content, @userId, @userId
+                  FROM track_documents
+                 WHERE track_id = @sourceTrackId;
+            """;
+            documentCmd.Parameters.AddWithValue("trackId", track.Id);
+            documentCmd.Parameters.AddWithValue("sourceTrackId", sourceTrackId);
+            documentCmd.Parameters.AddWithValue("userId", createdByUserId);
+            await documentCmd.ExecuteNonQueryAsync();
+        }
+
+        // O relatório Softex é exportado a partir de report_answers (sincronizada com o conteúdo a
+        // cada save), então as respostas acompanham o documento copiado.
+        await using (var answerCmd = connection.CreateCommand())
+        {
+            answerCmd.Transaction = transaction;
+            answerCmd.CommandText = """
+                INSERT INTO report_answers (
+                    track_document_id, report_question_id, answer, created_by_user_id, updated_by_user_id
+                )
+                SELECT copied.id, answer.report_question_id, answer.answer, @userId, @userId
+                  FROM report_answers answer
+                  JOIN track_documents original ON original.id = answer.track_document_id
+                  JOIN track_documents copied
+                    ON copied.track_id = @trackId
+                   AND copied.document_template_id = original.document_template_id
+                 WHERE original.track_id = @sourceTrackId;
+            """;
+            answerCmd.Parameters.AddWithValue("trackId", track.Id);
+            answerCmd.Parameters.AddWithValue("sourceTrackId", sourceTrackId);
+            answerCmd.Parameters.AddWithValue("userId", createdByUserId);
+            await answerCmd.ExecuteNonQueryAsync();
+        }
+
+        await transaction.CommitAsync();
+        return track;
     }
 }

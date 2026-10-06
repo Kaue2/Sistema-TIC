@@ -117,6 +117,16 @@ function Apply-VersionedSqlFiles {
         [string]$Kind
     )
 
+    # Reconcile before iterating: filename sorting differs between platforms.
+    $workflowMigration = Join-Path $Directory '0110_document_workflow_statuses.sql'
+    if ($TrackingTable -eq 'schema_migrations' -and (Test-Path -LiteralPath $workflowMigration)) {
+        $workflowChecksum = (Get-FileHash -LiteralPath $workflowMigration -Algorithm SHA256).Hash.ToLowerInvariant()
+        Invoke-Psql -Arguments @(
+            '-q', '-c',
+            "UPDATE schema_migrations SET version = '0110' WHERE version = '011' AND name = 'document_workflow_statuses' AND checksum_sha256 = '$workflowChecksum';"
+        )
+    }
+
     $files = Get-ChildItem -LiteralPath $Directory -Filter '*.sql' -File | Sort-Object Name
     foreach ($file in $files) {
         if ($file.BaseName -notmatch '^(?<version>\d{3,})_(?<name>[a-z0-9_]+)$') {

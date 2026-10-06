@@ -82,7 +82,7 @@ export function MemberCard({ member }: MemberCardProps) {
 
       <div className="w-80 shrink-0 pr-6 py-6">
         <JourneySchedule
-          totalHours="25 horas"
+          totalHours={member.totalHours ?? "-"}
           location={member.location}
           schedule={member.journeys}
           editable={false}

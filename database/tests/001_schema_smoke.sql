@@ -78,6 +78,85 @@ VALUES (
     '10000000-0000-4000-8000-000000000001'
 );
 
+-- A auditoria deve registrar o ator informado em app.current_user_id.
+SELECT pg_temp.assert_true(
+    EXISTS (
+        SELECT 1
+          FROM audit_events
+         WHERE entity_type = 'users'
+           AND entity_id = '10000000-0000-4000-8000-000000000005'
+           AND action = 'insert'
+           AND actor_user_id = '10000000-0000-4000-8000-000000000001'
+    ),
+    'the audit event must record the actor informed in app.current_user_id'
+);
+
+-- user_profiles não tem coluna "id" (a chave é user_id): a auditoria deve identificar o perfil
+-- alterado e o ator mesmo assim.
+INSERT INTO user_profiles (user_id, work_location)
+VALUES ('10000000-0000-4000-8000-000000000005', 'E166');
+UPDATE user_profiles SET work_location = 'E167'
+ WHERE user_id = '10000000-0000-4000-8000-000000000005';
+SELECT pg_temp.assert_true(
+    EXISTS (
+        SELECT 1
+          FROM audit_events
+         WHERE entity_type = 'user_profiles'
+           AND entity_id = '10000000-0000-4000-8000-000000000005'
+           AND action = 'update'
+           AND actor_user_id = '10000000-0000-4000-8000-000000000001'
+           AND changes ? 'work_location'
+    ),
+    'a profile edit must be audited with the profile id and the actor'
+);
+
+-- Troca de papel: coordenador e administrador podem; mentor não. Criar usuário: só coordenador.
+DO $$
+DECLARE
+    target uuid := '10000000-0000-4000-8000-000000000005';
+    mentor_role uuid := '00000000-0000-4000-8000-000000000003';
+    monitor_role uuid := '00000000-0000-4000-8000-000000000004';
+    was_rejected boolean;
+BEGIN
+    PERFORM set_config('app.current_user_id', '10000000-0000-4000-8000-000000000002', true);
+    UPDATE users SET role_id = mentor_role WHERE id = target;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE id = target AND role_id = mentor_role) THEN
+        RAISE EXCEPTION 'An administrator could not change a role';
+    END IF;
+
+    PERFORM set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', true);
+    UPDATE users SET role_id = monitor_role WHERE id = target;
+    IF NOT EXISTS (SELECT 1 FROM users WHERE id = target AND role_id = monitor_role) THEN
+        RAISE EXCEPTION 'A coordinator could not change a role';
+    END IF;
+
+    PERFORM set_config('app.current_user_id', '10000000-0000-4000-8000-000000000003', true);
+    was_rejected := false;
+    BEGIN
+        UPDATE users SET role_id = mentor_role WHERE id = target;
+    EXCEPTION WHEN raise_exception THEN
+        was_rejected := true;
+    END;
+    IF NOT was_rejected THEN
+        RAISE EXCEPTION 'A mentor was allowed to change a role';
+    END IF;
+
+    PERFORM set_config('app.current_user_id', '10000000-0000-4000-8000-000000000002', true);
+    was_rejected := false;
+    BEGIN
+        INSERT INTO users (role_id, email, full_name, status)
+        VALUES (monitor_role, 'admin-created@test.local', 'Admin Created', 'active');
+    EXCEPTION WHEN raise_exception THEN
+        was_rejected := true;
+    END;
+    IF NOT was_rejected THEN
+        RAISE EXCEPTION 'An administrator was allowed to create a user';
+    END IF;
+
+    PERFORM set_config('app.current_user_id', '10000000-0000-4000-8000-000000000001', true);
+END;
+$$;
+
 INSERT INTO user_job_positions (
     user_id, job_position_id, starts_on, created_by_user_id
 ) VALUES (
@@ -124,7 +203,7 @@ $$;
 
 INSERT INTO tracks (
     id, knowledge_area_id, category_id, title, modality, status,
-    online_workload_minutes, in_person_workload_minutes, created_by_user_id
+    online_workload_minutes, in_person_workload_minutes, created_by_user_id, semester
 ) VALUES (
     '20000000-0000-4000-8000-000000000001',
     '00000000-0000-4000-8000-000000000203',
@@ -134,7 +213,8 @@ INSERT INTO tracks (
     'planning',
     600,
     0,
-    '10000000-0000-4000-8000-000000000003'
+    '10000000-0000-4000-8000-000000000003',
+    '2026/1'
 ), (
     '20000000-0000-4000-8000-000000000002',
     '00000000-0000-4000-8000-000000000203',
@@ -144,8 +224,20 @@ INSERT INTO tracks (
     'planning',
     480,
     120,
-    '10000000-0000-4000-8000-000000000003'
+    '10000000-0000-4000-8000-000000000003',
+    '2026/1'
 );
+
+DO $$
+BEGIN
+    BEGIN
+        UPDATE tracks SET semester = '2026/3' WHERE id = '20000000-0000-4000-8000-000000000001';
+        RAISE EXCEPTION 'An invalid semester was accepted';
+    EXCEPTION WHEN check_violation THEN
+        NULL;
+    END;
+END;
+$$;
 
 -- A criação automática de documentos pertence ao TrackService. Como este teste exercita
 -- o PostgreSQL diretamente, reproduzimos aqui a seleção dos templates publicados.
@@ -409,7 +501,7 @@ $$;
 
 INSERT INTO tracks (
     id, knowledge_area_id, category_id, title, modality, status,
-    online_workload_minutes, in_person_workload_minutes, created_by_user_id
+    online_workload_minutes, in_person_workload_minutes, created_by_user_id, semester
 ) VALUES (
     '20000000-0000-4000-8000-000000000003',
     '00000000-0000-4000-8000-000000000203',
@@ -419,7 +511,8 @@ INSERT INTO tracks (
     'planning',
     300,
     0,
-    '10000000-0000-4000-8000-000000000003'
+    '10000000-0000-4000-8000-000000000003',
+    '2026/1'
 );
 
 INSERT INTO track_documents (
@@ -623,6 +716,57 @@ BEGIN
 
     IF NOT was_rejected THEN
         RAISE EXCEPTION 'An annex was linked to a question that does not allow its type';
+    END IF;
+END;
+$$;
+
+-- Limite de 20 imagens ativas por anexo: o trigger deve travar o anexo pai (FOR UPDATE)
+-- antes de contar, senão inserts concorrentes passam do limite.
+SELECT pg_temp.assert_true(
+    pg_get_functiondef('enforce_report_annex_image_limit'::regproc) ~* 'FOR UPDATE',
+    'the annex image limit trigger must lock the parent annex before counting'
+);
+
+DO $$
+DECLARE
+    annex_id uuid := '43000000-0000-4000-8000-000000000001';
+    was_rejected boolean := false;
+    i integer;
+BEGIN
+    -- A imagem 1 já existe; completa até 20.
+    FOR i IN 2..20 LOOP
+        INSERT INTO file_assets (
+            provider, storage_key, original_file_name, media_type,
+            size_bytes, sha256, uploaded_by_user_id
+        ) VALUES (
+            'local', 'report-annexes/test/limit-' || i || '.png', 'limit.png', 'image/png',
+            8, repeat('b', 64), '10000000-0000-4000-8000-000000000003'
+        );
+        INSERT INTO report_annex_images (report_annex_id, file_asset_id, display_order)
+        SELECT annex_id, id, i
+          FROM file_assets
+         WHERE storage_key = 'report-annexes/test/limit-' || i || '.png';
+    END LOOP;
+
+    INSERT INTO file_assets (
+        provider, storage_key, original_file_name, media_type,
+        size_bytes, sha256, uploaded_by_user_id
+    ) VALUES (
+        'local', 'report-annexes/test/limit-21.png', 'limit.png', 'image/png',
+        8, repeat('c', 64), '10000000-0000-4000-8000-000000000003'
+    );
+
+    BEGIN
+        INSERT INTO report_annex_images (report_annex_id, file_asset_id, display_order)
+        SELECT annex_id, id, 21
+          FROM file_assets
+         WHERE storage_key = 'report-annexes/test/limit-21.png';
+    EXCEPTION WHEN raise_exception THEN
+        was_rejected := true;
+    END;
+
+    IF NOT was_rejected THEN
+        RAISE EXCEPTION 'The 21st active image was accepted for a single annex';
     END IF;
 END;
 $$;

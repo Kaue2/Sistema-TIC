@@ -19,6 +19,7 @@ public class UserService
 
     private static readonly string[] AllowedPhotoMediaTypes = { "image/jpeg", "image/png", "image/webp" };
     private const long MaxPhotoSizeBytes = 5 * 1024 * 1024;
+    private const string DefaultTemporaryPassword = "senha123";
 
     public UserService(
         IUserRepository userRepository,
@@ -74,6 +75,7 @@ public class UserService
                 user.Email,
                 administrativeEmail,
                 profile?.WorkLocation,
+                profile?.WeeklyWorkloadMinutes,
                 userAvailability.Select(a => new UserAvailabilitySummaryDTO(a.Weekday, a.StartsAt, a.EndsAt))
             );
         });
@@ -165,38 +167,38 @@ public class UserService
         if (role is null)
             throw new Exception("Role informada não encontrada");
 
-        Guid userId = await _userRepository.CreateUserAsync(dto.Name, dto.EmailEducacional, role.Id);
-        UserCredentials credentials = await _userCredentialsRepository.CreateAsync(userId, "senha123");
-        UserContact contact = await _userContactRepository.CreateAsync(userId, "email", dto.EmailAdministrativo, "Email Administrativo", true);
-
+        // valida e converte os horários antes de abrir a transação do banco
+        var availability = new List<UserAvailabilitySummaryDTO>();
         foreach (var schedule in dto.Schedule)
         {
             // dia de folga vem com start/end vazios no front, então só pula
             if (string.IsNullOrWhiteSpace(schedule.Start) || string.IsNullOrWhiteSpace(schedule.End))
                 continue;
 
-            short weekday = UserAvailability.WeekdayMap[schedule.Day];
-            TimeOnly startsAt = TimeOnly.Parse(schedule.Start);
-            TimeOnly endsAt = TimeOnly.Parse(schedule.End);
+            if (!UserAvailability.WeekdayMap.TryGetValue(schedule.Day, out short weekday))
+                throw new Exception($"Dia da semana inválido: {schedule.Day}");
 
-            await _userAvailabilityRepository.CreateAsync(userId, weekday, startsAt, endsAt);
+            if (!TimeOnly.TryParse(schedule.Start, out TimeOnly startsAt) || !TimeOnly.TryParse(schedule.End, out TimeOnly endsAt))
+                throw new Exception($"Horário inválido na disponibilidade de {schedule.Day}");
+
+            if (startsAt >= endsAt)
+                throw new Exception($"O horário de início deve ser anterior ao de término ({schedule.Day})");
+
+            availability.Add(new UserAvailabilitySummaryDTO(weekday, startsAt, endsAt));
         }
 
         // front manda a jornada em horas (string); o banco guarda minutos
         string? workLocation = string.IsNullOrWhiteSpace(dto.Location) ? null : dto.Location;
 
-        await _userProfileRepository.UpsertAsync(
-            userId,
-            preferredName: null,
-            photoFileId: null,
-            workLocation: workLocation,
-            weeklyWorkloadMinutes: hours * 60,
-            biography: null,
-            lattesUrl: null,
-            curriculumUrl: null,
-            knowledgeAreaId: null);
-
-        return userId;
+        return await _userRepository.CreateUserAsync(
+            dto.Name,
+            dto.EmailEducacional,
+            role.Id,
+            DefaultTemporaryPassword,
+            dto.EmailAdministrativo,
+            availability,
+            workLocation,
+            hours * 60);
     }
 
     public async Task UpdateMemberAsync(Guid userId, UpdateMemberDTO dto, Guid updatedByUserId)

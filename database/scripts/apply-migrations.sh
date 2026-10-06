@@ -97,6 +97,15 @@ apply_versioned_sql_files() {
     local container_directory="$3"
     local kind="$4"
 
+    # Reconcile the legacy main-branch 011 before iterating, independently of sort order.
+    # Preserve the recorded checksum; changed SQL is not accepted as already applied.
+    local workflow_file="${directory}/0110_document_workflow_statuses.sql"
+    if [[ "${tracking_table}" == "schema_migrations" && -f "${workflow_file}" ]]; then
+        local workflow_checksum
+        workflow_checksum="$(sha256sum "${workflow_file}" | cut -d' ' -f1)"
+        psql_query "UPDATE schema_migrations SET version = '0110' WHERE version = '011' AND name = 'document_workflow_statuses' AND checksum_sha256 = '${workflow_checksum}';" >/dev/null
+    fi
+
     while IFS= read -r file; do
         local file_name
         file_name="$(basename "${file}")"

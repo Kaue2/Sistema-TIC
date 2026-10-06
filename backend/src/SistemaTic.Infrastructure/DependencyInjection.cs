@@ -17,6 +17,7 @@ public static class DependencyInjection
 		services.AddScoped<IUserRepository, UserRepository>();
 		services.AddSingleton<ITokenGenerator, JwtTokenGenerator>();
 		services.AddScoped<IUserCredentialsRepository, UserCredentialsRepository>();
+		services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 		services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 		services.AddScoped<IUserContactRepository, UserContactRepository>();
 		services.AddScoped<IUserAvailabilityRepository, UserAvailabilityRepository>();

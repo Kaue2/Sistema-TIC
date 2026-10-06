@@ -22,5 +22,24 @@ namespace MyApp.Namespace
             AuthenticateResponseDTO response = await this._authService.AuthenticateAsync(dto.Email, dto.Password);
             return Ok(response);
         }
+
+        // público de propósito: o access token já pode ter expirado quando o cliente renova
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh(RefreshTokenRequestDTO dto)
+        {
+            RefreshResponseDTO? response = await this._authService.RefreshAsync(dto.RefreshToken);
+
+            if (response is null)
+                return Unauthorized(new { message = "Refresh token inválido ou expirado." });
+
+            return Ok(response);
+        }
+
+        [HttpPost("logout")]
+        public async Task<IActionResult> Logout(RefreshTokenRequestDTO dto)
+        {
+            await this._authService.LogoutAsync(dto.RefreshToken);
+            return NoContent();
+        }
     }
 }

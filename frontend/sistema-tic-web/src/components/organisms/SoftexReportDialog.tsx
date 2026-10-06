@@ -12,27 +12,28 @@ type SoftexReportDialogProps = {
   onExport: (stageCodes: string[]) => Promise<void>;
 };
 
-export function SoftexReportDialog({
-  open,
+// O conteúdo só é montado enquanto o diálogo está aberto, então o estado (metas selecionadas,
+// erro) começa limpo a cada abertura sem precisar de um efeito para resetar.
+export function SoftexReportDialog(props: SoftexReportDialogProps) {
+  if (!props.open) return null;
+  return <SoftexReportDialogContent {...props} />;
+}
+
+function SoftexReportDialogContent({
   trailTitle = "",
   trailTitles,
   onClose,
   onExport,
 }: SoftexReportDialogProps) {
   const [stages, setStages] = useState<ReportStage[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
-    if (!open) return;
     let cancelled = false;
     async function load() {
-      setSelectedStages([]);
-      setStages([]);
-      setError(undefined);
-      setLoading(true);
       try {
         const catalog = await AttachmentService.getReportStages();
         if (!cancelled) setStages(catalog);
@@ -45,20 +46,16 @@ export function SoftexReportDialog({
     }
     void load();
     return () => { cancelled = true; };
-  }, [open]);
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
-
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !isExporting) onClose();
     }
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isExporting, onClose, open]);
-
-  if (!open) return null;
+  }, [isExporting, onClose]);
 
   const selectedTrailTitles = trailTitles ?? (trailTitle ? [trailTitle] : []);
   const available = stages.filter((stage) => stage.canExport);

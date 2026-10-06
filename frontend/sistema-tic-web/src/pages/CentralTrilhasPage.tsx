@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { isAxiosError } from "axios";
 import { Button } from "../components/atoms/Button";
 import { Skeleton } from "../components/atoms/Skeleton";
 import { EmptySearch } from "../components/molecules/EmptySearch";
@@ -14,7 +15,7 @@ import { FixedNavigation } from "../components/organisms/FixedNavigation";
 import { AttachmentService } from "../services/document/AttachmentService";
 import { CreateTrackModal } from "../components/molecules/CreateTrackModal";
 import { mockTrails } from "../data/mockTrails";
-import { getTracks, type TrackSummaryDTO } from "../services/track-services";
+import { duplicateTrack, getTracks, type TrackSummaryDTO } from "../services/track-services";
 import type { Trail, TrailModality } from "../types/trail";
 import { formatTrailCode, isUuid, trackSummaryToTrail } from "../utils/trail";
 
@@ -49,18 +50,20 @@ export function CentralTrilhasPage() {
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
-  const loadTracks = useCallback(async () => {
-    try {
-      const data = await getTracks();
-      setTracks(data);
-      setUseMockTrails(data.length === 0);
-    } catch {
-      setTracks([]);
-      setUseMockTrails(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadTracks = useCallback(
+    () =>
+      getTracks()
+        .then((data) => {
+          setTracks(data);
+          setUseMockTrails(data.length === 0);
+        })
+        .catch(() => {
+          setTracks([]);
+          setUseMockTrails(true);
+        })
+        .finally(() => setLoading(false)),
+    [],
+  );
 
   useEffect(() => {
     loadTracks();
@@ -177,6 +180,26 @@ export function CentralTrilhasPage() {
 
   function handleOpenTrail(trail: Trail) {
     navigate(`/trails/${trail.id}`);
+  }
+
+  // A API devolve { message } em 403 (só membros da trilha podem duplicar); repassa ao usuário.
+  async function handleDuplicateTrail(trail: Trail) {
+    if (!isUuid(trail.id)) return;
+
+    try {
+      const copy = await duplicateTrack(trail.id);
+      await loadTracks();
+      setToast({
+        message: `Trilha ${copy.title} duplicada como #${copy.code}.`,
+        type: "success",
+      });
+    } catch (error) {
+      const message = isAxiosError(error) ? error.response?.data?.message : null;
+      setToast({
+        message: typeof message === "string" && message ? message : "Não foi possível duplicar a trilha.",
+        type: "error",
+      });
+    }
   }
 
   function startReportSelection(trail: Trail) {
@@ -331,6 +354,7 @@ export function CentralTrilhasPage() {
                 selectionMode={reportSelectionMode}
                 selected={selectedTrailKeys.has(trailSelectionKey(trail))}
                 onStartReportSelection={startReportSelection}
+                onDuplicate={handleDuplicateTrail}
                 onToggleSelection={toggleTrailSelection}
               />
             ))}

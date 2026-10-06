@@ -2,8 +2,10 @@ using DotNetEnv;
 using Npgsql;
 using SistemaTic.Infrastructure;
 using SistemaTic.Application;
+using SistemaTic.Application.Contracts;
 using SistemaTic.Api;
 using SistemaTic.Api.Services;
+using SistemaTic.Api.Filters;
 using SistemaTic.Api.Serialization;
 using SistemaTic.Api.ExceptionHandling;
 
@@ -12,7 +14,7 @@ Env.Load(FindEnvFile());
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
-    .AddControllers()
+    .AddControllers(options => options.Filters.Add<ForbiddenExceptionFilter>())
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(
@@ -23,24 +25,21 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, HttpContextCurrentUser>();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
 builder.Services.AddScoped<SoftexDocxExportService>();
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AngularDev", policy=>
-    {
-            policy.AllowAnyOrigin()
-                .AllowAnyHeader()
-                .WithExposedHeaders("Content-Disposition")
-                .AllowAnyMethod();
-    });  
-});
+var corsOrigins = Configuration.GetAllowedCorsOrigins(builder.Configuration, builder.Environment);
+builder.Services.AddFrontendCors(corsOrigins);
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
 
 var app = builder.Build();
+
+if (corsOrigins.Length == 0)
+    app.Logger.LogWarning("CORS_ALLOWED_ORIGINS não configurado: nenhuma origem externa será aceita pelo CORS.");
 
 if (app.Environment.IsDevelopment())
 {
@@ -76,7 +75,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseExceptionHandler();
 
-app.UseCors("AngularDev");
+app.UseCors(Configuration.FrontendCorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();

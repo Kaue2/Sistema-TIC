@@ -9,9 +9,11 @@ namespace SistemaTic.Infrastructure.Repositories;
 public class UserProfileRepository : IUserProfileRepository
 {
     private readonly NpgsqlDataSource _dataSource;
-    public UserProfileRepository(NpgsqlDataSource dataSource)
+    private readonly ICurrentUser _currentUser;
+    public UserProfileRepository(NpgsqlDataSource dataSource, ICurrentUser currentUser)
     {
         this._dataSource = dataSource;
+        this._currentUser = currentUser;
     }
 
     private static UserProfile Map(NpgsqlDataReader reader)
@@ -122,8 +124,13 @@ public class UserProfileRepository : IUserProfileRepository
 
     public async Task UpdatePhotoFileIdAsync(Guid userId, Guid photoFileId)
     {
-        await using var cmd = _dataSource.CreateCommand(
-            "UPDATE user_profiles SET photo_file_id = @photoFileId, updated_at = clock_timestamp() WHERE user_id = @userId");
+        await using var connection = await _dataSource.OpenConnectionAsync();
+        await using var transaction = await connection.BeginTransactionAsActorAsync(_currentUser.Id);
+
+        await using var cmd = new NpgsqlCommand(
+            "UPDATE user_profiles SET photo_file_id = @photoFileId, updated_at = clock_timestamp() WHERE user_id = @userId",
+            connection,
+            transaction);
         cmd.Parameters.AddWithValue("photoFileId", photoFileId);
         cmd.Parameters.AddWithValue("userId", userId);
 
@@ -132,5 +139,7 @@ public class UserProfileRepository : IUserProfileRepository
         {
             throw new Exception("perfil do usuário não encontrado");
         }
+
+        await transaction.CommitAsync();
     }
 }
