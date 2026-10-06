@@ -5,6 +5,10 @@ bin/
 obj/
 TestResults/
 
+# Python helpers
+__pycache__/
+*.pyc
+
 # Node / Angular
 node_modules/
 dist/

@@ -31,9 +31,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AngularDev", policy=>
     {
-        policy.AllowAnyOrigin()
-            .AllowAnyHeader()
-            .AllowAnyMethod();  
+            policy.AllowAnyOrigin()
+                .AllowAnyHeader()
+                .WithExposedHeaders("Content-Disposition")
+                .AllowAnyMethod();
     });  
 });
 

@@ -230,7 +230,7 @@ export function CentralTrilhasPage() {
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
 
-    setToast({ message: "Relat\u00f3rio DOCX gerado com sucesso.", type: "success" });
+    setToast({ message: `Arquivo ${exportFile.fileName.endsWith(".zip") ? "ZIP" : "DOCX"} gerado com sucesso.`, type: "success" });
     cancelReportSelection();
   }
 

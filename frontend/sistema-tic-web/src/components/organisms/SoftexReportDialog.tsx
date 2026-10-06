@@ -1,20 +1,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "../atoms/Button";
 
-const REPORT_STAGES = [
-  { code: "M1.13", name: "Materiais instrucionais" },
-  { code: "M1.14", name: "Objetos de aprendizagem" },
-  { code: "M1.15", name: "LMS e recursos t\u00e9cnicos" },
-  { code: "M1.18", name: "Materiais audiovisuais e did\u00e1ticos" },
-  { code: "M1.19", name: "Conte\u00fados na plataforma virtual" },
-  { code: "M1.20", name: "Perfis e m\u00e9todos de sele\u00e7\u00e3o" },
-  { code: "M2.1", name: "Processo seletivo" },
-  { code: "M2.2", name: "Oferta das capacita\u00e7\u00f5es" },
-  { code: "M2.3", name: "Acompanhamento pedag\u00f3gico" },
-  { code: "M2.4", name: "Indicadores pedag\u00f3gicos" },
-  { code: "M2.5", name: "Desempenho dos estudantes" },
-  { code: "M2.6", name: "Emiss\u00e3o de microcredenciais" },
-] as const;
+import { AttachmentService, attachmentErrorMessage } from "../../services/document/AttachmentService";
+import type { ReportStage } from "../../types/attachment";
 
 type SoftexReportDialogProps = {
   open: boolean;
@@ -31,14 +19,32 @@ export function SoftexReportDialog({
   onClose,
   onExport,
 }: SoftexReportDialogProps) {
+  const [stages, setStages] = useState<ReportStage[]>([]);
+  const [loading, setLoading] = useState(false);
   const [selectedStages, setSelectedStages] = useState<string[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     if (!open) return;
-    setSelectedStages([]);
-    setError(undefined);
+    let cancelled = false;
+    async function load() {
+      setSelectedStages([]);
+      setStages([]);
+      setError(undefined);
+      setLoading(true);
+      try {
+        const catalog = await AttachmentService.getReportStages();
+        if (!cancelled) setStages(catalog);
+      } catch (caught) {
+        const message = await attachmentErrorMessage(caught);
+        if (!cancelled) setError(message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
   }, [open]);
 
   useEffect(() => {
@@ -55,7 +61,8 @@ export function SoftexReportDialog({
   if (!open) return null;
 
   const selectedTrailTitles = trailTitles ?? (trailTitle ? [trailTitle] : []);
-  const allSelected = selectedStages.length === REPORT_STAGES.length;
+  const available = stages.filter((stage) => stage.canExport);
+  const allSelected = available.length > 0 && selectedStages.length === available.length;
 
   function toggleStage(code: string) {
     setError(undefined);
@@ -68,7 +75,7 @@ export function SoftexReportDialog({
 
   function toggleAll() {
     setError(undefined);
-    setSelectedStages(allSelected ? [] : REPORT_STAGES.map((stage) => stage.code));
+    setSelectedStages(allSelected ? [] : available.map((stage) => stage.code));
   }
 
   async function handleExport() {
@@ -139,19 +146,21 @@ export function SoftexReportDialog({
         <div className="overflow-y-auto px-6 py-5 sm:px-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-black-60">
-              As perguntas, respostas e anexos das metas selecionadas ser&atilde;o reunidos para todas as trilhas em um &uacute;nico arquivo DOCX.
+              Cada meta gera um DOCX editável com todas as trilhas selecionadas. Várias metas são entregues em um ZIP.
             </p>
             <button
               type="button"
               onClick={toggleAll}
+              disabled={loading || isExporting || available.length === 0}
               className="shrink-0 text-sm text-blue-100 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-100"
             >
               {allSelected ? "Limpar sele\u00e7\u00e3o" : "Selecionar todas"}
             </button>
           </div>
 
+          {loading && <p role="status" className="mt-4 text-sm text-black-60">Carregando metas...</p>}
           <div className="mt-5 grid gap-3 sm:grid-cols-2" role="group" aria-label="Metas Softex">
-            {REPORT_STAGES.map((stage) => {
+            {stages.map((stage) => {
               const isSelected = selectedStages.includes(stage.code);
               return (
                 <label
@@ -165,12 +174,14 @@ export function SoftexReportDialog({
                   <input
                     type="checkbox"
                     checked={isSelected}
+                    disabled={!stage.canExport || isExporting}
                     onChange={() => toggleStage(stage.code)}
                     className="size-4 accent-blue-100"
                   />
                   <span className="min-w-0">
                     <span className="block text-sm font-medium text-blue-100">Meta {stage.code}</span>
                     <span className="block truncate text-xs text-black-60">{stage.name}</span>
+                    {!stage.canExport && <span className="block text-xs text-black-40">Modelo indisponível</span>}
                   </span>
                 </label>
               );
@@ -187,11 +198,11 @@ export function SoftexReportDialog({
           <Button
             variant="primary"
             icon="download"
-            disabled={isExporting}
+            disabled={isExporting || loading || selectedStages.length === 0}
             onClick={() => void handleExport()}
             className="justify-center"
           >
-            {isExporting ? "Gerando DOCX..." : "Exportar DOCX"}
+            {isExporting ? "Gerando..." : selectedStages.length > 1 ? "Exportar ZIP" : "Exportar DOCX"}
           </Button>
         </footer>
       </section>

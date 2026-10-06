@@ -16,6 +16,17 @@ public class ReportAttachmentRepository : IReportAttachmentRepository
         _dataSource = dataSource;
     }
 
+    public async Task<IReadOnlyList<ReportStageDTO>> GetStagesAsync(CancellationToken cancellationToken = default)
+    {
+        var stages = new List<ReportStageDTO>();
+        await using var command = _dataSource.CreateCommand(
+            "SELECT code, name FROM report_stages WHERE is_active ORDER BY display_order;");
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            stages.Add(new ReportStageDTO(reader.GetString(0), reader.GetString(1)));
+        return stages;
+    }
+
     public async Task<AttachmentStageDTO?> GetStageAsync(
         Guid documentId,
         string stageCode,
@@ -321,7 +332,9 @@ public class ReportAttachmentRepository : IReportAttachmentRepository
         CancellationToken cancellationToken = default)
     {
         await using var command = _dataSource.CreateCommand("""
-            SELECT t.title, rs.name
+            SELECT t.title, rs.name, t.planned_track_starts_on, t.planned_track_ends_on,
+                   t.learning_level, t.total_workload_minutes, t.attendance_requirement_percent,
+                   (td.current_content -> 'intro')::text
               FROM track_documents td
               JOIN document_templates dt ON dt.id = td.document_template_id
               JOIN tracks t ON t.id = td.track_id
@@ -334,7 +347,14 @@ public class ReportAttachmentRepository : IReportAttachmentRepository
         command.Parameters.AddWithValue("templateCode", SoftexTemplateCode);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken)) return null;
-        return new ReportExportContextDTO(reader.GetString(0), reader.GetString(1));
+        return new ReportExportContextDTO(
+            reader.GetString(0), reader.GetString(1),
+            reader.IsDBNull(2) ? null : reader.GetFieldValue<DateOnly>(2),
+            reader.IsDBNull(3) ? null : reader.GetFieldValue<DateOnly>(3),
+            reader.IsDBNull(4) ? null : reader.GetString(4),
+            reader.IsDBNull(5) ? null : reader.GetInt32(5),
+            reader.IsDBNull(6) ? null : reader.GetDecimal(6),
+            reader.IsDBNull(7) ? null : reader.GetString(7));
     }
 
     public async Task<AnnexUploadContext> GetUploadContextAsync(

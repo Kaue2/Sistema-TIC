@@ -3,4 +3,5 @@
   <Project Path="src/SistemaTic.Application/SistemaTic.Application.csproj" />
   <Project Path="src/SistemaTic.Domain/SistemaTic.Domain.csproj" />
   <Project Path="src/SistemaTic.Infrastructure/SistemaTic.Infrastructure.csproj" />
+  <Project Path="tests/SistemaTic.ReportExport.Tests/SistemaTic.ReportExport.Tests.csproj" />
 </Solution>
